@@ -1,0 +1,47 @@
+{
+ "actions": [],
+ "creation": "2026-05-21 14:00:00.000000",
+ "doctype": "DocType",
+ "document_type": "Setup",
+ "engine": "InnoDB",
+ "field_order": [
+  "stages_section",
+  "stages"
+ ],
+ "fields": [
+  {
+   "fieldname": "stages_section",
+   "fieldtype": "Section Break",
+   "label": "Development Stages"
+  },
+  {
+   "fieldname": "stages",
+   "fieldtype": "Table",
+   "label": "Stages",
+   "options": "Development Stage Line"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-05-21 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Development Stage Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

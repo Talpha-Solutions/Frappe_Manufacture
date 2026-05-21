@@ -1,0 +1,82 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Development Stage Settings",
+  "modified": "2026-05-21 20:43:23.862420",
+  "name": "Development Stage Settings",
+  "stages": [
+   {
+    "customer_visible": 1,
+    "default_progress_percentage": 10.0,
+    "evidence_required": "No",
+    "sequence": 10,
+    "stage_category": "Commercial",
+    "stage_name": "Spec Agreed"
+   },
+   {
+    "customer_visible": 1,
+    "default_progress_percentage": 20.0,
+    "evidence_required": "Optional",
+    "sequence": 20,
+    "stage_category": "Survey",
+    "stage_name": "Room Surveyed"
+   },
+   {
+    "customer_visible": 1,
+    "default_progress_percentage": 30.0,
+    "evidence_required": "No",
+    "sequence": 30,
+    "stage_category": "Design",
+    "stage_name": "Kitchen Designed"
+   },
+   {
+    "customer_visible": 1,
+    "default_progress_percentage": 50.0,
+    "evidence_required": "No",
+    "sequence": 40,
+    "stage_category": "Manufacturing",
+    "stage_name": "Kitchen Manufactured"
+   },
+   {
+    "customer_visible": 1,
+    "default_progress_percentage": 60.0,
+    "evidence_required": "No",
+    "sequence": 50,
+    "stage_category": "Manufacturing",
+    "stage_name": "Kitchen Assembled"
+   },
+   {
+    "customer_visible": 1,
+    "default_progress_percentage": 75.0,
+    "evidence_required": "Yes",
+    "sequence": 60,
+    "stage_category": "Delivery",
+    "stage_name": "Kitchen Delivered"
+   },
+   {
+    "customer_visible": 1,
+    "default_progress_percentage": 90.0,
+    "evidence_required": "Yes",
+    "sequence": 70,
+    "stage_category": "Installation",
+    "stage_name": "Kitchen Fitted"
+   },
+   {
+    "customer_visible": 1,
+    "default_progress_percentage": 100.0,
+    "evidence_required": "Yes",
+    "sequence": 80,
+    "stage_category": "Handover",
+    "stage_name": "Kitchen Handed Over"
+   },
+   {
+    "customer_visible": 0,
+    "default_progress_percentage": 100.0,
+    "evidence_required": "No",
+    "sequence": 90,
+    "stage_category": "Finance",
+    "stage_name": "Kitchen Paid For"
+   }
+  ]
+ }
+]

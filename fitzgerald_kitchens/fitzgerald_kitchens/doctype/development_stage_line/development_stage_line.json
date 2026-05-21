@@ -1,0 +1,71 @@
+{
+ "actions": [],
+ "creation": "2026-05-21 14:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sequence",
+  "stage_name",
+  "default_progress_percentage",
+  "evidence_required",
+  "customer_visible",
+  "stage_category"
+ ],
+ "fields": [
+  {
+   "fieldname": "sequence",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sequence",
+   "reqd": 1
+  },
+  {
+   "fieldname": "stage_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Stage",
+   "reqd": 1
+  },
+  {
+   "fieldname": "default_progress_percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Default Progress %"
+  },
+  {
+   "default": "No",
+   "fieldname": "evidence_required",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Evidence Required",
+   "options": "No\nOptional\nYes",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "customer_visible",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Customer Visible"
+  },
+  {
+   "fieldname": "stage_category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Category",
+   "options": "Commercial\nSurvey\nDesign\nManufacturing\nDelivery\nInstallation\nHandover\nFinance"
+  }
+ ],
+ "istable": 1,
+ "modified": "2026-05-21 15:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Development Stage Line",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "sequence",
+ "sort_order": "ASC",
+ "states": []
+}

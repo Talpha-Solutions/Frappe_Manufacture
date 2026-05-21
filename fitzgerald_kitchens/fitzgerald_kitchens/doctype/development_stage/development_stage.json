@@ -1,0 +1,94 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "field:stage_name",
+ "creation": "2026-05-21 12:41:07.720438",
+ "doctype": "DocType",
+ "document_type": "Setup",
+ "engine": "InnoDB",
+ "field_order": [
+  "sequence",
+  "stage_name",
+  "default_progress_percentage",
+  "evidence_required",
+  "customer_visible",
+  "stage_category"
+ ],
+ "fields": [
+  {
+   "fieldname": "sequence",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sequence",
+   "reqd": 1
+  },
+  {
+   "fieldname": "stage_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Stage",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "default_progress_percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Default Progress %"
+  },
+  {
+   "default": "No",
+   "fieldname": "evidence_required",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Evidence Required",
+   "options": "No\nOptional\nYes",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "customer_visible",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Customer Visible"
+  },
+  {
+   "fieldname": "stage_category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Category",
+   "options": "Commercial\nSurvey\nDesign\nManufacturing\nDelivery\nInstallation\nHandover\nFinance"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-21 15:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Development Stage",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "sequence",
+ "sort_order": "ASC",
+ "states": [],
+ "title_field": "stage_name"
+}

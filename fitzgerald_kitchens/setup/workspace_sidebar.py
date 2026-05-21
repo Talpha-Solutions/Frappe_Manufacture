@@ -1,0 +1,143 @@
+import frappe
+
+PROJECTS_SIDEBAR = "Projects"
+
+MAIN_SIDEBAR_ITEM = {
+	"label": "Development Unit",
+	"link_to": "Development Unit",
+	"link_type": "DocType",
+	"type": "Link",
+	"icon": "package",
+	"child": 0,
+	"collapsible": 1,
+	"indent": 0,
+	"keep_closed": 0,
+	"show_arrow": 0,
+}
+
+SETUP_SIDEBAR_ITEMS = [
+	{"label": "Development Block", "link_to": "Development Block"},
+	{"label": "Development Unit Type", "link_to": "Development Unit Type"},
+	{"label": "Kitchen Type", "link_to": "Kitchen Type"},
+	{"label": "Kitchen Specification", "link_to": "Kitchen Specification"},
+	{"label": "Wardrobe Type", "link_to": "Wardrobe Type"},
+	{"label": "Wardrobe Specification", "link_to": "Wardrobe Specification"},
+	{"label": "Development Stage", "link_to": "Development Stage"},
+	{"label": "Development Stage Settings", "link_to": "Development Stage Settings"},
+]
+
+
+def ensure_projects_sidebar():
+	if not frappe.db.exists("Workspace Sidebar", PROJECTS_SIDEBAR):
+		return
+
+	sidebar = frappe.get_doc("Workspace Sidebar", PROJECTS_SIDEBAR)
+	changed = False
+
+	if _ensure_main_sidebar_item(sidebar):
+		changed = True
+
+	if _ensure_setup_sidebar_items(sidebar):
+		changed = True
+
+	if changed:
+		sidebar.flags.ignore_permissions = True
+		sidebar.save()
+
+
+def _ensure_main_sidebar_item(sidebar):
+	if _has_sidebar_link(sidebar, MAIN_SIDEBAR_ITEM["link_to"]):
+		return False
+
+	items = [_item_dict(row) for row in sidebar.items]
+	insert_at = _index_of_link(items, "Task")
+	if insert_at is None:
+		insert_at = _index_after_link(items, "Project")
+	if insert_at is None:
+		insert_at = len(items)
+
+	items.insert(insert_at, MAIN_SIDEBAR_ITEM)
+	_apply_items(sidebar, items)
+	return True
+
+
+def _ensure_setup_sidebar_items(sidebar):
+	items = [_item_dict(row) for row in sidebar.items]
+	setup_end = _setup_section_end_index(items)
+	if setup_end is None:
+		return False
+
+	changed = False
+	offset = 0
+	for item in SETUP_SIDEBAR_ITEMS:
+		if _has_link_in(items, item["link_to"]):
+			continue
+
+		row = {
+			**item,
+			"link_type": "DocType",
+			"type": "Link",
+			"child": 1,
+			"collapsible": 1,
+			"indent": 0,
+			"keep_closed": 0,
+			"show_arrow": 0,
+		}
+		items.insert(setup_end + offset, row)
+		offset += 1
+		changed = True
+
+	if changed:
+		_apply_items(sidebar, items)
+	return changed
+
+
+def _setup_section_end_index(items):
+	setup_start = None
+	for index, item in enumerate(items):
+		if item.get("type") == "Section Break" and item.get("label") == "Setup":
+			setup_start = index
+			continue
+
+		if setup_start is None:
+			continue
+
+		if item.get("type") == "Section Break" and item.get("child") == 0:
+			return index
+
+	return len(items) if setup_start is not None else None
+
+
+def _index_of_link(items, link_to):
+	for index, item in enumerate(items):
+		if item.get("link_to") == link_to:
+			return index
+	return None
+
+
+def _index_after_link(items, link_to):
+	index = _index_of_link(items, link_to)
+	return index + 1 if index is not None else None
+
+
+def _has_sidebar_link(sidebar, link_to):
+	return _has_link_in([_item_dict(row) for row in sidebar.items], link_to)
+
+
+def _has_link_in(items, link_to):
+	return any(item.get("link_to") == link_to for item in items)
+
+
+def _item_dict(row):
+	data = row.as_dict()
+	for field in ("name", "parent", "parentfield", "parenttype", "doctype", "owner", "creation", "modified"):
+		data.pop(field, None)
+	return data
+
+
+def _apply_items(sidebar, items):
+	sidebar.items = []
+	for index, item in enumerate(items, start=1):
+		row = item.copy()
+		row["idx"] = index
+		sidebar.append("items", row)

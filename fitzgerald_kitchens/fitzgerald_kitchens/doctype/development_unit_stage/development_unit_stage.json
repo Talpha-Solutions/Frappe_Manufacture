@@ -1,0 +1,125 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-21 13:25:05.796176",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sequence",
+  "stage",
+  "progress_percentage",
+  "evidence_required",
+  "customer_visible",
+  "column_break_fjhh",
+  "status",
+  "planned_date",
+  "actual_start_date",
+  "actual_completion_date",
+  "assigned_to",
+  "completed_by",
+  "section_break_elyd",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "sequence",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sequence",
+   "reqd": 1
+  },
+  {
+   "fieldname": "stage",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Stage",
+   "options": "Development Stage",
+   "reqd": 1
+  },
+  {
+   "fieldname": "progress_percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Default Progress %"
+  },
+  {
+   "default": "No",
+   "fieldname": "evidence_required",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Evidence Required",
+   "options": "No\nOptional\nYes"
+  },
+  {
+   "default": "0",
+   "fieldname": "customer_visible",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Customer Visible"
+  },
+  {
+   "fieldname": "planned_date",
+   "fieldtype": "Date",
+   "label": "Planned Date"
+  },
+  {
+   "fieldname": "actual_start_date",
+   "fieldtype": "Datetime",
+   "label": "Actual Start Date"
+  },
+  {
+   "fieldname": "actual_completion_date",
+   "fieldtype": "Datetime",
+   "label": "Actual Completion Date"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Pending\nIn Progress\nCompleted\nSkipped\nFailed\nOn Hold",
+   "reqd": 1
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "label": "Assigned To",
+   "options": "User"
+  },
+  {
+   "fieldname": "completed_by",
+   "fieldtype": "Link",
+   "label": "Completed By",
+   "options": "User"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "column_break_fjhh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_elyd",
+   "fieldtype": "Section Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-21 16:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Development Unit Stage",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "sequence",
+ "sort_order": "ASC",
+ "states": []
+}

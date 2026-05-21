@@ -1,0 +1,100 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:specification_name",
+ "creation": "2026-05-21 12:55:04.049717",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "specification_name",
+  "specification_category",
+  "door_finish",
+  "worktop_type",
+  "sink_type",
+  "tap_type",
+  "appliance_pack",
+  "notes",
+  "is_locked_template"
+ ],
+ "fields": [
+  {
+   "fieldname": "specification_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Specification Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "specification_category",
+   "fieldtype": "Select",
+   "label": "Specification Category",
+   "options": "Social\nPrivate\nPremium\nBespoke"
+  },
+  {
+   "fieldname": "door_finish",
+   "fieldtype": "Data",
+   "label": "Door Finish"
+  },
+  {
+   "fieldname": "worktop_type",
+   "fieldtype": "Data",
+   "label": "Worktop Type"
+  },
+  {
+   "fieldname": "sink_type",
+   "fieldtype": "Data",
+   "label": "Sink Type"
+  },
+  {
+   "fieldname": "tap_type",
+   "fieldtype": "Data",
+   "label": "Tap Type"
+  },
+  {
+   "fieldname": "appliance_pack",
+   "fieldtype": "Data",
+   "label": "Appliance Pack"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_locked_template",
+   "fieldtype": "Check",
+   "label": "Is Locked Template"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-21 13:10:24.045203",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Kitchen Specification",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "specification_name"
+}

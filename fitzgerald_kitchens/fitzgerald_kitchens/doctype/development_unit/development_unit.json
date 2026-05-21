@@ -1,0 +1,633 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-05-21 14:00:19.152104",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_section",
+  "naming_series",
+  "unit_reference",
+  "column_break_vuwb",
+  "title",
+  "qr_code",
+  "project_customer_section",
+  "company",
+  "sales_order",
+  "project_phase",
+  "column_break_mhvv",
+  "customer",
+  "project",
+  "site_location_section",
+  "block",
+  "plot_number",
+  "unit_type",
+  "column_break_tpzx",
+  "floor",
+  "site_location",
+  "kitchen_wardrobe_section",
+  "kitchen_required",
+  "kitchen_type",
+  "wardrobe_type",
+  "specification_locked",
+  "specification_approved_on",
+  "column_break_cfdq",
+  "kitchen_specification",
+  "wardrobe_required",
+  "wardrobe_specification",
+  "specification_approved_by",
+  "scheduling_section",
+  "planned_survey_date",
+  "planned_manufacturing_date",
+  "planned_delivery_date",
+  "planned_handover_date",
+  "column_break_lvfl",
+  "planned_design_completion_date",
+  "planned_assembly_date",
+  "planned_fitting_date",
+  "actual_handover_date",
+  "status_progress_section",
+  "current_stage",
+  "schedule_status",
+  "customer_visible",
+  "internal_notes",
+  "column_break_utxy",
+  "unit_status",
+  "progress_percentage",
+  "customer_notes",
+  "bom_tab",
+  "manufacturing_section",
+  "kitchen_item",
+  "kitchen_bom",
+  "wardrobe_item",
+  "wardrobe_bom",
+  "production_plan",
+  "kitchen_work_order",
+  "wardrobe_work_order",
+  "source_warehouse",
+  "wip_warehouse",
+  "finished_goods_warehouse",
+  "billing_tab",
+  "financial_billing_section",
+  "budgeted_material_cost",
+  "budgeted_labour_cost",
+  "budgeted_total_cost",
+  "actual_material_cost",
+  "actual_labour_cost",
+  "actual_waste_cost",
+  "actual_total_cost",
+  "cost_variance",
+  "invoice_status",
+  "sales_invoice",
+  "invoice_progress_percentage",
+  "stages_tab",
+  "stages_section",
+  "stages",
+  "evidence_tab",
+  "evidence_section",
+  "evidence",
+  "material_usage_tab",
+  "material_usage_section",
+  "material_usage",
+  "labour_entries_tab",
+  "labour_entries_section",
+  "labour_entries",
+  "issues_tab",
+  "issues_section",
+  "issues"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_section",
+   "fieldtype": "Section Break",
+   "label": "Naming"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Naming Series",
+   "options": "DU-.YYYY.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "unit_reference",
+   "fieldtype": "Data",
+   "label": "Unit Reference",
+   "reqd": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "qr_code",
+   "fieldtype": "Data",
+   "label": "QR / Barcode Value"
+  },
+  {
+   "fieldname": "project_customer_section",
+   "fieldtype": "Section Break",
+   "label": "Project / Customer Links"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "label": "Sales Order",
+   "options": "Sales Order"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project_phase",
+   "fieldtype": "Data",
+   "label": "Project Phase"
+  },
+  {
+   "fieldname": "site_location_section",
+   "fieldtype": "Section Break",
+   "label": "Site / Location Details section"
+  },
+  {
+   "fieldname": "block",
+   "fieldtype": "Link",
+   "label": "Block",
+   "options": "Development Block"
+  },
+  {
+   "fieldname": "floor",
+   "fieldtype": "Data",
+   "label": "Floor"
+  },
+  {
+   "fieldname": "plot_number",
+   "fieldtype": "Data",
+   "label": "Plot Number"
+  },
+  {
+   "fieldname": "unit_type",
+   "fieldtype": "Link",
+   "label": "Unit Type",
+   "options": "Development Unit Type"
+  },
+  {
+   "fieldname": "site_location",
+   "fieldtype": "Small Text",
+   "label": "Site Location"
+  },
+  {
+   "fieldname": "kitchen_wardrobe_section",
+   "fieldtype": "Section Break",
+   "label": "Kitchen / Wardrobe Specification"
+  },
+  {
+   "default": "0",
+   "fieldname": "kitchen_required",
+   "fieldtype": "Check",
+   "label": "Kitchen Required"
+  },
+  {
+   "fieldname": "kitchen_type",
+   "fieldtype": "Link",
+   "label": "Kitchen Type",
+   "options": "Kitchen Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "kitchen_specification",
+   "fieldtype": "Link",
+   "label": "Kitchen Specification",
+   "options": "Kitchen Specification"
+  },
+  {
+   "default": "0",
+   "fieldname": "wardrobe_required",
+   "fieldtype": "Check",
+   "label": "Wardrobe Required"
+  },
+  {
+   "fieldname": "wardrobe_type",
+   "fieldtype": "Link",
+   "label": "Wardrobe Type",
+   "options": "Wardrobe Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "wardrobe_specification",
+   "fieldtype": "Link",
+   "label": "Wardrobe Specification",
+   "options": "Wardrobe Specification"
+  },
+  {
+   "default": "0",
+   "fieldname": "specification_locked",
+   "fieldtype": "Check",
+   "label": "Specification Locked"
+  },
+  {
+   "fieldname": "specification_approved_by",
+   "fieldtype": "Link",
+   "label": "Specification Approved By",
+   "options": "User"
+  },
+  {
+   "fieldname": "specification_approved_on",
+   "fieldtype": "Datetime",
+   "label": "Specification Approved On"
+  },
+  {
+   "fieldname": "manufacturing_section",
+   "fieldtype": "Section Break",
+   "label": "BOM / Manufacturing Links"
+  },
+  {
+   "fieldname": "kitchen_item",
+   "fieldtype": "Link",
+   "label": "Kitchen Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "kitchen_bom",
+   "fieldtype": "Link",
+   "label": "Kitchen BOM",
+   "options": "BOM"
+  },
+  {
+   "fieldname": "wardrobe_item",
+   "fieldtype": "Link",
+   "label": "Wardrobe Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "wardrobe_bom",
+   "fieldtype": "Link",
+   "label": "Wardrobe BOM",
+   "options": "BOM"
+  },
+  {
+   "fieldname": "production_plan",
+   "fieldtype": "Link",
+   "label": "Production Plan",
+   "options": "Production Plan"
+  },
+  {
+   "fieldname": "kitchen_work_order",
+   "fieldtype": "Link",
+   "label": "Kitchen Work Order",
+   "options": "Work Order"
+  },
+  {
+   "fieldname": "wardrobe_work_order",
+   "fieldtype": "Link",
+   "label": "Wardrobe Work Order",
+   "options": "Work Order"
+  },
+  {
+   "fieldname": "source_warehouse",
+   "fieldtype": "Link",
+   "label": "Source Warehouse",
+   "options": "Work Order"
+  },
+  {
+   "fieldname": "wip_warehouse",
+   "fieldtype": "Link",
+   "label": "WIP Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "finished_goods_warehouse",
+   "fieldtype": "Link",
+   "label": "Finished Goods Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "scheduling_section",
+   "fieldtype": "Section Break",
+   "label": "Dates / Scheduling"
+  },
+  {
+   "fieldname": "planned_survey_date",
+   "fieldtype": "Date",
+   "label": "Planned Survey Date"
+  },
+  {
+   "fieldname": "planned_design_completion_date",
+   "fieldtype": "Date",
+   "label": "Planned Design Completion Date"
+  },
+  {
+   "fieldname": "planned_manufacturing_date",
+   "fieldtype": "Date",
+   "label": "Planned Manufacturing Date"
+  },
+  {
+   "fieldname": "planned_assembly_date",
+   "fieldtype": "Date",
+   "label": "Planned Assembly Date"
+  },
+  {
+   "fieldname": "planned_delivery_date",
+   "fieldtype": "Date",
+   "label": "Planned Delivery Date"
+  },
+  {
+   "fieldname": "planned_fitting_date",
+   "fieldtype": "Date",
+   "label": "Planned Fitting Date"
+  },
+  {
+   "fieldname": "planned_handover_date",
+   "fieldtype": "Date",
+   "label": "Planned Handover Date"
+  },
+  {
+   "fieldname": "actual_handover_date",
+   "fieldtype": "Date",
+   "label": "Actual Handover Date"
+  },
+  {
+   "fieldname": "status_progress_section",
+   "fieldtype": "Section Break",
+   "label": "Status / Progress"
+  },
+  {
+   "fieldname": "current_stage",
+   "fieldtype": "Link",
+   "label": "Current Stage",
+   "options": "Development Stage",
+   "reqd": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "unit_status",
+   "fieldtype": "Select",
+   "label": "Unit Status",
+   "options": "Draft\nPlanned\nIn Progress\nOn Hold\nCompleted\nCancelled",
+   "reqd": 1
+  },
+  {
+   "default": "On Time",
+   "fieldname": "schedule_status",
+   "fieldtype": "Select",
+   "label": "Schedule Status",
+   "options": "Early\nOn Time\nLate\nAt Risk\nCompleted"
+  },
+  {
+   "default": "0",
+   "fieldname": "progress_percentage",
+   "fieldtype": "Percent",
+   "label": "Progress Percentage"
+  },
+  {
+   "default": "1",
+   "fieldname": "customer_visible",
+   "fieldtype": "Check",
+   "label": "Customer Visible"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Small Text",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "customer_notes",
+   "fieldtype": "Small Text",
+   "label": "Customer Notes"
+  },
+  {
+   "fieldname": "financial_billing_section",
+   "fieldtype": "Section Break",
+   "label": "Financial / Billing"
+  },
+  {
+   "fieldname": "budgeted_material_cost",
+   "fieldtype": "Currency",
+   "label": "Budgeted Material Cost"
+  },
+  {
+   "fieldname": "budgeted_labour_cost",
+   "fieldtype": "Currency",
+   "label": "Budgeted Labour Cost"
+  },
+  {
+   "fieldname": "budgeted_total_cost",
+   "fieldtype": "Currency",
+   "label": "Budgeted Total Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_material_cost",
+   "fieldtype": "Currency",
+   "label": "Actual Material Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_labour_cost",
+   "fieldtype": "Currency",
+   "label": "Actual Labour Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_waste_cost",
+   "fieldtype": "Currency",
+   "label": "Actual Waste Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_total_cost",
+   "fieldtype": "Currency",
+   "label": "Actual Total Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_variance",
+   "fieldtype": "Currency",
+   "label": "Cost Variance",
+   "read_only": 1
+  },
+  {
+   "default": "Not Invoiced",
+   "fieldname": "invoice_status",
+   "fieldtype": "Select",
+   "label": "Invoice Status",
+   "options": "Not Invoiced\nPart Invoiced\nFully Invoiced"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice"
+  },
+  {
+   "fieldname": "invoice_progress_percentage",
+   "fieldtype": "Percent",
+   "label": "Invoice Progress Percentage"
+  },
+  {
+   "fieldname": "stages_section",
+   "fieldtype": "Section Break",
+   "label": "Stages"
+  },
+  {
+   "fieldname": "stages",
+   "fieldtype": "Table",
+   "label": "Stages",
+   "options": "Development Unit Stage"
+  },
+  {
+   "fieldname": "evidence",
+   "fieldtype": "Table",
+   "label": "Evidence",
+   "options": "Development Unit Evidence"
+  },
+  {
+   "fieldname": "evidence_section",
+   "fieldtype": "Section Break",
+   "label": "Evidence"
+  },
+  {
+   "fieldname": "material_usage_section",
+   "fieldtype": "Section Break",
+   "label": "Material Usage"
+  },
+  {
+   "fieldname": "material_usage",
+   "fieldtype": "Table",
+   "label": "Material Usage",
+   "options": "Development Unit Material Usage"
+  },
+  {
+   "fieldname": "labour_entries_section",
+   "fieldtype": "Section Break",
+   "label": "Labour Entries"
+  },
+  {
+   "fieldname": "labour_entries",
+   "fieldtype": "Table",
+   "label": "Labour Entries",
+   "options": "Development Unit Labour Entry"
+  },
+  {
+   "fieldname": "issues_section",
+   "fieldtype": "Section Break",
+   "label": "Issues"
+  },
+  {
+   "fieldname": "issues",
+   "fieldtype": "Table",
+   "label": "Issues",
+   "options": "Development Unit Issue"
+  },
+  {
+   "fieldname": "bom_tab",
+   "fieldtype": "Tab Break",
+   "label": "BOM"
+  },
+  {
+   "fieldname": "column_break_vuwb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_mhvv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_tpzx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_cfdq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_lvfl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_utxy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "billing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Billing"
+  },
+  {
+   "fieldname": "stages_tab",
+   "fieldtype": "Tab Break",
+   "label": "Stages"
+  },
+  {
+   "fieldname": "evidence_tab",
+   "fieldtype": "Tab Break",
+   "label": "Evidence"
+  },
+  {
+   "fieldname": "material_usage_tab",
+   "fieldtype": "Tab Break",
+   "label": "Material Usage"
+  },
+  {
+   "fieldname": "labour_entries_tab",
+   "fieldtype": "Tab Break",
+   "label": "Labour Entries"
+  },
+  {
+   "fieldname": "issues_tab",
+   "fieldtype": "Tab Break",
+   "label": "Issues"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-21 17:05:09.573698",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Development Unit",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

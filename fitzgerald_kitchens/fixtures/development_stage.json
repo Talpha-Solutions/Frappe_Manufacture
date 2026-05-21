@@ -1,0 +1,110 @@
+[
+ {
+  "customer_visible": 1,
+  "default_progress_percentage": 10.0,
+  "docstatus": 0,
+  "doctype": "Development Stage",
+  "evidence_required": "No",
+  "modified": "2026-05-21 21:08:59.781798",
+  "name": "Spec Agreed",
+  "sequence": 10,
+  "stage_category": "Commercial",
+  "stage_name": "Spec Agreed"
+ },
+ {
+  "customer_visible": 1,
+  "default_progress_percentage": 20.0,
+  "docstatus": 0,
+  "doctype": "Development Stage",
+  "evidence_required": "Optional",
+  "modified": "2026-05-21 21:08:59.799490",
+  "name": "Room Surveyed",
+  "sequence": 20,
+  "stage_category": "Survey",
+  "stage_name": "Room Surveyed"
+ },
+ {
+  "customer_visible": 1,
+  "default_progress_percentage": 30.0,
+  "docstatus": 0,
+  "doctype": "Development Stage",
+  "evidence_required": "No",
+  "modified": "2026-05-21 21:08:59.806341",
+  "name": "Kitchen Designed",
+  "sequence": 30,
+  "stage_category": "Design",
+  "stage_name": "Kitchen Designed"
+ },
+ {
+  "customer_visible": 1,
+  "default_progress_percentage": 50.0,
+  "docstatus": 0,
+  "doctype": "Development Stage",
+  "evidence_required": "No",
+  "modified": "2026-05-21 21:08:59.812913",
+  "name": "Kitchen Manufactured",
+  "sequence": 40,
+  "stage_category": "Manufacturing",
+  "stage_name": "Kitchen Manufactured"
+ },
+ {
+  "customer_visible": 1,
+  "default_progress_percentage": 60.0,
+  "docstatus": 0,
+  "doctype": "Development Stage",
+  "evidence_required": "No",
+  "modified": "2026-05-21 21:08:59.819729",
+  "name": "Kitchen Assembled",
+  "sequence": 50,
+  "stage_category": "Manufacturing",
+  "stage_name": "Kitchen Assembled"
+ },
+ {
+  "customer_visible": 1,
+  "default_progress_percentage": 75.0,
+  "docstatus": 0,
+  "doctype": "Development Stage",
+  "evidence_required": "Yes",
+  "modified": "2026-05-21 21:08:59.826172",
+  "name": "Kitchen Delivered",
+  "sequence": 60,
+  "stage_category": "Delivery",
+  "stage_name": "Kitchen Delivered"
+ },
+ {
+  "customer_visible": 1,
+  "default_progress_percentage": 90.0,
+  "docstatus": 0,
+  "doctype": "Development Stage",
+  "evidence_required": "Yes",
+  "modified": "2026-05-21 21:08:59.833465",
+  "name": "Kitchen Fitted",
+  "sequence": 70,
+  "stage_category": "Installation",
+  "stage_name": "Kitchen Fitted"
+ },
+ {
+  "customer_visible": 1,
+  "default_progress_percentage": 100.0,
+  "docstatus": 0,
+  "doctype": "Development Stage",
+  "evidence_required": "Yes",
+  "modified": "2026-05-21 21:08:59.840307",
+  "name": "Kitchen Handed Over",
+  "sequence": 80,
+  "stage_category": "Handover",
+  "stage_name": "Kitchen Handed Over"
+ },
+ {
+  "customer_visible": 0,
+  "default_progress_percentage": 100.0,
+  "docstatus": 0,
+  "doctype": "Development Stage",
+  "evidence_required": "No",
+  "modified": "2026-05-21 21:08:59.845810",
+  "name": "Kitchen Paid For",
+  "sequence": 90,
+  "stage_category": "Finance",
+  "stage_name": "Kitchen Paid For"
+ }
+]
