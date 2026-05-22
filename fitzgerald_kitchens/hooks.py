@@ -90,7 +90,10 @@ doctype_list_js = {
 # before_install = "fitzgerald_kitchens.install.before_install"
 before_migrate = "fitzgerald_kitchens.migrate.before_migrate"
 after_install = "fitzgerald_kitchens.setup.install.after_install"
-after_migrate = "fitzgerald_kitchens.setup.install.after_install"
+after_migrate = [
+	"fitzgerald_kitchens.migrate.after_migrate",
+	"fitzgerald_kitchens.setup.install.after_install",
+]
 
 # Uninstallation
 # ------------

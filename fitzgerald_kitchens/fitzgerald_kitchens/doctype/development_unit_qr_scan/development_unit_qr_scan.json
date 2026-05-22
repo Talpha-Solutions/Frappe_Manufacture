@@ -1,0 +1,148 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-05-22 14:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "development_unit",
+  "unit_reference",
+  "column_break_scan",
+  "project",
+  "customer",
+  "scan_section",
+  "qr_scan_area",
+  "column_break_meta",
+  "scanned_by",
+  "scan_datetime",
+  "process_tracked",
+  "stages_section",
+  "scan_lines"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "DUQR-.YYYY.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "development_unit",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Development Unit",
+   "options": "Development Unit",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "development_unit.unit_reference",
+   "fieldname": "unit_reference",
+   "fieldtype": "Data",
+   "label": "Unit Reference",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "development_unit.project",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "development_unit.customer",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "scan_section",
+   "fieldtype": "Section Break",
+   "label": "QR Scan"
+  },
+  {
+   "fieldname": "qr_scan_area",
+   "fieldtype": "HTML",
+   "label": "Scanner"
+  },
+  {
+   "fieldname": "scanned_by",
+   "fieldtype": "Link",
+   "label": "Scanned By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "default": "now",
+   "fieldname": "scan_datetime",
+   "fieldtype": "Datetime",
+   "label": "Scan Date & Time",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "description": "Mark updated stages as tracked by this QR scan process.",
+   "fieldname": "process_tracked",
+   "fieldtype": "Check",
+   "label": "Process Tracked"
+  },
+  {
+   "fieldname": "stages_section",
+   "fieldtype": "Section Break",
+   "label": "Stages"
+  },
+  {
+   "fieldname": "scan_lines",
+   "fieldtype": "Table",
+   "label": "Stages",
+   "options": "Development Unit QR Scan Line"
+  },
+  {
+   "fieldname": "column_break_scan",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_meta",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-05-22 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Development Unit QR Scan",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "development_unit",
+ "track_changes": 1
+}

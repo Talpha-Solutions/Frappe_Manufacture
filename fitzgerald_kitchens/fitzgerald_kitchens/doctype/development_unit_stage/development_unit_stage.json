@@ -13,6 +13,7 @@
   "customer_visible",
   "column_break_fjhh",
   "status",
+  "process_tracked",
   "planned_date",
   "actual_start_date",
   "actual_completion_date",
@@ -74,12 +75,20 @@
    "label": "Actual Completion Date"
   },
   {
-   "default": "Pending",
+   "default": "Not Started",
    "fieldname": "status",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Status",
-   "options": "Pending\nIn Progress\nCompleted\nSkipped\nFailed\nOn Hold",
+   "options": "Not Started\nOngoing\nCompleted\nCancelled",
    "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "process_tracked",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Process Tracked"
   },
   {
    "fieldname": "assigned_to",

@@ -5,3 +5,4 @@
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
 fitzgerald_kitchens.patches.v1_0.update_evidence_required_to_select
+fitzgerald_kitchens.patches.v1_0.migrate_stage_status_values

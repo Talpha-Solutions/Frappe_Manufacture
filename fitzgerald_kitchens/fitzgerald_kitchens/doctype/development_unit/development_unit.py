@@ -6,15 +6,13 @@ from io import BytesIO
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import get_url
 from frappe.utils.file_manager import save_file
 
+from fitzgerald_kitchens.fitzgerald_kitchens.utils.stage_tracking import (
+	get_qr_code_value,
+	sync_unit_progress_from_stages,
+)
 from fitzgerald_kitchens.setup.development_stages import get_default_unit_stage_rows
-
-
-def get_qr_code_value(doc_name: str) -> str:
-	"""URL opened when the Development Unit QR code is scanned."""
-	return get_url(f"/app/development-unit/{doc_name}")
 
 
 class DevelopmentUnit(Document):
@@ -24,6 +22,8 @@ class DevelopmentUnit(Document):
 	def before_save(self):
 		if self.name and not self.name.startswith("new-"):
 			self.qr_code = get_qr_code_value(self.name)
+		if self.stages:
+			sync_unit_progress_from_stages(self)
 
 	def after_insert(self):
 		self._auto_generate_qr_code()

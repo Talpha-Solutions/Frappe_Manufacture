@@ -15,6 +15,19 @@ MAIN_SIDEBAR_ITEM = {
 	"show_arrow": 0,
 }
 
+QR_SCAN_SIDEBAR_ITEM = {
+	"label": "QR Stage Scan",
+	"link_to": "Development Unit QR Scan",
+	"link_type": "DocType",
+	"type": "Link",
+	"icon": "scan-barcode",
+	"child": 0,
+	"collapsible": 1,
+	"indent": 0,
+	"keep_closed": 0,
+	"show_arrow": 0,
+}
+
 SETUP_SIDEBAR_ITEMS = [
 	{"label": "Development Block", "link_to": "Development Block"},
 	{"label": "Development Unit Type", "link_to": "Development Unit Type"},
@@ -57,6 +70,22 @@ def _ensure_main_sidebar_item(sidebar):
 		insert_at = len(items)
 
 	items.insert(insert_at, MAIN_SIDEBAR_ITEM)
+	_apply_items(sidebar, items)
+	return True
+
+
+def _ensure_qr_scan_sidebar_item(sidebar):
+	if _has_sidebar_link(sidebar, QR_SCAN_SIDEBAR_ITEM["link_to"]):
+		return False
+
+	items = [_item_dict(row) for row in sidebar.items]
+	insert_at = _index_of_link(items, MAIN_SIDEBAR_ITEM["link_to"])
+	if insert_at is None:
+		insert_at = len(items)
+	else:
+		insert_at += 1
+
+	items.insert(insert_at, QR_SCAN_SIDEBAR_ITEM)
 	_apply_items(sidebar, items)
 	return True
 

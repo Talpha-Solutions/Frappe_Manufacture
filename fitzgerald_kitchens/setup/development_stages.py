@@ -95,7 +95,7 @@ def get_default_unit_stage_rows():
 			"progress_percentage": stage["default_progress_percentage"],
 			"evidence_required": stage["evidence_required"],
 			"customer_visible": stage["customer_visible"],
-			"status": "Pending",
+			"status": "Not Started",
 		}
 		for stage in STANDARD_DEVELOPMENT_STAGES
 	]
