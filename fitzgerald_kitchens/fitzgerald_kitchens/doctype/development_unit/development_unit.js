@@ -3,10 +3,18 @@
 
 frappe.ui.form.on("Development Unit", {
 	refresh(frm) {
+		toggle_bom_tab_fields(frm);
+
 		if (frm._loading_default_stages || (frm.doc.stages && frm.doc.stages.length)) {
 			return;
 		}
 		load_default_stages(frm);
+	},
+	kitchen_required(frm) {
+		toggle_bom_tab_fields(frm);
+	},
+	wardrobe_required(frm) {
+		toggle_bom_tab_fields(frm);
 	},
 	kitchen_type(frm) {
 		load_kitchen_bom_from_mapping(frm);
@@ -21,6 +29,44 @@ frappe.ui.form.on("Development Unit", {
 		load_wardrobe_bom_from_mapping(frm);
 	},
 });
+
+const KITCHEN_BOM_FIELDS = [
+	"kitchen_type",
+	"kitchen_specification",
+	"kitchen_item",
+	"kitchen_bom",
+	"kitchen_work_order",
+];
+
+const WARDROBE_BOM_FIELDS = [
+	"wardrobe_type",
+	"wardrobe_specification",
+	"wardrobe_item",
+	"wardrobe_bom",
+	"wardrobe_work_order",
+];
+
+function toggle_bom_tab_fields(frm) {
+	const show_kitchen = !!frm.doc.kitchen_required;
+	const show_wardrobe = !!frm.doc.wardrobe_required;
+
+	// Checkboxes and column break must always stay visible (hiding the column
+	// break hides the entire wardrobe column including Wardrobe Required).
+	frm.toggle_display("kitchen_required", true);
+	frm.toggle_display("wardrobe_required", true);
+	frm.toggle_display("column_break_jfcu", true);
+
+	KITCHEN_BOM_FIELDS.forEach((fieldname) => {
+		frm.toggle_display(fieldname, show_kitchen);
+	});
+
+	WARDROBE_BOM_FIELDS.forEach((fieldname) => {
+		frm.toggle_display(fieldname, show_wardrobe);
+	});
+
+	frm.set_df_property("kitchen_type", "reqd", show_kitchen);
+	frm.set_df_property("wardrobe_type", "reqd", show_wardrobe);
+}
 
 function load_default_stages(frm) {
 	frm._loading_default_stages = true;
@@ -51,7 +97,7 @@ function load_default_stages(frm) {
 }
 
 function load_kitchen_bom_from_mapping(frm) {
-	if (!frm.doc.kitchen_type || !frm.doc.kitchen_specification) {
+	if (!frm.doc.kitchen_required || !frm.doc.kitchen_type || !frm.doc.kitchen_specification) {
 		return;
 	}
 
@@ -81,7 +127,7 @@ function load_kitchen_bom_from_mapping(frm) {
 }
 
 function load_wardrobe_bom_from_mapping(frm) {
-	if (!frm.doc.wardrobe_type || !frm.doc.wardrobe_specification) {
+	if (!frm.doc.wardrobe_required || !frm.doc.wardrobe_type || !frm.doc.wardrobe_specification) {
 		return;
 	}
 

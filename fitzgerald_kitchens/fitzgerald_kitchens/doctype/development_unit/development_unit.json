@@ -48,19 +48,22 @@
   "customer_notes",
   "bom_tab",
   "manufacturing_section",
-  "kitchen_type",
-  "kitchen_specification",
   "kitchen_required",
-  "kitchen_item",
+  "kitchen_specification",
   "kitchen_bom",
+  "column_break_cwet",
+  "kitchen_type",
+  "kitchen_item",
   "kitchen_work_order",
+  "section_break_kpxa",
   "column_break_jfcu",
-  "wardrobe_type",
-  "wardrobe_specification",
   "wardrobe_required",
-  "wardrobe_item",
+  "wardrobe_specification",
   "wardrobe_bom",
+  "column_break_dydl",
+  "wardrobe_type",
   "wardrobe_work_order",
+  "wardrobe_item",
   "billing_tab",
   "financial_billing_section",
   "budgeted_material_cost",
@@ -178,13 +181,15 @@
    "label": "Kitchen Required"
   },
   {
+   "depends_on": "eval:doc.kitchen_required",
    "fieldname": "kitchen_type",
    "fieldtype": "Link",
    "label": "Kitchen Type",
-   "options": "Kitchen Type",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.kitchen_required",
+   "options": "Kitchen Type"
   },
   {
+   "depends_on": "eval:doc.kitchen_required",
    "fieldname": "kitchen_specification",
    "fieldtype": "Link",
    "label": "Kitchen Specification",
@@ -197,13 +202,15 @@
    "label": "Wardrobe Required"
   },
   {
+   "depends_on": "eval:doc.wardrobe_required",
    "fieldname": "wardrobe_type",
    "fieldtype": "Link",
    "label": "Wardrobe Type",
-   "options": "Wardrobe Type",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.wardrobe_required",
+   "options": "Wardrobe Type"
   },
   {
+   "depends_on": "eval:doc.wardrobe_required",
    "fieldname": "wardrobe_specification",
    "fieldtype": "Link",
    "label": "Wardrobe Specification",
@@ -232,36 +239,42 @@
    "label": "BOM / Manufacturing Links"
   },
   {
+   "depends_on": "eval:doc.kitchen_required",
    "fieldname": "kitchen_item",
    "fieldtype": "Link",
    "label": "Kitchen Item",
    "options": "Item"
   },
   {
+   "depends_on": "eval:doc.kitchen_required",
    "fieldname": "kitchen_bom",
    "fieldtype": "Link",
    "label": "Kitchen BOM",
    "options": "BOM"
   },
   {
+   "depends_on": "eval:doc.wardrobe_required",
    "fieldname": "wardrobe_item",
    "fieldtype": "Link",
    "label": "Wardrobe Item",
    "options": "Item"
   },
   {
+   "depends_on": "eval:doc.wardrobe_required",
    "fieldname": "wardrobe_bom",
    "fieldtype": "Link",
    "label": "Wardrobe BOM",
    "options": "BOM"
   },
   {
+   "depends_on": "eval:doc.kitchen_required",
    "fieldname": "kitchen_work_order",
    "fieldtype": "Link",
    "label": "Kitchen Work Order",
    "options": "Work Order"
   },
   {
+   "depends_on": "eval:doc.wardrobe_required",
    "fieldname": "wardrobe_work_order",
    "fieldtype": "Link",
    "label": "Wardrobe Work Order",
@@ -547,12 +560,24 @@
   {
    "fieldname": "column_break_jfcu",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_kpxa",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_cwet",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_dydl",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-22 14:25:22.872997",
+ "modified": "2026-05-22 18:36:49.733749",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Development Unit",
