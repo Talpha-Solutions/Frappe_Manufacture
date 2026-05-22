@@ -10,7 +10,9 @@
   "naming_series",
   "unit_reference",
   "column_break_vuwb",
+  "qr_code_preview",
   "qr_code",
+  "qr_code_image",
   "project_customer_section",
   "project",
   "column_break_mhvv",
@@ -114,9 +116,22 @@
    "reqd": 1
   },
   {
+   "fieldname": "qr_code_preview",
+   "fieldtype": "HTML",
+   "label": "QR Code"
+  },
+  {
    "fieldname": "qr_code",
    "fieldtype": "Data",
-   "label": "QR / Barcode Value"
+   "label": "QR Code Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qr_code_image",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "QR Code Image",
+   "read_only": 1
   },
   {
    "fieldname": "project_customer_section",

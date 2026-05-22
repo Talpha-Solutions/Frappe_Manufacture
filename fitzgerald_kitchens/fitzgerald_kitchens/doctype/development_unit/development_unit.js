@@ -4,11 +4,16 @@
 frappe.ui.form.on("Development Unit", {
 	refresh(frm) {
 		toggle_bom_tab_fields(frm);
+		setup_qr_code_actions(frm);
+		render_qr_code_preview(frm);
 
 		if (frm._loading_default_stages || (frm.doc.stages && frm.doc.stages.length)) {
 			return;
 		}
 		load_default_stages(frm);
+	},
+	after_save(frm) {
+		render_qr_code_preview(frm);
 	},
 	kitchen_required(frm) {
 		toggle_bom_tab_fields(frm);
@@ -45,6 +50,80 @@ const WARDROBE_BOM_FIELDS = [
 	"wardrobe_bom",
 	"wardrobe_work_order",
 ];
+
+function render_qr_code_preview(frm) {
+	const field = frm.get_field("qr_code_preview");
+	if (!field) {
+		return;
+	}
+
+	if (frm.is_new()) {
+		field.$wrapper.html(
+			`<p class="text-muted small">${__(
+				"QR code will be generated when you save this document."
+			)}</p>`
+		);
+		return;
+	}
+
+	if (!frm.doc.qr_code_image) {
+		field.$wrapper.html(
+			`<p class="text-muted small">${__(
+				"Save the document to generate the QR code."
+			)}</p>`
+		);
+		return;
+	}
+
+	const image_url = frappe.urllib.get_full_url(frm.doc.qr_code_image);
+	field.$wrapper.html(`
+		<div style="padding: 4px 0;">
+			<img
+				src="${image_url}"
+				alt="${__("QR Code")}"
+				style="display: block; max-width: 220px; width: 100%; height: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius, 6px); padding: 12px; background: #fff;"
+			/>
+		</div>
+	`);
+}
+
+function setup_qr_code_actions(frm) {
+	if (frm.is_new() || !frm.doc.qr_code_image) {
+		return;
+	}
+
+	frm.add_custom_button(__("Download QR Code"), () => download_qr_code(frm), __("Actions"));
+}
+
+function download_qr_code(frm) {
+	if (!frm.doc.qr_code_image) {
+		frappe.msgprint(__("Save the document to generate the QR code."));
+		return;
+	}
+
+	const file_url = frappe.urllib.get_full_url(frm.doc.qr_code_image);
+
+	fetch(file_url, { credentials: "include" })
+		.then((response) => {
+			if (!response.ok) {
+				throw new Error(__("Could not download QR code image"));
+			}
+			return response.blob();
+		})
+		.then((blob) => {
+			const object_url = URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = object_url;
+			link.download = `${frm.doc.name}-qr.png`;
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			URL.revokeObjectURL(object_url);
+		})
+		.catch(() => {
+			frappe.msgprint(__("Could not download QR code image"));
+		});
+}
 
 function toggle_bom_tab_fields(frm) {
 	const show_kitchen = !!frm.doc.kitchen_required;

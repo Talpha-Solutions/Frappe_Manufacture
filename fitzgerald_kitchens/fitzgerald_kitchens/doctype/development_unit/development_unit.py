@@ -1,15 +1,52 @@
 # Copyright (c) 2026, talpha solutions and contributors
 # For license information, please see license.txt
 
+from io import BytesIO
+
 import frappe
+from frappe import _
 from frappe.model.document import Document
+from frappe.utils import get_url
+from frappe.utils.file_manager import save_file
 
 from fitzgerald_kitchens.setup.development_stages import get_default_unit_stage_rows
+
+
+def get_qr_code_value(doc_name: str) -> str:
+	"""URL opened when the Development Unit QR code is scanned."""
+	return get_url(f"/app/development-unit/{doc_name}")
 
 
 class DevelopmentUnit(Document):
 	def before_insert(self):
 		self.set_default_stages_if_empty()
+
+	def before_save(self):
+		if self.name and not self.name.startswith("new-"):
+			self.qr_code = get_qr_code_value(self.name)
+
+	def after_insert(self):
+		self._auto_generate_qr_code()
+
+	def on_update(self):
+		self._auto_generate_qr_code()
+
+	def _auto_generate_qr_code(self) -> None:
+		if frappe.flags.in_import or not self.name or self.name.startswith("new-"):
+			return
+
+		expected_value = get_qr_code_value(self.name)
+		if self.qr_code_image and self.qr_code == expected_value:
+			return
+
+		self.qr_code = expected_value
+		file_url = self.generate_qr_code_image()
+		frappe.db.set_value(
+			self.doctype,
+			self.name,
+			{"qr_code": self.qr_code, "qr_code_image": file_url},
+			update_modified=False,
+		)
 
 	def set_default_stages_if_empty(self):
 		if self.stages:
@@ -17,6 +54,48 @@ class DevelopmentUnit(Document):
 
 		for row in get_default_unit_stage_rows():
 			self.append("stages", row)
+
+	def generate_qr_code_image(self) -> str:
+		if not self.name or self.name.startswith("new-"):
+			return ""
+
+		value = self.qr_code or get_qr_code_value(self.name)
+		self.qr_code = value
+
+		try:
+			from pyqrcode import create as qrcreate
+		except ImportError:
+			frappe.throw(_("QR code library is not installed. Contact your system administrator."))
+
+		buffer = BytesIO()
+		try:
+			qrcreate(value).png(buffer, scale=6, quiet_zone=2)
+			png_content = buffer.getvalue()
+		finally:
+			buffer.close()
+
+		self._delete_qr_code_file()
+
+		file_doc = save_file(
+			f"{self.name}-qr.png",
+			png_content,
+			self.doctype,
+			self.name,
+			is_private=0,
+			df="qr_code_image",
+		)
+		self.qr_code_image = file_doc.file_url
+		return file_doc.file_url
+
+	def _delete_qr_code_file(self) -> None:
+		if not self.qr_code_image:
+			return
+
+		file_id = frappe.db.get_value("File", {"file_url": self.qr_code_image}, "name")
+		if file_id:
+			frappe.delete_doc("File", file_id, ignore_permissions=True)
+
+		self.qr_code_image = None
 
 
 @frappe.whitelist()
