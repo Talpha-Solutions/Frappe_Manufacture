@@ -10,15 +10,11 @@
   "naming_series",
   "unit_reference",
   "column_break_vuwb",
-  "title",
   "qr_code",
   "project_customer_section",
-  "company",
-  "sales_order",
-  "project_phase",
+  "project",
   "column_break_mhvv",
   "customer",
-  "project",
   "site_location_section",
   "block",
   "plot_number",
@@ -27,15 +23,9 @@
   "floor",
   "site_location",
   "kitchen_wardrobe_section",
-  "kitchen_required",
-  "kitchen_type",
-  "wardrobe_type",
   "specification_locked",
   "specification_approved_on",
   "column_break_cfdq",
-  "kitchen_specification",
-  "wardrobe_required",
-  "wardrobe_specification",
   "specification_approved_by",
   "scheduling_section",
   "planned_survey_date",
@@ -58,16 +48,19 @@
   "customer_notes",
   "bom_tab",
   "manufacturing_section",
+  "kitchen_type",
+  "kitchen_specification",
+  "kitchen_required",
   "kitchen_item",
   "kitchen_bom",
+  "kitchen_work_order",
+  "column_break_jfcu",
+  "wardrobe_type",
+  "wardrobe_specification",
+  "wardrobe_required",
   "wardrobe_item",
   "wardrobe_bom",
-  "production_plan",
-  "kitchen_work_order",
   "wardrobe_work_order",
-  "source_warehouse",
-  "wip_warehouse",
-  "finished_goods_warehouse",
   "billing_tab",
   "financial_billing_section",
   "budgeted_material_cost",
@@ -118,12 +111,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "title",
-   "fieldtype": "Data",
-   "label": "Title",
-   "reqd": 1
-  },
-  {
    "fieldname": "qr_code",
    "fieldtype": "Data",
    "label": "QR / Barcode Value"
@@ -134,13 +121,6 @@
    "label": "Project / Customer Links"
   },
   {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company",
-   "reqd": 1
-  },
-  {
    "fieldname": "customer",
    "fieldtype": "Link",
    "label": "Customer",
@@ -148,22 +128,11 @@
    "reqd": 1
   },
   {
-   "fieldname": "sales_order",
-   "fieldtype": "Link",
-   "label": "Sales Order",
-   "options": "Sales Order"
-  },
-  {
    "fieldname": "project",
    "fieldtype": "Link",
    "label": "Project",
    "options": "Project",
    "reqd": 1
-  },
-  {
-   "fieldname": "project_phase",
-   "fieldtype": "Data",
-   "label": "Project Phase"
   },
   {
    "fieldname": "site_location_section",
@@ -287,12 +256,6 @@
    "options": "BOM"
   },
   {
-   "fieldname": "production_plan",
-   "fieldtype": "Link",
-   "label": "Production Plan",
-   "options": "Production Plan"
-  },
-  {
    "fieldname": "kitchen_work_order",
    "fieldtype": "Link",
    "label": "Kitchen Work Order",
@@ -303,24 +266,6 @@
    "fieldtype": "Link",
    "label": "Wardrobe Work Order",
    "options": "Work Order"
-  },
-  {
-   "fieldname": "source_warehouse",
-   "fieldtype": "Link",
-   "label": "Source Warehouse",
-   "options": "Work Order"
-  },
-  {
-   "fieldname": "wip_warehouse",
-   "fieldtype": "Link",
-   "label": "WIP Warehouse",
-   "options": "Warehouse"
-  },
-  {
-   "fieldname": "finished_goods_warehouse",
-   "fieldtype": "Link",
-   "label": "Finished Goods Warehouse",
-   "options": "Warehouse"
   },
   {
    "fieldname": "scheduling_section",
@@ -598,12 +543,16 @@
    "fieldname": "issues_tab",
    "fieldtype": "Tab Break",
    "label": "Issues"
+  },
+  {
+   "fieldname": "column_break_jfcu",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-21 17:05:09.573698",
+ "modified": "2026-05-22 14:25:22.872997",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Development Unit",
@@ -628,6 +577,5 @@
  "sort_field": "creation",
  "sort_order": "DESC",
  "states": [],
- "title_field": "title",
  "track_changes": 1
 }
