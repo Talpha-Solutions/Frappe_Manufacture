@@ -9,6 +9,8 @@
   "naming_section",
   "naming_series",
   "unit_reference",
+  "current_stage",
+  "current_stage_progress",
   "column_break_vuwb",
   "qr_code_preview",
   "qr_code",
@@ -29,25 +31,6 @@
   "specification_approved_on",
   "column_break_cfdq",
   "specification_approved_by",
-  "scheduling_section",
-  "planned_survey_date",
-  "planned_manufacturing_date",
-  "planned_delivery_date",
-  "planned_handover_date",
-  "column_break_lvfl",
-  "planned_design_completion_date",
-  "planned_assembly_date",
-  "planned_fitting_date",
-  "actual_handover_date",
-  "status_progress_section",
-  "current_stage",
-  "schedule_status",
-  "customer_visible",
-  "internal_notes",
-  "column_break_utxy",
-  "unit_status",
-  "progress_percentage",
-  "customer_notes",
   "bom_tab",
   "manufacturing_section",
   "kitchen_required",
@@ -296,98 +279,18 @@
    "options": "Work Order"
   },
   {
-   "fieldname": "scheduling_section",
-   "fieldtype": "Section Break",
-   "label": "Dates / Scheduling"
-  },
-  {
-   "fieldname": "planned_survey_date",
-   "fieldtype": "Date",
-   "label": "Planned Survey Date"
-  },
-  {
-   "fieldname": "planned_design_completion_date",
-   "fieldtype": "Date",
-   "label": "Planned Design Completion Date"
-  },
-  {
-   "fieldname": "planned_manufacturing_date",
-   "fieldtype": "Date",
-   "label": "Planned Manufacturing Date"
-  },
-  {
-   "fieldname": "planned_assembly_date",
-   "fieldtype": "Date",
-   "label": "Planned Assembly Date"
-  },
-  {
-   "fieldname": "planned_delivery_date",
-   "fieldtype": "Date",
-   "label": "Planned Delivery Date"
-  },
-  {
-   "fieldname": "planned_fitting_date",
-   "fieldtype": "Date",
-   "label": "Planned Fitting Date"
-  },
-  {
-   "fieldname": "planned_handover_date",
-   "fieldtype": "Date",
-   "label": "Planned Handover Date"
-  },
-  {
-   "fieldname": "actual_handover_date",
-   "fieldtype": "Date",
-   "label": "Actual Handover Date"
-  },
-  {
-   "fieldname": "status_progress_section",
-   "fieldtype": "Section Break",
-   "label": "Status / Progress"
-  },
-  {
    "fieldname": "current_stage",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "label": "Current Stage",
    "options": "Development Stage",
+   "read_only": 1,
    "reqd": 1
   },
   {
-   "default": "Draft",
-   "fieldname": "unit_status",
-   "fieldtype": "Select",
-   "label": "Unit Status",
-   "options": "Draft\nPlanned\nIn Progress\nOn Hold\nCompleted\nCancelled",
-   "reqd": 1
-  },
-  {
-   "default": "On Time",
-   "fieldname": "schedule_status",
-   "fieldtype": "Select",
-   "label": "Schedule Status",
-   "options": "Early\nOn Time\nLate\nAt Risk\nCompleted"
-  },
-  {
-   "default": "0",
-   "fieldname": "progress_percentage",
+   "fieldname": "current_stage_progress",
    "fieldtype": "Percent",
-   "label": "Progress Percentage"
-  },
-  {
-   "default": "1",
-   "fieldname": "customer_visible",
-   "fieldtype": "Check",
-   "label": "Customer Visible"
-  },
-  {
-   "fieldname": "internal_notes",
-   "fieldtype": "Small Text",
-   "label": "Internal Notes"
-  },
-  {
-   "fieldname": "customer_notes",
-   "fieldtype": "Small Text",
-   "label": "Customer Notes"
+   "label": "Stage Progress",
+   "read_only": 1
   },
   {
    "fieldname": "financial_billing_section",
@@ -535,14 +438,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "column_break_lvfl",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_utxy",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "billing_tab",
    "fieldtype": "Tab Break",
    "label": "Billing"
@@ -592,7 +487,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-22 18:36:49.733749",
+ "modified": "2026-05-25 13:07:03.153617",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Development Unit",

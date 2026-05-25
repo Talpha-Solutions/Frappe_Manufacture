@@ -1,0 +1,31 @@
+.grid-row.stage-schedule-early .data-row {
+	background-color: color-mix(in srgb, var(--indicator-dot-blue) 14%, transparent);
+}
+
+.grid-row.stage-schedule-ontime .data-row {
+	background-color: color-mix(in srgb, var(--indicator-dot-green) 14%, transparent);
+}
+
+.grid-row.stage-schedule-late .data-row {
+	background-color: color-mix(in srgb, var(--indicator-dot-red) 14%, transparent);
+}
+
+.current-stage-pill-field .control-value,
+.current-stage-pill-field .like-disabled-input {
+	border: none;
+	background: transparent;
+	padding-left: 0;
+	min-height: auto;
+}
+
+.current-stage-pill-group {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 0;
+}
+
+.current-stage-pill {
+	max-width: 100%;
+}
