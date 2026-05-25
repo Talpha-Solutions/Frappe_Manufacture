@@ -8,9 +8,11 @@ from fitzgerald_kitchens.setup.development_stages import (
 
 
 def after_install():
+	from fitzgerald_kitchens.setup.project_bom_fields import ensure_project_bom_fields
 	from fitzgerald_kitchens.setup.workspace_sidebar import ensure_projects_sidebar
 
 	ensure_development_stage_settings()
+	ensure_project_bom_fields()
 	ensure_projects_sidebar()
 
 

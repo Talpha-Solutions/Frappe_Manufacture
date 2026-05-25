@@ -3,7 +3,6 @@
 
 frappe.ui.form.on("Development Unit", {
 	refresh(frm) {
-		toggle_bom_tab_fields(frm);
 		setup_qr_code_actions(frm);
 		render_qr_code_preview(frm);
 		setup_stage_schedule_colors(frm);
@@ -23,41 +22,7 @@ frappe.ui.form.on("Development Unit", {
 		schedule_apply_stage_schedule_display(frm);
 		render_current_stage_status(frm);
 	},
-	kitchen_required(frm) {
-		toggle_bom_tab_fields(frm);
-	},
-	wardrobe_required(frm) {
-		toggle_bom_tab_fields(frm);
-	},
-	kitchen_type(frm) {
-		load_kitchen_bom_from_mapping(frm);
-	},
-	kitchen_specification(frm) {
-		load_kitchen_bom_from_mapping(frm);
-	},
-	wardrobe_type(frm) {
-		load_wardrobe_bom_from_mapping(frm);
-	},
-	wardrobe_specification(frm) {
-		load_wardrobe_bom_from_mapping(frm);
-	},
 });
-
-const KITCHEN_BOM_FIELDS = [
-	"kitchen_type",
-	"kitchen_specification",
-	"kitchen_item",
-	"kitchen_bom",
-	"kitchen_work_order",
-];
-
-const WARDROBE_BOM_FIELDS = [
-	"wardrobe_type",
-	"wardrobe_specification",
-	"wardrobe_item",
-	"wardrobe_bom",
-	"wardrobe_work_order",
-];
 
 function render_qr_code_preview(frm) {
 	const field = frm.get_field("qr_code_preview");
@@ -131,28 +96,6 @@ function download_qr_code(frm) {
 		.catch(() => {
 			frappe.msgprint(__("Could not download QR code image"));
 		});
-}
-
-function toggle_bom_tab_fields(frm) {
-	const show_kitchen = !!frm.doc.kitchen_required;
-	const show_wardrobe = !!frm.doc.wardrobe_required;
-
-	// Checkboxes and column break must always stay visible (hiding the column
-	// break hides the entire wardrobe column including Wardrobe Required).
-	frm.toggle_display("kitchen_required", true);
-	frm.toggle_display("wardrobe_required", true);
-	frm.toggle_display("column_break_jfcu", true);
-
-	KITCHEN_BOM_FIELDS.forEach((fieldname) => {
-		frm.toggle_display(fieldname, show_kitchen);
-	});
-
-	WARDROBE_BOM_FIELDS.forEach((fieldname) => {
-		frm.toggle_display(fieldname, show_wardrobe);
-	});
-
-	frm.set_df_property("kitchen_type", "reqd", show_kitchen);
-	frm.set_df_property("wardrobe_type", "reqd", show_wardrobe);
 }
 
 function load_default_stages(frm) {
@@ -544,64 +487,4 @@ function apply_stage_row_colors(frm) {
 
 	const all_stages = frm.doc.stages || [];
 	grid.grid_rows.forEach((grid_row) => apply_stage_row_color(grid_row, all_stages));
-}
-
-function load_kitchen_bom_from_mapping(frm) {
-	if (!frm.doc.kitchen_required || !frm.doc.kitchen_type || !frm.doc.kitchen_specification) {
-		return;
-	}
-
-	frappe.call({
-		method:
-			"fitzgerald_kitchens.fitzgerald_kitchens.doctype.development_unit.development_unit.get_kitchen_bom_from_mapping",
-		args: {
-			kitchen_type: frm.doc.kitchen_type,
-			kitchen_specification: frm.doc.kitchen_specification,
-		},
-		callback(r) {
-			const mapping = r.message;
-			if (!mapping || !mapping.kitchen_bom) {
-				frappe.show_alert({
-					message: __("No Kitchen BOM Mapping found for this combination"),
-					indicator: "orange",
-				});
-				return;
-			}
-
-			frm.set_value("kitchen_bom", mapping.kitchen_bom);
-			if (mapping.kitchen_item) {
-				frm.set_value("kitchen_item", mapping.kitchen_item);
-			}
-		},
-	});
-}
-
-function load_wardrobe_bom_from_mapping(frm) {
-	if (!frm.doc.wardrobe_required || !frm.doc.wardrobe_type || !frm.doc.wardrobe_specification) {
-		return;
-	}
-
-	frappe.call({
-		method:
-			"fitzgerald_kitchens.fitzgerald_kitchens.doctype.development_unit.development_unit.get_wardrobe_bom_from_mapping",
-		args: {
-			wardrobe_type: frm.doc.wardrobe_type,
-			wardrobe_specification: frm.doc.wardrobe_specification,
-		},
-		callback(r) {
-			const mapping = r.message;
-			if (!mapping || !mapping.wardrobe_bom) {
-				frappe.show_alert({
-					message: __("No Wardrobe BOM Mapping found for this combination"),
-					indicator: "orange",
-				});
-				return;
-			}
-
-			frm.set_value("wardrobe_bom", mapping.wardrobe_bom);
-			if (mapping.wardrobe_item) {
-				frm.set_value("wardrobe_item", mapping.wardrobe_item);
-			}
-		},
-	});
 }

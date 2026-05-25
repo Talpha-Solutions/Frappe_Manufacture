@@ -31,24 +31,6 @@
   "specification_approved_on",
   "column_break_cfdq",
   "specification_approved_by",
-  "bom_tab",
-  "manufacturing_section",
-  "kitchen_required",
-  "kitchen_specification",
-  "kitchen_bom",
-  "column_break_cwet",
-  "kitchen_type",
-  "kitchen_item",
-  "kitchen_work_order",
-  "section_break_kpxa",
-  "column_break_jfcu",
-  "wardrobe_required",
-  "wardrobe_specification",
-  "wardrobe_bom",
-  "column_break_dydl",
-  "wardrobe_type",
-  "wardrobe_work_order",
-  "wardrobe_item",
   "billing_tab",
   "financial_billing_section",
   "budgeted_material_cost",
@@ -174,48 +156,6 @@
   },
   {
    "default": "0",
-   "fieldname": "kitchen_required",
-   "fieldtype": "Check",
-   "label": "Kitchen Required"
-  },
-  {
-   "depends_on": "eval:doc.kitchen_required",
-   "fieldname": "kitchen_type",
-   "fieldtype": "Link",
-   "label": "Kitchen Type",
-   "mandatory_depends_on": "eval:doc.kitchen_required",
-   "options": "Kitchen Type"
-  },
-  {
-   "depends_on": "eval:doc.kitchen_required",
-   "fieldname": "kitchen_specification",
-   "fieldtype": "Link",
-   "label": "Kitchen Specification",
-   "options": "Kitchen Specification"
-  },
-  {
-   "default": "0",
-   "fieldname": "wardrobe_required",
-   "fieldtype": "Check",
-   "label": "Wardrobe Required"
-  },
-  {
-   "depends_on": "eval:doc.wardrobe_required",
-   "fieldname": "wardrobe_type",
-   "fieldtype": "Link",
-   "label": "Wardrobe Type",
-   "mandatory_depends_on": "eval:doc.wardrobe_required",
-   "options": "Wardrobe Type"
-  },
-  {
-   "depends_on": "eval:doc.wardrobe_required",
-   "fieldname": "wardrobe_specification",
-   "fieldtype": "Link",
-   "label": "Wardrobe Specification",
-   "options": "Wardrobe Specification"
-  },
-  {
-   "default": "0",
    "fieldname": "specification_locked",
    "fieldtype": "Check",
    "label": "Specification Locked"
@@ -230,53 +170,6 @@
    "fieldname": "specification_approved_on",
    "fieldtype": "Datetime",
    "label": "Specification Approved On"
-  },
-  {
-   "fieldname": "manufacturing_section",
-   "fieldtype": "Section Break",
-   "label": "BOM / Manufacturing Links"
-  },
-  {
-   "depends_on": "eval:doc.kitchen_required",
-   "fieldname": "kitchen_item",
-   "fieldtype": "Link",
-   "label": "Kitchen Item",
-   "options": "Item"
-  },
-  {
-   "depends_on": "eval:doc.kitchen_required",
-   "fieldname": "kitchen_bom",
-   "fieldtype": "Link",
-   "label": "Kitchen BOM",
-   "options": "BOM"
-  },
-  {
-   "depends_on": "eval:doc.wardrobe_required",
-   "fieldname": "wardrobe_item",
-   "fieldtype": "Link",
-   "label": "Wardrobe Item",
-   "options": "Item"
-  },
-  {
-   "depends_on": "eval:doc.wardrobe_required",
-   "fieldname": "wardrobe_bom",
-   "fieldtype": "Link",
-   "label": "Wardrobe BOM",
-   "options": "BOM"
-  },
-  {
-   "depends_on": "eval:doc.kitchen_required",
-   "fieldname": "kitchen_work_order",
-   "fieldtype": "Link",
-   "label": "Kitchen Work Order",
-   "options": "Work Order"
-  },
-  {
-   "depends_on": "eval:doc.wardrobe_required",
-   "fieldname": "wardrobe_work_order",
-   "fieldtype": "Link",
-   "label": "Wardrobe Work Order",
-   "options": "Work Order"
   },
   {
    "fieldname": "current_stage",
@@ -417,11 +310,6 @@
    "options": "Development Unit Issue"
   },
   {
-   "fieldname": "bom_tab",
-   "fieldtype": "Tab Break",
-   "label": "BOM"
-  },
-  {
    "fieldname": "column_break_vuwb",
    "fieldtype": "Column Break"
   },
@@ -466,22 +354,6 @@
    "fieldname": "issues_tab",
    "fieldtype": "Tab Break",
    "label": "Issues"
-  },
-  {
-   "fieldname": "column_break_jfcu",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "section_break_kpxa",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "column_break_cwet",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_dydl",
-   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
