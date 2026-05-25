@@ -149,6 +149,7 @@ function create_work_order_from_bom(frm, config) {
 			project: frm.doc.name,
 			bom_no: frm.doc[config.bom_field],
 			item: frm.doc[config.item_field] || undefined,
+			sales_order: frm.doc.sales_order || undefined,
 		},
 		freeze: true,
 		freeze_message: __("Creating {0}...", [config.button_label]),
