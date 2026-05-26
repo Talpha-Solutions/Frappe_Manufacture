@@ -9,10 +9,10 @@ from fitzgerald_kitchens.fitzgerald_kitchens.utils.stage_tracking import STAGE_S
 EXCLUDED_TASK_STATUSES = ("Cancelled", "Template")
 
 
-def _set_project_stage(project, stage_name, schedule_status):
+def _set_project_stage(project, stage_name, schedule_label, schedule_indicator):
 	project.current_stage = stage_name
-	project.current_stage_schedule = schedule_status
-	project.current_stage_schedule_indicator = STAGE_SCHEDULE_INDICATORS.get(schedule_status, "gray")
+	project.current_stage_schedule = schedule_label
+	project.current_stage_schedule_indicator = schedule_indicator
 
 
 def _clear_project_stage(project):
@@ -47,19 +47,41 @@ def get_current_task_row(tasks):
 	return sorted_tasks[last_completed_index]
 
 
-def get_task_schedule_status(task) -> str | None:
-	"""Compare today against Expected End Date only."""
-	if not task or not task.exp_end_date:
-		return None
+def _get_task_field(task, fieldname):
+	if isinstance(task, dict):
+		return task.get(fieldname)
+	return getattr(task, fieldname, None)
 
-	expected_date = getdate(task.exp_end_date)
+
+def get_task_schedule_display(task) -> tuple[str | None, str]:
+	"""Schedule pill for website task rows and project cards."""
+	exp_end_date = _get_task_field(task, "exp_end_date")
+	if not task or not exp_end_date:
+		return None, "gray"
+
+	expected_date = getdate(exp_end_date)
+	completed_on = _get_task_field(task, "completed_on")
+
+	if completed_on:
+		compare_date = getdate(completed_on)
+		if compare_date < expected_date:
+			return "Early", STAGE_SCHEDULE_INDICATORS["Early"]
+		if compare_date > expected_date:
+			return "Late", STAGE_SCHEDULE_INDICATORS["Late"]
+		return "On Time", STAGE_SCHEDULE_INDICATORS["On Time"]
+
 	today_date = getdate(today())
-
-	if today_date < expected_date:
-		return "Early"
 	if today_date > expected_date:
-		return "Late"
-	return "On Time"
+		return "Ongoing", STAGE_SCHEDULE_INDICATORS["Late"]
+	return "Ongoing", STAGE_SCHEDULE_INDICATORS["Early"]
+
+
+def enrich_tasks_with_schedule_status(tasks) -> None:
+	"""Add schedule_status and schedule_indicator to task rows for website lists."""
+	for task in tasks or []:
+		label, indicator = get_task_schedule_display(task)
+		task.schedule_status = label
+		task.schedule_indicator = indicator
 
 
 def enrich_projects_with_current_stage(projects) -> None:
@@ -83,6 +105,7 @@ def enrich_projects_with_current_stage(projects) -> None:
 			"project",
 			"status",
 			"exp_end_date",
+			"completed_on",
 			"idx",
 			"creation",
 		],
@@ -98,10 +121,12 @@ def enrich_projects_with_current_stage(projects) -> None:
 		if not current_task:
 			continue
 
+		label, indicator = get_task_schedule_display(current_task)
 		_set_project_stage(
 			project,
 			current_task.subject or current_task.name,
-			get_task_schedule_status(current_task),
+			label,
+			indicator,
 		)
 
 

@@ -1,6 +1,7 @@
 import frappe
 
 PROJECTS_SIDEBAR = "Projects"
+MANUFACTURING_SIDEBAR = "Manufacturing"
 
 MAIN_SIDEBAR_ITEM = {
 	"label": "Development Unit",
@@ -39,6 +40,18 @@ SETUP_SIDEBAR_ITEMS = [
 	{"label": "Development Stage Settings", "link_to": "Development Stage Settings"},
 ]
 
+JOB_CARD_SUMMARY_DETAIL_ITEM = {
+	"label": "Job Card Summary Detail",
+	"link_to": "Job Card Summary Detail",
+	"link_type": "Report",
+	"type": "Link",
+	"child": 1,
+	"collapsible": 1,
+	"indent": 0,
+	"keep_closed": 0,
+	"show_arrow": 0,
+}
+
 
 def ensure_projects_sidebar():
 	if not frappe.db.exists("Workspace Sidebar", PROJECTS_SIDEBAR):
@@ -56,6 +69,34 @@ def ensure_projects_sidebar():
 	if changed:
 		sidebar.flags.ignore_permissions = True
 		sidebar.save()
+
+
+def ensure_manufacturing_sidebar():
+	if not frappe.db.exists("Workspace Sidebar", MANUFACTURING_SIDEBAR):
+		return
+
+	sidebar = frappe.get_doc("Workspace Sidebar", MANUFACTURING_SIDEBAR)
+	if _has_sidebar_link(sidebar, JOB_CARD_SUMMARY_DETAIL_ITEM["link_to"]):
+		return
+
+	items = [_item_dict(row) for row in sidebar.items]
+	insert_at = _index_of_link(items, "Job Card Summary")
+	if insert_at is None:
+		insert_at = _index_after_reports_section(items)
+	else:
+		insert_at += 1
+
+	items.insert(insert_at, JOB_CARD_SUMMARY_DETAIL_ITEM)
+	_apply_items(sidebar, items)
+	sidebar.flags.ignore_permissions = True
+	sidebar.save()
+
+
+def _index_after_reports_section(items):
+	for index, item in enumerate(items):
+		if item.get("type") == "Section Break" and item.get("label") == "Reports":
+			return index + 1
+	return len(items)
 
 
 def _ensure_main_sidebar_item(sidebar):

@@ -53,13 +53,13 @@ def patch_project_website_list():
 
 
 def patch_project_website_tasks():
-	"""Show oldest tasks first on the project website task list."""
+	"""Show oldest tasks first and schedule status on the project website task list."""
 	import erpnext.templates.pages.projects as projects_page
 
-	if getattr(projects_page, "_fk_project_tasks_patched", False):
+	if getattr(projects_page, "_fk_project_tasks_patched_v2", False):
 		return
 
-	original_get_tasks = projects_page.get_tasks
+	TASK_ROW_TEMPLATE = "fitzgerald_kitchens/templates/includes/projects/project_tasks.html"
 
 	def get_tasks(project, start=0, search=None, item_status=None):
 		filters = {"project": project}
@@ -76,6 +76,7 @@ def patch_project_website_tasks():
 				"modified",
 				"_assign",
 				"exp_end_date",
+				"completed_on",
 				"is_group",
 				"parent_task",
 			],
@@ -83,6 +84,12 @@ def patch_project_website_tasks():
 			limit_start=start,
 			limit_page_length=100,
 		)
+
+		from fitzgerald_kitchens.fitzgerald_kitchens.website.project_card import (
+			enrich_tasks_with_schedule_status,
+		)
+
+		enrich_tasks_with_schedule_status(tasks)
 
 		for task in tasks:
 			if task.is_group:
@@ -92,5 +99,20 @@ def patch_project_website_tasks():
 
 		return [task for task in tasks if not task.parent_task]
 
+	def get_task_html(project, start=0, item_status=None):
+		return frappe.render_template(
+			TASK_ROW_TEMPLATE,
+			{
+				"doc": {
+					"name": project,
+					"project_name": project,
+					"tasks": get_tasks(project, start, item_status=item_status),
+				}
+			},
+			is_path=True,
+		)
+
 	projects_page.get_tasks = get_tasks
-	projects_page._fk_project_tasks_patched = True
+	if hasattr(projects_page, "get_task_html"):
+		projects_page.get_task_html = get_task_html
+	projects_page._fk_project_tasks_patched_v2 = True

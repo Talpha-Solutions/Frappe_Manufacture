@@ -13,11 +13,15 @@ def after_install():
 		patch_project_website_list,
 		patch_project_website_tasks,
 	)
-	from fitzgerald_kitchens.setup.workspace_sidebar import ensure_projects_sidebar
+	from fitzgerald_kitchens.setup.workspace_sidebar import (
+		ensure_manufacturing_sidebar,
+		ensure_projects_sidebar,
+	)
 
 	ensure_development_stage_settings()
 	ensure_project_bom_fields()
 	ensure_projects_sidebar()
+	ensure_manufacturing_sidebar()
 	patch_project_website_list()
 	patch_project_website_tasks()
 
