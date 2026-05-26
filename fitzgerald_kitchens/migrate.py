@@ -34,7 +34,7 @@ def _enable_developer_mode_for_migrate():
 	frappe.conf.developer_mode = 1
 
 
-def _skip_erpnext_broken_patch():
+def _skip_erpnext_broken_patch(): 
 	if frappe.db.get_value("Patch Log", {"patch": _ERPNext_BROKEN_PATCH, "skipped": 0}):
 		return
 

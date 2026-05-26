@@ -1,0 +1,409 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Projects") }}{% endblock %}
+
+{% block style %}
+<style>
+  .fk-project-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+    padding: 0.5rem 0 1.5rem;
+  }
+
+  @media (max-width: 768px) {
+    .fk-project-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .fk-project-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 1.25rem 1.4rem 1rem;
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .fk-project-card:hover {
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.10);
+    transform: translateY(-2px);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .fk-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .fk-project-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a202c;
+    line-height: 1.35;
+    flex: 1;
+  }
+
+  .fk-status-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.22rem 0.6rem;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .fk-badge-primary   { background: #dbeafe; color: #1d4ed8; }
+  .fk-badge-success   { background: #d1fae5; color: #065f46; }
+  .fk-badge-danger    { background: #fee2e2; color: #991b1b; }
+  .fk-badge-secondary { background: #f1f5f9; color: #475569; }
+  .fk-badge-info      { background: #e0f2fe; color: #0369a1; }
+
+  .fk-card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.22rem;
+    font-size: 0.82rem;
+    color: #64748b;
+  }
+
+  .fk-card-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .fk-card-meta .icon {
+    width: 14px;
+    height: 14px;
+    stroke: #94a3b8;
+    flex-shrink: 0;
+  }
+
+  .fk-progress-wrap {
+    margin-top: 0.25rem;
+  }
+
+  .fk-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-bottom: 4px;
+  }
+
+  .fk-progress {
+    height: 6px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    overflow: hidden;
+  }
+
+  .fk-progress-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+
+  .fk-progress-bar.success   { background: #10b981; }
+  .fk-progress-bar.info      { background: #3b82f6; }
+  .fk-progress-bar.warning   { background: #f59e0b; }
+  .fk-progress-bar.secondary { background: #cbd5e1; }
+
+  .fk-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.15rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .fk-avatar-group {
+    display: flex;
+    align-items: center;
+  }
+
+  .fk-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    margin-left: -6px;
+    object-fit: cover;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #475569;
+    overflow: hidden;
+  }
+
+  .fk-avatar:first-child { margin-left: 0; }
+
+  .fk-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .fk-modified {
+    font-size: 0.73rem;
+    color: #94a3b8;
+  }
+
+  .fk-current-stage {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.55rem 0.65rem;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #eef2f7;
+  }
+
+  .fk-stage-label {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+
+  .fk-stage-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .fk-stage-name {
+    font-size: 0.82rem;
+    color: #334155;
+    font-weight: 600;
+    line-height: 1.3;
+    flex: 1;
+  }
+
+  .fk-current-stage .indicator-pill {
+    flex-shrink: 0;
+  }
+
+  /* Search + filter bar */
+  .fk-toolbar {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+  }
+
+  .fk-toolbar .fk-search-input {
+    flex: 1;
+    min-width: 180px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.875rem;
+    outline: none;
+  }
+
+  .fk-toolbar .fk-search-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  }
+
+  .fk-toolbar .fk-status-select {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.875rem;
+    background: #fff;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .fk-toolbar .btn-search {
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.45rem 1.1rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .fk-toolbar .btn-search:hover {
+    background: #4338ca;
+  }
+
+  /* Empty state */
+  .fk-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #94a3b8;
+  }
+
+  .fk-empty svg {
+    width: 64px;
+    height: 64px;
+    stroke: #cbd5e1;
+    margin-bottom: 1rem;
+  }
+
+  .fk-empty p {
+    font-size: 0.95rem;
+  }
+
+  .fk-page-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin-bottom: 0.25rem;
+  }
+
+  .fk-page-subtitle {
+    font-size: 0.875rem;
+    color: #64748b;
+    margin-bottom: 1.25rem;
+  }
+</style>
+{% endblock %}
+
+{% block header %}
+  <h3 class="my-account-header">{{ _("Projects") }}</h3>
+{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid px-0">
+
+  <!-- Search / Filter toolbar -->
+  <form method="GET" action="/project" class="fk-toolbar">
+    <input
+      type="text"
+      name="txt"
+      value="{{ txt or '' }}"
+      placeholder="{{ _('Search projects…') }}"
+      class="fk-search-input"
+    >
+    <select name="status" class="fk-status-select">
+      <option value="">{{ _("All Statuses") }}</option>
+      {% for s in ["Open", "Completed", "Cancelled", "Template"] %}
+        <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ _(s) }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-search">{{ _("Search") }}</button>
+    {% if txt or status_filter %}
+      <a href="/project" class="btn btn-light btn-sm">{{ _("Clear") }}</a>
+    {% endif %}
+  </form>
+
+  <!-- Two-column card grid -->
+  <div class="fk-project-grid">
+
+    {% if projects %}
+      {% for project in projects %}
+        <a class="fk-project-card" href="/projects?project={{ project.name | urlencode }}">
+
+          <!-- Card header: name + status badge -->
+          <div class="fk-card-header">
+            <div class="fk-project-name">{{ project.project_name or project.name }}</div>
+            <span class="fk-status-badge fk-badge-{{ project.status_class }}">
+              {{ _(project.status) }}
+            </span>
+          </div>
+
+          <!-- Meta: customer + dates -->
+          <div class="fk-card-meta">
+            {% if project.customer %}
+            <span>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              {{ project.customer }}
+            </span>
+            {% endif %}
+            {% if project.expected_start_date or project.expected_end_date %}
+            <span>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              {% if project.expected_start_date %}{{ frappe.utils.formatdate(project.expected_start_date) }}{% endif %}
+              {% if project.expected_start_date and project.expected_end_date %} → {% endif %}
+              {% if project.expected_end_date %}{{ frappe.utils.formatdate(project.expected_end_date) }}{% endif %}
+            </span>
+            {% endif %}
+          </div>
+
+          <!-- Progress bar -->
+          <div class="fk-progress-wrap">
+            <div class="fk-progress-label">
+              <span>{{ _("Progress") }}</span>
+              <span>{{ project.progress_int }}%</span>
+            </div>
+            <div class="fk-progress">
+              <div
+                class="fk-progress-bar {{ project.progress_class }}"
+                style="width: {{ project.progress_int }}%;"
+              ></div>
+            </div>
+          </div>
+
+          {% if project.current_stage %}
+          <div class="fk-current-stage">
+            <div class="fk-stage-label">{{ _("Current Stage") }}</div>
+            <div class="fk-stage-row">
+              <span class="fk-stage-name">{{ project.current_stage }}</span>
+              {% if project.current_stage_schedule %}
+                <span class="indicator-pill {{ project.current_stage_schedule_indicator }}">{{ _(project.current_stage_schedule) }}</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Footer: avatars + modified date -->
+          <div class="fk-card-footer">
+            <div class="fk-avatar-group">
+              {% for user in project.assigned_users %}
+                <div class="fk-avatar" title="{{ user.full_name }}">
+                  {% if user.user_image %}
+                    <img src="{{ user.user_image }}" alt="{{ user.full_name }}">
+                  {% else %}
+                    {{ frappe.utils.get_abbr(user.full_name) }}
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+            <div class="fk-modified">
+              {{ frappe.utils.pretty_date(project.modified) }}
+            </div>
+          </div>
+
+        </a>
+      {% endfor %}
+
+    {% else %}
+      <div class="fk-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7h18M3 12h18M3 17h12"/>
+        </svg>
+        <p>{{ no_result_message or _("No projects found.") }}</p>
+      </div>
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}
