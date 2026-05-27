@@ -57,13 +57,20 @@ def get_data(filters):
 	}
 
 	job_card_time_details = {}
+	job_card_actual_time = {}
 	for job_card_data in frappe.get_all(
 		"Job Card Time Log",
-		fields=[{"MIN": "from_time", "as": "from_time"}, {"MAX": "to_time", "as": "to_time"}, "parent"],
+		fields=[
+			"parent",
+			{"MIN": "from_time", "as": "from_time"},
+			{"MAX": "to_time", "as": "to_time"},
+			{"SUM": "time_in_mins", "as": "actual_time"},
+		],
 		filters=job_card_time_filter,
 		group_by="parent",
 	):
 		job_card_time_details[job_card_data.parent] = job_card_data
+		job_card_actual_time[job_card_data.parent] = flt(job_card_data.actual_time)
 
 	res = []
 	for d in data:
@@ -75,7 +82,10 @@ def get_data(filters):
 			d.to_time = job_card_time_details.get(d.name).to_time
 
 		d.scheduled_time = flt(d.time_required)
-		d.actual_time = flt(d.total_time_in_mins)
+		if d.name in job_card_actual_time:
+			d.actual_time = job_card_actual_time[d.name]
+		else:
+			d.actual_time = flt(d.total_time_in_mins)
 		d.extra_time = d.actual_time - d.scheduled_time
 
 		res.append(d)
