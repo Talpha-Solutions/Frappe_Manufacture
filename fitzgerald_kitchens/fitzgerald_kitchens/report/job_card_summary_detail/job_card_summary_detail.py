@@ -96,15 +96,15 @@ def get_data(filters):
 def get_chart_data(job_card_details, filters):
 	labels, periodic_data = prepare_chart_data(job_card_details, filters)
 
-	open_job_cards, completed = [], []
+	scheduled_time, actual_time = [], []
 	datasets = []
 
-	for d in labels:
-		open_job_cards.append(periodic_data.get("Open").get(d))
-		completed.append(periodic_data.get("Completed").get(d))
+	for period in labels:
+		scheduled_time.append(periodic_data["Scheduled Time"].get(period, 0))
+		actual_time.append(periodic_data["Actual Time"].get(period, 0))
 
-	datasets.append({"name": _("Open"), "values": open_job_cards})
-	datasets.append({"name": _("Completed"), "values": completed})
+	datasets.append({"name": _("Scheduled Time (In Mins)"), "values": scheduled_time})
+	datasets.append({"name": _("Actual Time (In Mins)"), "values": actual_time})
 
 	chart = {"data": {"labels": labels, "datasets": datasets}, "type": "bar"}
 
@@ -114,7 +114,7 @@ def get_chart_data(job_card_details, filters):
 def prepare_chart_data(job_card_details, filters):
 	labels = []
 
-	periodic_data = {"Open": {}, "Completed": {}}
+	periodic_data = {"Scheduled Time": {}, "Actual Time": {}}
 
 	filters.range = "Monthly"
 
@@ -126,12 +126,12 @@ def prepare_chart_data(job_card_details, filters):
 
 		for d in job_card_details:
 			if getdate(d.posting_date) > from_date and getdate(d.posting_date) <= end_date:
-				status = "Completed" if d.status == "Completed" else "Open"
-
-				if periodic_data.get(status).get(period):
-					periodic_data[status][period] += 1
-				else:
-					periodic_data[status][period] = 1
+				periodic_data["Scheduled Time"][period] = periodic_data["Scheduled Time"].get(period, 0) + flt(
+					d.scheduled_time
+				)
+				periodic_data["Actual Time"][period] = periodic_data["Actual Time"].get(period, 0) + flt(
+					d.actual_time
+				)
 
 	return labels, periodic_data
 
