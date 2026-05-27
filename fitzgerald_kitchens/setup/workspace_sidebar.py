@@ -52,6 +52,18 @@ JOB_CARD_SUMMARY_DETAIL_ITEM = {
 	"show_arrow": 0,
 }
 
+PROJECT_PRODUCTION_TIME_SUMMARY_ITEM = {
+	"label": "Project Production Time Summary",
+	"link_to": "Project Production Time Summary",
+	"link_type": "Report",
+	"type": "Link",
+	"child": 1,
+	"collapsible": 1,
+	"indent": 0,
+	"keep_closed": 0,
+	"show_arrow": 0,
+}
+
 
 def ensure_projects_sidebar():
 	if not frappe.db.exists("Workspace Sidebar", PROJECTS_SIDEBAR):
@@ -66,9 +78,28 @@ def ensure_projects_sidebar():
 	if _ensure_setup_sidebar_items(sidebar):
 		changed = True
 
+	if _ensure_projects_reports_sidebar(sidebar):
+		changed = True
+
 	if changed:
 		sidebar.flags.ignore_permissions = True
 		sidebar.save()
+
+
+def _ensure_projects_reports_sidebar(sidebar):
+	if _has_sidebar_link(sidebar, PROJECT_PRODUCTION_TIME_SUMMARY_ITEM["link_to"]):
+		return False
+
+	items = [_item_dict(row) for row in sidebar.items]
+	insert_at = _index_of_link(items, "Project Summary")
+	if insert_at is None:
+		insert_at = _index_after_reports_section(items)
+	else:
+		insert_at += 1
+
+	items.insert(insert_at, PROJECT_PRODUCTION_TIME_SUMMARY_ITEM)
+	_apply_items(sidebar, items)
+	return True
 
 
 def ensure_manufacturing_sidebar():
