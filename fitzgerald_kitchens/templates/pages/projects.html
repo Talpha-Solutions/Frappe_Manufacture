@@ -14,7 +14,13 @@
 
 {% block style %}
   <style>
-    {% include "templates/includes/projects.css" %}
+    .underline { text-decoration: underline; }
+    .project-item:hover { background-color: #f7f7f7; }
+    .project-item { color: #6c7680; font-size: 14px; }
+    .task-subject { margin: 0px; }
+    .page-container .project-item { padding-top: 5px; padding-bottom: 5px; }
+    .bold { font-weight: bold; }
+    .progress-hg { margin-bottom: 30px !important; height: 15px; }
   </style>
 {% endblock %}
 
@@ -27,7 +33,18 @@
     </div>
   </div>
 
-  {{ progress_bar(doc.percent_complete) }}
+  {# Compute progress value safely here in the main block #}
+  {% set p = (doc.percent_complete or 0) | round | int %}
+  <span class="small py-2">{{ _("Project Progress:") }}</span>
+  <div class="progress progress-hg">
+    <div class="progress-bar progress-bar-{{ 'warning' if p < 100 else 'success' }} active"
+         role="progressbar" 
+         aria-valuenow="{{ p }}" 
+         aria-valuemin="0" 
+         aria-valuemax="100" 
+         style="width: {{ p }}%;">
+    </div>
+  </div>
 
   <hr>
 
@@ -37,6 +54,7 @@
       <a class="btn btn-secondary btn-light btn-sm" href='/tasks/new?project={{ doc.project_name }}'>{{ _("New task") }}</a>
     </div>
   </div>
+  
   {% if doc.tasks %}
   <div class="website-list">
     <div class="result">
@@ -45,8 +63,9 @@
           <div class="col-sm-3"><b>{{ _("Tasks") }}</b></div>
           <div class="col-sm-2"><b>{{ _("Status") }}</b></div>
           <div class="col-sm-2"><b>{{ _("End Date") }}</b></div>
-          <div class="col-sm-2"><b>{{ _("Delivered") }}</b></div>
+          <div class="col-sm-1"><b>{{ _("Delivered") }}</b></div>
           <div class="col-sm-2"><b>{{ _("Assignment") }}</b></div>
+          <div class="col-sm-1"><b>{{ _("Images") }}</b></div>
           <div class="col-sm-1"><b>{{ _("Modified On") }}</b></div>
         </div>
       </div>
@@ -78,7 +97,6 @@
 
   {% if doc.attachments %}
     <div class='padding'></div>
-
     <h4>{{ _("Attachments") }}</h4>
     <div class="project-attachments">
       {% for attachment in doc.attachments %}
@@ -86,8 +104,7 @@
           <a class="no-decoration attachment-link" href="{{ attachment.file_url }}" target="blank">
             <div class="row">
               <div class="col-xs-9">
-                <span class="indicator red file-name">
-                  {{ attachment.file_name }}</span>
+                <span class="indicator red file-name">{{ attachment.file_name }}</span>
               </div>
               <div class="col-xs-3">
                 <span class="pull-right file-size">{{ attachment.file_size }}</span>
@@ -99,32 +116,53 @@
     </div>
   {% endif %}
 
+<div id="portal-lightbox-modal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); z-index: 99999; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 12px; width: 90%; max-width: 550px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); overflow: hidden;">
+        <div style="padding: 14px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <h5 id="lightbox-modal-title" style="font-size: 15px; font-weight: 700; color: #0f172a; margin: 0;">Task Attachments</h5>
+            <button type="button" class="close-lightbox-btn" style="background: none; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+        <div id="lightbox-modal-gallery" style="display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; padding: 20px; max-height: 55vh; overflow-y: auto;"></div>
+    </div>
 </div>
 
 <script>
-  { % include "frappe/public/js/frappe/provide.js" % }
-  { % include "frappe/public/js/frappe/form/formatters.js" % }
- </script>
-
+  $(document).ready(function() {
+      const modalView = $('#portal-lightbox-modal');
+      $(document).on('click', '.view-img-badge', function(e) {
+          e.preventDefault();
+          const label = $(this).attr('data-task-title');
+          const dataAttr = $(this).attr('data-images-json');
+          if(!dataAttr || dataAttr === 'None') return;
+          const fileData = JSON.parse(dataAttr);
+          $('#lightbox-modal-title').text(label + " - Uploaded Images");
+          const container = $('#lightbox-modal-gallery').empty();
+          fileData.forEach(function(img) {
+              container.append(`
+                  <div style="width: 110px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; background: #fff; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                      <a href="${img.file_url}" target="_blank" style="display: block; text-decoration: none;">
+                          <div style="height: 80px; background: #f8fafc; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #f1f5f9;">
+                              <img src="${img.file_url}" style="max-width: 100%; max-height: 100%; object-fit: cover;">
+                          </div>
+                          <div style="padding: 4px; font-size: 10px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${img.file_name}">${img.file_name}</div>
+                      </a>
+                  </div>
+              `);
+          });
+          modalView.css('display', 'flex');
+      });
+      $('.close-lightbox-btn, #portal-lightbox-modal').on('click', function(e) {
+          if (e.target === this || $(e.target).hasClass('close-lightbox-btn')) {
+              modalView.hide();
+          }
+      });
+  });
+</script>
 {% endblock %}
-
-{% macro progress_bar(percent_complete) %}
-{% if percent_complete %}
-  <span class="small py-2">{{ _("Project Progress:") }}</span>
-  <div class="progress progress-hg" style="height: 15px;">
-    <div
-      class="progress-bar progress-bar-{{ 'warning' if percent_complete|round < 100 else 'success' }} active"\
-      role="progressbar" aria-valuenow="{{ percent_complete|round|int }}" aria-valuemin="0"\
-      aria-valuemax="100" style="width:{{ percent_complete|round|int }}%;">
-    </div>
-  </div>
-{% endif %}
-{% endmacro %}
-
 
 {% macro empty_state(section_name) %}
 <div class="frappe-list align-items-center">
-  <div class=" text-muted flex justify-center align-center" style="">
+  <div class=" text-muted flex justify-center align-center">
     <div class=" text-muted flex text-center">
       <div class="msg-box no-border">
         <div>
@@ -134,5 +172,5 @@
       </div>
     </div>
   </div>
-  </div>
+</div>
 {% endmacro %}

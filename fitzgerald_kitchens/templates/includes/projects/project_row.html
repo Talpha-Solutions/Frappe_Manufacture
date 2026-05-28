@@ -1,5 +1,5 @@
 <style>
-/* Inject grid layout into the standard .result container for Project lists */
+/* Card grid layout */
 .website-list[data-doctype="Project"] .result,
 .website-list .result {
   display: grid !important;
@@ -7,138 +7,78 @@
   gap: 1.25rem;
   padding: 0.25rem 0 1rem;
 }
+
 @media (max-width: 768px) {
   .website-list[data-doctype="Project"] .result,
   .website-list .result {
     grid-template-columns: 1fr;
   }
 }
-/* Card styles */
+
+/* Card */
 .fk-card {
-  background: #ffffff;
+  background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 1.1rem 1.25rem 0.9rem;
+  padding: 1.1rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  text-decoration: none !important;
-  color: inherit;
-  transition: box-shadow 0.18s ease, transform 0.15s ease;
+  gap: 0.6rem;
+  transition: 0.2s ease;
+  cursor: pointer;
 }
+
 .fk-card:hover {
-  box-shadow: 0 6px 22px rgba(0,0,0,0.10);
   transform: translateY(-2px);
-  color: inherit;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.08);
 }
-.fk-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
+
 .fk-card-name {
-  font-size: 0.97rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #1a202c;
-  line-height: 1.3;
-  flex: 1;
 }
+
 .fk-card-id {
   font-size: 0.72rem;
   color: #94a3b8;
-  font-weight: 400;
-  margin-top: 2px;
-  display: block;
 }
-/* Keep indicator-pill aligned in card header */
-.fk-card-top .indicator-pill {
-  flex-shrink: 0;
-  align-self: flex-start;
-  margin-top: 2px;
-}
-/* Progress */
-.fk-prog-wrap { margin: 0.1rem 0; }
-.fk-prog-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.73rem;
-  color: #64748b;
-  margin-bottom: 4px;
-}
-.fk-prog-bar-bg {
-  height: 6px;
-  background: #e2e8f0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-.fk-prog-bar {
-  height: 100%;
-  border-radius: 4px;
-}
-.fk-prog-bar.done    { background: #10b981; }
-.fk-prog-bar.going   { background: #3b82f6; }
-.fk-prog-bar.early   { background: #f59e0b; }
-.fk-prog-bar.none    { background: #cbd5e1; }
-/* Footer */
+
 .fk-card-footer {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding-top: 0.55rem;
   border-top: 1px solid #f1f5f9;
-  margin-top: 0.1rem;
+  padding-top: 0.6rem;
 }
-.fk-avatars { display: flex; align-items: center; }
+
 .fk-av {
-  width: 25px; height: 25px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  border: 2px solid #fff;
-  margin-left: -5px;
   overflow: hidden;
+  margin-left: -5px;
   background: #e2e8f0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.6rem; font-weight: 700; color: #475569;
-}
-.fk-av:first-child { margin-left: 0; }
-.fk-av img { width: 100%; height: 100%; object-fit: cover; }
-.fk-modified { font-size: 0.72rem; color: #94a3b8; }
-/* Current task stage */
-.fk-current-stage {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.55rem 0.65rem;
-  background: #f8fafc;
-  border-radius: 8px;
-  border: 1px solid #eef2f7;
-}
-.fk-stage-label {
-  font-size: 0.68rem;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-weight: 600;
-}
-.fk-stage-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  justify-content: center;
+  font-size: 10px;
 }
-.fk-stage-name {
-  font-size: 0.82rem;
-  color: #334155;
-  font-weight: 600;
-  line-height: 1.3;
-  flex: 1;
+
+.fk-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
-.fk-current-stage .indicator-pill {
-  flex-shrink: 0;
+
+.fk-modified {
+  font-size: 0.72rem;
+  color: #94a3b8;
 }
 </style>
 
+{# status + progress #}
 {% set pct = doc.percent_complete | int %}
+
 {% if pct >= 100 %}
   {% set bar_cls = "done" %}
 {% elif pct >= 50 %}
@@ -149,71 +89,48 @@
   {% set bar_cls = "none" %}
 {% endif %}
 
-{# ERPNext default indicator-pill colors matching frappe.utils.guess_colour #}
-{% set status = doc.status or "Template" %}
+{% set status = doc.status or "Open" %}
+
 {% if status == "Completed" %}
   {% set pill_color = "green" %}
 {% elif status == "Cancelled" %}
   {% set pill_color = "gray" %}
-{% elif status == "Open" and pct > 0 %}
-  {% set pill_color = "orange" %}
 {% elif status == "Open" %}
   {% set pill_color = "red" %}
 {% else %}
   {% set pill_color = "gray" %}
 {% endif %}
 
-<a class="fk-card" href="/projects?project={{ doc.name | urlencode }}">
+<!-- CARD -->
+<div class="fk-card project-card"
+     data-project="{{ doc.name }}">
 
-  <div class="fk-card-top">
-    <div>
-      <div class="fk-card-name">{{ doc.project_name or doc.name }}</div>
-      <span class="fk-card-id">{{ doc.name }}</span>
-    </div>
-    <span class="indicator-pill {{ pill_color }}">{{ _(status) }}</span>
+  <div>
+    <div class="fk-card-name">{{ doc.project_name or doc.name }}</div>
+    <div class="fk-card-id">{{ doc.name }}</div>
   </div>
 
-  <div class="fk-prog-wrap">
-    <div class="fk-prog-labels">
-      <span>{{ _("Progress") }}</span>
-      <span>{{ pct }}%</span>
-    </div>
-    <div class="fk-prog-bar-bg">
-      <div class="fk-prog-bar {{ bar_cls }}" style="width:{{ pct }}%;"></div>
-    </div>
+  <div class="indicator-pill {{ pill_color }}">
+    {{ _(status) }}
   </div>
-
-  {% if doc.current_stage %}
-  <div class="fk-current-stage">
-    <div class="fk-stage-label">{{ _("Current Stage") }}</div>
-    <div class="fk-stage-row">
-      <span class="fk-stage-name">{{ doc.current_stage }}</span>
-      {% if doc.current_stage_schedule %}
-        <span class="indicator-pill {{ doc.current_stage_schedule_indicator }}">{{ _(doc.current_stage_schedule) }}</span>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
 
   {% if doc.customer %}
-  <div style="font-size:0.8rem; color:#64748b;">
-    <svg style="width:13px;height:13px;stroke:#94a3b8;vertical-align:middle;margin-right:4px;" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-    </svg>
+  <div style="font-size:0.8rem;color:#64748b;">
     {{ doc.customer }}
   </div>
   {% endif %}
 
   <div class="fk-card-footer">
-    <div class="fk-avatars">
+
+    <div style="display:flex;">
       {% if doc._assign %}
         {% set assigned = json.loads(doc._assign) %}
         {% for user in assigned[:3] %}
           {% set uinfo = frappe.db.get_value("User", user, ["full_name", "user_image"], as_dict=True) %}
           {% if uinfo %}
-            <div class="fk-av" title="{{ uinfo.full_name }}">
+            <div class="fk-av">
               {% if uinfo.user_image %}
-                <img src="{{ uinfo.user_image }}" alt="{{ uinfo.full_name }}">
+                <img src="{{ uinfo.user_image }}">
               {% else %}
                 {{ frappe.utils.get_abbr(uinfo.full_name) }}
               {% endif %}
@@ -222,7 +139,11 @@
         {% endfor %}
       {% endif %}
     </div>
-    <div class="fk-modified">{{ frappe.utils.pretty_date(doc.modified) }}</div>
+
+    <div class="fk-modified">
+      {{ frappe.utils.pretty_date(doc.modified) }}
+    </div>
+
   </div>
 
-</a>
+</div>
