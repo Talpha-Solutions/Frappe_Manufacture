@@ -52,6 +52,35 @@ JOB_CARD_SUMMARY_DETAIL_ITEM = {
 	"show_arrow": 0,
 }
 
+PROJECT_PRODUCTION_TIME_SUMMARY_ITEM = {
+	"label": "Project Production Time Summary",
+	"link_to": "Project Production Time Summary",
+	"link_type": "Report",
+	"type": "Link",
+	"child": 1,
+	"collapsible": 1,
+	"indent": 0,
+	"keep_closed": 0,
+	"show_arrow": 0,
+}
+
+MANUFACTURING_COST_SUMMARY_ITEM = {
+	"label": "Manufacturing Cost Summary",
+	"link_to": "Manufacturing Cost Summary",
+	"link_type": "Report",
+	"type": "Link",
+	"child": 1,
+	"collapsible": 1,
+	"indent": 0,
+	"keep_closed": 0,
+	"show_arrow": 0,
+}
+
+PROJECT_REPORT_SIDEBAR_ITEMS = [
+	PROJECT_PRODUCTION_TIME_SUMMARY_ITEM,
+	MANUFACTURING_COST_SUMMARY_ITEM,
+]
+
 
 def ensure_projects_sidebar():
 	if not frappe.db.exists("Workspace Sidebar", PROJECTS_SIDEBAR):
@@ -66,9 +95,38 @@ def ensure_projects_sidebar():
 	if _ensure_setup_sidebar_items(sidebar):
 		changed = True
 
+	if _ensure_projects_reports_sidebar(sidebar):
+		changed = True
+
 	if changed:
 		sidebar.flags.ignore_permissions = True
 		sidebar.save()
+
+
+def _ensure_projects_reports_sidebar(sidebar):
+	items = [_item_dict(row) for row in sidebar.items]
+	changed = False
+
+	for report_item in PROJECT_REPORT_SIDEBAR_ITEMS:
+		if _has_link_in(items, report_item["link_to"]):
+			continue
+
+		insert_at = _index_of_link(items, "Project Summary")
+		if insert_at is None:
+			insert_at = _index_after_reports_section(items)
+		else:
+			for existing_item in PROJECT_REPORT_SIDEBAR_ITEMS:
+				existing_index = _index_of_link(items, existing_item["link_to"])
+				if existing_index is not None and existing_index >= insert_at:
+					insert_at = existing_index
+			insert_at += 1
+
+		items.insert(insert_at, report_item)
+		changed = True
+
+	if changed:
+		_apply_items(sidebar, items)
+	return changed
 
 
 def ensure_manufacturing_sidebar():
