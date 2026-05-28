@@ -45,9 +45,14 @@ app_license = "mit"
 # include js in doctype views
 doctype_js = {
 	"Project": "public/js/project.js",
+	"BOM Cost Calculator": [
+		"public/js/bom_cost_configurator.bundle.js",
+		"fitzgerald_kitchens/doctype/bom_cost_calculator/bom_cost_calculator.js",
+	],
 }
 doctype_list_js = {
 	"Development Stage": "fitzgerald_kitchens/doctype/development_stage/development_stage_list.js",
+	"BOM Cost Calculator": "fitzgerald_kitchens/doctype/bom_cost_calculator/bom_cost_calculator_list.js",
 }
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}

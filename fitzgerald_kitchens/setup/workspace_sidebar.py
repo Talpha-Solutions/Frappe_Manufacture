@@ -76,6 +76,18 @@ MANUFACTURING_COST_SUMMARY_ITEM = {
 	"show_arrow": 0,
 }
 
+BOM_COST_CALCULATOR_ITEM = {
+	"label": "BOM Cost Calculator",
+	"link_to": "BOM Cost Calculator",
+	"link_type": "DocType",
+	"type": "Link",
+	"child": 1,
+	"collapsible": 1,
+	"indent": 0,
+	"keep_closed": 0,
+	"show_arrow": 0,
+}
+
 PROJECT_REPORT_SIDEBAR_ITEMS = [
 	PROJECT_PRODUCTION_TIME_SUMMARY_ITEM,
 	MANUFACTURING_COST_SUMMARY_ITEM,
@@ -134,10 +146,43 @@ def ensure_manufacturing_sidebar():
 		return
 
 	sidebar = frappe.get_doc("Workspace Sidebar", MANUFACTURING_SIDEBAR)
-	if _has_sidebar_link(sidebar, JOB_CARD_SUMMARY_DETAIL_ITEM["link_to"]):
-		return
+	changed = False
 
+	if _ensure_manufacturing_tools_sidebar(sidebar):
+		changed = True
+
+	if _ensure_manufacturing_reports_sidebar(sidebar):
+		changed = True
+
+	if changed:
+		sidebar.flags.ignore_permissions = True
+		sidebar.save()
+
+
+def _ensure_manufacturing_tools_sidebar(sidebar):
 	items = [_item_dict(row) for row in sidebar.items]
+	if _has_link_in(items, BOM_COST_CALCULATOR_ITEM["link_to"]):
+		return False
+
+	insert_at = _index_of_link(items, "BOM Creator")
+	if insert_at is None:
+		insert_at = _index_after_tools_section(items)
+	else:
+		insert_at += 1
+
+	if insert_at is None:
+		return False
+
+	items.insert(insert_at, BOM_COST_CALCULATOR_ITEM)
+	_apply_items(sidebar, items)
+	return True
+
+
+def _ensure_manufacturing_reports_sidebar(sidebar):
+	items = [_item_dict(row) for row in sidebar.items]
+	if _has_link_in(items, JOB_CARD_SUMMARY_DETAIL_ITEM["link_to"]):
+		return False
+
 	insert_at = _index_of_link(items, "Job Card Summary")
 	if insert_at is None:
 		insert_at = _index_after_reports_section(items)
@@ -146,8 +191,14 @@ def ensure_manufacturing_sidebar():
 
 	items.insert(insert_at, JOB_CARD_SUMMARY_DETAIL_ITEM)
 	_apply_items(sidebar, items)
-	sidebar.flags.ignore_permissions = True
-	sidebar.save()
+	return True
+
+
+def _index_after_tools_section(items):
+	for index, item in enumerate(items):
+		if item.get("type") == "Section Break" and item.get("label") == "Tools":
+			return index + 1
+	return None
 
 
 def _index_after_reports_section(items):
