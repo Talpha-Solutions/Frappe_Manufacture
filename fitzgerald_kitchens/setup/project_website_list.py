@@ -97,6 +97,22 @@ def patch_project_website_tasks():
 				if child_tasks:
 					task.children = child_tasks
 
+			# Retrieve attached images for image preview modal compatibility
+			attachments = frappe.get_all(
+				"File",
+				filters={
+					"attached_to_doctype": "Task",
+					"attached_to_name": task.name,
+					"is_private": 0
+				},
+				fields=["file_url", "file_name"]
+			)
+			task.attached_images = [
+				att for att in attachments 
+				if att.file_url and att.file_url.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))
+			]
+			task.image_count = len(task.attached_images)
+
 		return [task for task in tasks if not task.parent_task]
 
 	def get_task_html(project, start=0, item_status=None):
