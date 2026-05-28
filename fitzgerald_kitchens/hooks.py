@@ -275,6 +275,14 @@ fixtures = [
 		"dt": "Workspace Sidebar",
 		"filters": [["name", "in", ["Projects"]]],
 	},
+        {
+        "dt": "Client Script",
+        "filters": [
+            ["name", "=", "Task custom tab interface"]
+        ]
+    },
+    
+	
 ]
 
 # Translation
@@ -289,4 +297,5 @@ from fitzgerald_kitchens.setup.project_website_list import (
 
 patch_project_website_list()
 patch_project_website_tasks()
+
 
