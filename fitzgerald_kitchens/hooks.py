@@ -45,6 +45,7 @@ app_license = "mit"
 # include js in doctype views
 doctype_js = {
 	"Project": "public/js/project.js",
+	"Task": "public/js/task.js",
 }
 doctype_list_js = {
 	"Development Stage": "fitzgerald_kitchens/doctype/development_stage/development_stage_list.js",
@@ -270,14 +271,14 @@ fixtures = [
 		"dt": "Workspace Sidebar",
 		"filters": [["name", "in", ["Projects"]]],
 	},
-        {
-        "dt": "Client Script",
-        "filters": [
-            ["name", "=", "Task custom tab interface"]
-        ]
-    },
-    
-	
+	{
+		"dt": "Custom Field",
+		"filters": [["fieldname", "=", "custom_uploader_target"]],
+	},
+	{
+		"dt": "Property Setter",
+		"filters": [["doc_type", "=", "Task"], ["property", "=", "max_attachments"]],
+	},
 ]
 
 # Translation
@@ -292,5 +293,3 @@ from fitzgerald_kitchens.setup.project_website_list import (
 
 patch_project_website_list()
 patch_project_website_tasks()
-
-

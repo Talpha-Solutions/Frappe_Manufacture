@@ -1,0 +1,12 @@
+[
+    {
+        "doctype": "Property Setter",
+        "name": "Task-max_attachments",
+        "doc_type": "Task",
+        "field_name": "",
+        "property": "max_attachments",
+        "property_type": "Int",
+        "value": "25",
+        "doctype_or_field": "DocType"
+    }
+]
