@@ -31,7 +31,7 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 	}
 
 	const name = node.data?.assembly_row_name || node.data?.name;
-	if (name && !String(name).startsWith("__routing__:") && !String(name).includes("__op__")) {
+	if (name && !String(name).startsWith("__routing__:") && !String(name).startsWith("__raw_materials__:") && !String(name).includes("__op__")) {
 		return name;
 	}
 
@@ -51,6 +51,228 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 (function () {
 	const BCC_API =
 		"fitzgerald_kitchens.fitzgerald_kitchens.doctype.bom_cost_calculator.bom_cost_calculator";
+	const BCC_BUNDLE = "/assets/fitzgerald_kitchens/js/bom_cost_configurator.bundle.js";
+
+	function bcc_ensure_configurator_loaded(callback, on_fail) {
+		if (frappe.ui.BOMCostConfigurator) {
+			callback();
+			return;
+		}
+
+		frappe.require(BCC_BUNDLE, () => {
+			if (frappe.ui.BOMCostConfigurator) {
+				callback();
+				return;
+			}
+
+			on_fail?.();
+			frappe.msgprint(__("Could not load BOM Cost Configurator."));
+		});
+	}
+
+	function bcc_finish_build(frm) {
+		frm._bcc_build_in_progress = false;
+		if (frm._bcc_build_pending) {
+			frm._bcc_build_pending = false;
+			frappe.after_ajax(() => frm.trigger("build_tree"));
+		}
+	}
+
+	function bcc_is_virtual_tree_node(node) {
+		const data = node?.data || {};
+		const value = String(data.value || "");
+		return (
+			data.is_routing_node ||
+			data.is_raw_materials_node ||
+			data.is_operation_node ||
+			value.startsWith("__routing__:") ||
+			value.startsWith("__raw_materials__:") ||
+			value.includes("__op__")
+		);
+	}
+
+	function bcc_is_removable_raw_material(node) {
+		if (!node || node.is_root || bcc_is_virtual_tree_node(node)) {
+			return false;
+		}
+
+		if (node.parent_node?.data?.is_raw_materials_node) {
+			return true;
+		}
+
+		return !cint(node.expandable);
+	}
+
+	function bcc_get_delete_args(node, frm) {
+		let fg_item = node.data.fg_item || node.data.value;
+
+		if (node.parent_node?.data?.is_raw_materials_node && node.parent_node.data.assembly_row_name) {
+			const assembly_row = frm.doc.items?.find(
+				(row) => row.name === node.parent_node.data.assembly_row_name
+			);
+			if (assembly_row?.item_code) {
+				fg_item = assembly_row.item_code;
+			}
+		}
+
+		return {
+			parent: node.data.parent_id || frm.doc.name,
+			fg_item,
+			doctype: node.data.doctype,
+			docname: node.data.name,
+		};
+	}
+
+	function bcc_get_delete_reload_node(node) {
+		if (node.parent_node?.data?.is_raw_materials_node) {
+			node.parent_node.loaded = false;
+			return node.parent_node;
+		}
+
+		if (node.parent_node?.data?.expandable) {
+			node.parent_node.loaded = false;
+		}
+
+		return node.parent_node;
+	}
+
+	function bcc_delete_tree_node(node, view_ref, frm) {
+		if (bcc_is_virtual_tree_node(node)) {
+			return;
+		}
+
+		const is_raw_material = bcc_is_removable_raw_material(node);
+		const is_assembly = cint(node.expandable) && !node.is_root;
+
+		if (!is_raw_material && !is_assembly) {
+			return;
+		}
+		const message = is_raw_material
+			? __("Are you sure you want to remove this raw material?")
+			: __("Are you sure you want to delete this Item?");
+
+		frappe.confirm(message, () => {
+			frappe.call({
+				method: `${BCC_API}.delete_node`,
+				args: bcc_get_delete_args(node, frm),
+				callback: (r) => {
+					const reload_node = bcc_get_delete_reload_node(node);
+					if (reload_node) {
+						view_ref.events.load_tree(r, reload_node);
+						return;
+					}
+					view_ref.events.load_tree(r, node);
+				},
+			});
+		});
+	}
+
+	function bcc_inject_cost_tree_styles() {
+		let style = document.getElementById("bcc-cost-tree-styles");
+		if (!style) {
+			style = document.createElement("style");
+			style.id = "bcc-cost-tree-styles";
+			document.head.appendChild(style);
+		}
+
+		style.textContent = `
+			.form-tab-content[data-fieldname="tab_2_tab"] .section-body,
+			.form-tab-content.active .frappe-control[data-fieldname="bom_cost_calculator"] .section-body {
+				max-width: 1100px;
+			}
+			.frappe-control[data-fieldname="bom_cost_calculator"] .control-input-wrapper,
+			.frappe-control[data-fieldname="bom_cost_calculator"] .control-value {
+				width: 100%;
+			}
+			.bcc-cost-tree-tab {
+				display: flex;
+				flex-direction: column;
+				width: 100%;
+			}
+			.bcc-tree-container {
+				flex: 1 1 auto;
+				width: 100%;
+			}
+			.bcc-bottom-panel {
+				flex: 0 0 auto;
+				width: 100%;
+				padding-bottom: 8px;
+			}
+			.bcc-cost-summary-card {
+				max-width: 360px;
+				margin-left: auto;
+				border-radius: var(--border-radius-md, 8px);
+				border: 1px solid var(--border-color);
+				background: var(--card-bg);
+				box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.08));
+				overflow: hidden;
+			}
+			.bcc-summary-header {
+				padding: 14px 18px 12px;
+				border-bottom: 1px solid var(--border-color);
+				background: var(--subtle-accent, var(--subtle-fg));
+			}
+			.bcc-summary-title {
+				display: block;
+				font-size: 13px;
+				font-weight: 600;
+				color: var(--heading-color, var(--text-color));
+			}
+			.bcc-summary-subtitle {
+				display: block;
+				margin-top: 2px;
+				font-size: 11px;
+				color: var(--text-muted);
+			}
+			.bcc-summary-body {
+				padding: 10px 18px;
+			}
+			.bcc-summary-row {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				padding: 10px 0;
+				border-bottom: 1px solid var(--border-color);
+			}
+			.bcc-summary-row:last-child {
+				border-bottom: none;
+			}
+			.bcc-summary-row-label {
+				font-size: 12px;
+				font-weight: 500;
+				color: var(--text-muted);
+			}
+			.bcc-summary-value {
+				font-size: 13px;
+				font-weight: 600;
+				color: var(--text-color);
+				white-space: nowrap;
+			}
+			.bcc-summary-total {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				padding: 14px 18px;
+				border-top: 1px solid var(--border-color);
+				background: var(--subtle-accent, var(--subtle-fg));
+			}
+			.bcc-summary-total-label {
+				font-size: 12px;
+				font-weight: 600;
+				color: var(--text-muted);
+				text-transform: uppercase;
+				letter-spacing: 0.03em;
+			}
+			.bcc-summary-total-value {
+				font-size: 18px;
+				font-weight: 700;
+				line-height: 1;
+				color: var(--primary);
+			}
+		`;
+	}
 
 	function get_tree_wrapper(frm) {
 		return frm.fields_dict.bom_cost_calculator && frm.fields_dict.bom_cost_calculator.wrapper;
@@ -263,26 +485,7 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 		}
 
 		view.events.delete_node = function (node, view_ref) {
-			if (
-				node.data?.is_routing_node ||
-				node.data?.is_operation_node ||
-				String(node.data?.value || "").startsWith("__routing__:")
-			) {
-				return;
-			}
-
-			frappe.confirm(__("Are you sure you want to delete this Item?"), () => {
-				frappe.call({
-					method: `${BCC_API}.delete_node`,
-					args: {
-						parent: node.data.parent_id || frm.doc.name,
-						fg_item: node.data.value,
-						doctype: node.data.doctype,
-						docname: node.data.name,
-					},
-					callback: (r) => view_ref.events.load_tree(r, node.parent_node),
-				});
-			});
+			bcc_delete_tree_node(node, view_ref, frm);
 		};
 
 		view.events.remove_routing = function (node, view_ref) {
@@ -330,7 +533,9 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 					let fg_item = node.data.value;
 					let fg_reference_id = fitzgerald_kitchens.bom.resolve_fg_reference_id(node, frm);
 
-					if (node.data.is_routing_node) {
+					if (node.data.is_raw_materials_node) {
+						fg_item = node.data.value;
+					} else if (node.data.is_routing_node) {
 						fg_item = node.data.value;
 						fg_reference_id = node.data.assembly_row_name || fg_reference_id;
 					}
@@ -375,8 +580,13 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 
 		view.events.load_tree = function (response, node) {
 			const doc = response.message;
-			if (doc?.raw_material_cost !== undefined) {
+			if (doc) {
+				frm.doc.other_charges = doc.other_charges || frm.doc.other_charges || [];
+				frm.doc.raw_materials_total = doc.raw_materials_total;
+				frm.doc.routing_cost_total = doc.routing_cost_total;
+				frm.doc.other_charges_total = doc.other_charges_total;
 				frm.doc.raw_material_cost = doc.raw_material_cost;
+				frm.doc.total_cost = doc.total_cost;
 			}
 
 			frappe.views.trees["BOM Cost Configurator"].tree.load_children(node);
@@ -384,10 +594,10 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 			let current = node;
 			while (current) {
 				let total_amount;
-				const item_row = doc.items?.find((item) => item.name === current.data?.name);
+				const item_row = doc?.items?.find((item) => item.name === current.data?.name);
 
 				if (current.is_root || current.data?.value === frm.doc.item_code) {
-					total_amount = doc.raw_material_cost;
+					total_amount = doc?.total_cost || doc?.raw_material_cost;
 				} else if (item_row) {
 					total_amount = item_row.amount;
 					current.data.amount = item_row.amount;
@@ -404,6 +614,11 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 				}
 
 				current = current.parent_node;
+			}
+
+			if (frappe.bom_cost_configurator?.refresh_other_charges_table) {
+				frappe.bom_cost_configurator.refresh_other_charges_table();
+				frappe.bom_cost_configurator.refresh_cost_summary();
 			}
 		};
 	}
@@ -447,39 +662,51 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 			}
 
 			if (frm._bcc_build_in_progress) {
+				frm._bcc_build_pending = true;
 				return;
 			}
 			frm._bcc_build_in_progress = true;
 
-			const $parent = $(wrapper);
-			$parent.empty();
-			$parent.closest(".section-body").css("max-width", "1100px");
-			frm.toggle_enable("item_code", false);
+			bcc_ensure_configurator_loaded(
+				() => {
+					try {
+						bcc_inject_cost_tree_styles();
 
-			try {
-				if (!frappe.ui.BOMCostConfigurator) {
-					frappe.msgprint(__("Could not load BOM Cost Configurator."));
-					return;
-				}
+						const $parent = $(wrapper);
+						$parent.empty();
+						$parent
+							.closest(".frappe-control[data-fieldname='bom_cost_calculator']")
+							.find(".bcc-bottom-panel")
+							.remove();
+						$parent.closest(".section-body").css("max-width", "1100px");
+						frm.toggle_enable("item_code", false);
 
-				frappe.bom_cost_configurator = new frappe.ui.BOMCostConfigurator({
-					wrapper: $parent,
-					page: $parent,
-					frm: frm,
-					bom_configurator: frm.doc.name,
-				});
+						frappe.bom_cost_configurator = new frappe.ui.BOMCostConfigurator({
+							wrapper: $parent,
+							page: $parent,
+							frm: frm,
+							bom_configurator: frm.doc.name,
+						});
 
-				bcc_patch_configurator();
-				bcc_patch_add_sub_assembly(frm);
-				bcc_patch_tree_actions(frm);
-			} catch (error) {
-				console.error("BOM Cost Configurator init failed:", error);
-				frappe.msgprint(
-					__("Failed to initialize BOM Cost Configurator: {0}", [error.message || error])
-				);
-			} finally {
-				frm._bcc_build_in_progress = false;
-			}
+						bcc_patch_configurator();
+						bcc_patch_add_sub_assembly(frm);
+						bcc_patch_tree_actions(frm);
+
+						frappe.after_ajax(() => {
+							frappe.bom_cost_configurator?.refresh_other_charges_table?.();
+							frappe.bom_cost_configurator?.refresh_cost_summary?.();
+						});
+					} catch (error) {
+						console.error("BOM Cost Configurator init failed:", error);
+						frappe.msgprint(
+							__("Failed to initialize BOM Cost Configurator: {0}", [error.message || error])
+						);
+					} finally {
+						bcc_finish_build(frm);
+					}
+				},
+				() => bcc_finish_build(frm)
+			);
 		},
 
 		make_new_entry(frm) {

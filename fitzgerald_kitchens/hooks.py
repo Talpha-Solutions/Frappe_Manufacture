@@ -46,6 +46,7 @@ app_license = "mit"
 doctype_js = {
 	"Project": "public/js/project.js",
 	"Task": "public/js/task.js",
+	"BOM Cost Calculator": "public/js/bom_cost_configurator.bundle.js",
 }
 doctype_list_js = {
 	"Development Stage": "fitzgerald_kitchens/doctype/development_stage/development_stage_list.js",

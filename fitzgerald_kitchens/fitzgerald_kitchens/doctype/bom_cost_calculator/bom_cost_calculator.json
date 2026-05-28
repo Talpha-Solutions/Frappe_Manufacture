@@ -39,6 +39,12 @@
   "items",
   "costing_detail",
   "raw_material_cost",
+  "cost_summary_section",
+  "other_charges",
+  "raw_materials_total",
+  "routing_cost_total",
+  "other_charges_total",
+  "total_cost",
   "remarks_tab",
   "remarks",
   "section_break_yixm",
@@ -136,6 +142,63 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Total Cost",
+   "no_copy": 1,
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:0",
+   "fieldname": "cost_summary_section",
+   "fieldtype": "Section Break",
+   "hidden": 1,
+   "label": "Cost Summary"
+  },
+  {
+   "depends_on": "eval:0",
+   "fieldname": "other_charges",
+   "fieldtype": "Table",
+   "hidden": 1,
+   "label": "Other Charges",
+   "options": "BOM Cost Calculator Other Charge"
+  },
+  {
+   "depends_on": "eval:0",
+   "fieldname": "raw_materials_total",
+   "fieldtype": "Currency",
+   "hidden": 1,
+   "label": "Raw Materials Total",
+   "no_copy": 1,
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:0",
+   "fieldname": "routing_cost_total",
+   "fieldtype": "Currency",
+   "hidden": 1,
+   "label": "Routing Cost Total",
+   "no_copy": 1,
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:0",
+   "fieldname": "other_charges_total",
+   "fieldtype": "Currency",
+   "hidden": 1,
+   "label": "Other Charges Total",
+   "no_copy": 1,
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:0",
+   "fieldname": "total_cost",
+   "fieldtype": "Currency",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Grand Total Cost",
    "no_copy": 1,
    "options": "currency",
    "read_only": 1
