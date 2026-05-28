@@ -11,6 +11,7 @@ PROJECT_BOM_FIELDS = [
 	"kitchen_bom",
 	"kitchen_item",
 	"kitchen_work_order",
+	"wardrobe_section",
 	"wardrobe_required",
 	"wardrobe_type",
 	"wardrobe_specification",
@@ -40,7 +41,7 @@ def get_project_bom_custom_fields() -> dict:
 			{
 				"fieldname": "manufacturing_section",
 				"fieldtype": "Section Break",
-				"label": "BOM / Manufacturing Links",
+				"label": "Kitchen",
 				"insert_after": "bom_tab",
 			},
 			{
@@ -97,11 +98,17 @@ def get_project_bom_custom_fields() -> dict:
 				"insert_after": "kitchen_bom",
 			},
 			{
+				"fieldname": "wardrobe_section",
+				"fieldtype": "Section Break",
+				"label": "Wardrobe",
+				"insert_after": "kitchen_item",
+			},
+			{
 				"fieldname": "wardrobe_required",
 				"fieldtype": "Check",
 				"label": "Wardrobe Required",
 				"default": "0",
-				"insert_after": "kitchen_item",
+				"insert_after": "wardrobe_section",
 			},
 			{
 				"fieldname": "wardrobe_type",
