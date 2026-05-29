@@ -48,6 +48,86 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 	return frm.doc.name;
 };
 
+fitzgerald_kitchens.bom.show_generate_specification_dialog = function (frm) {
+	if (frm.is_new()) {
+		frappe.msgprint(__("Please save the BOM Cost Calculator before generating specification."));
+		return;
+	}
+
+	const dialog = new frappe.ui.Dialog({
+		title: __("Generate Specification"),
+		fields: [
+			{
+				fieldtype: "Section Break",
+				label: __("Print Includes"),
+			},
+			{
+				fieldtype: "Check",
+				fieldname: "include_cost_breakdown",
+				label: __("Cost Breakdown"),
+				default: 1,
+			},
+			{
+				fieldtype: "Check",
+				fieldname: "include_raw_materials",
+				label: __("Raw Materials Items"),
+				default: 1,
+			},
+			{
+				fieldtype: "Check",
+				fieldname: "include_route",
+				label: __("Labor Cost / Operations"),
+				default: 1,
+			},
+			{
+				fieldtype: "Check",
+				fieldname: "include_other_charges",
+				label: __("Other Charges"),
+				default: 1,
+			},
+		],
+		primary_action_label: __("Generate"),
+		primary_action(values) {
+			if (
+				!cint(values.include_cost_breakdown) &&
+				!cint(values.include_raw_materials) &&
+				!cint(values.include_route) &&
+				!cint(values.include_other_charges)
+			) {
+				frappe.msgprint(__("Select at least one section to include in the print."));
+				return;
+			}
+
+			frappe.call({
+				method: "fitzgerald_kitchens.fitzgerald_kitchens.doctype.bom_cost_calculator.bom_cost_calculator.get_specification_html",
+				args: {
+					parent: frm.doc.name,
+					include_cost_breakdown: values.include_cost_breakdown,
+					include_raw_materials: values.include_raw_materials,
+					include_route: values.include_route,
+					include_other_charges: values.include_other_charges,
+				},
+				freeze: true,
+				freeze_message: __("Generating specification..."),
+				callback(r) {
+					if (!r.message) {
+						return;
+					}
+
+					const print_window = window.open("");
+					print_window.document.open();
+					print_window.document.write(r.message);
+					print_window.document.close();
+					dialog.hide();
+				},
+			});
+		},
+	});
+
+	dialog.show();
+	dialog.get_primary_btn().addClass("bcc-generate-specification");
+};
+
 (function () {
 	const BCC_API =
 		"fitzgerald_kitchens.fitzgerald_kitchens.doctype.bom_cost_calculator.bom_cost_calculator";
@@ -250,13 +330,15 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 				white-space: nowrap;
 			}
 			.bcc-summary-total {
+				padding: 14px 18px;
+				border-top: 1px solid var(--border-color);
+				background: var(--subtle-accent, var(--subtle-fg));
+			}
+			.bcc-summary-total-row {
 				display: flex;
 				align-items: center;
 				justify-content: space-between;
 				gap: 12px;
-				padding: 14px 18px;
-				border-top: 1px solid var(--border-color);
-				background: var(--subtle-accent, var(--subtle-fg));
 			}
 			.bcc-summary-total-label {
 				font-size: 12px;
@@ -269,13 +351,65 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 				font-size: 18px;
 				font-weight: 700;
 				line-height: 1;
-				color: var(--primary);
+				color: var(--text-color);
+			}
+			.bcc-summary-footer {
+				margin-top: 12px;
+			}
+			.bcc-summary-footer .btn.bcc-generate-specification {
+				width: 100%;
+			}
+			.btn.bcc-generate-specification {
+				background-color: var(--control-bg, var(--gray-200)) !important;
+				border: 1px solid var(--border-color, var(--gray-300)) !important;
+				color: var(--text-color, var(--gray-900)) !important;
+				box-shadow: none;
+			}
+			.btn.bcc-generate-specification:hover,
+			.btn.bcc-generate-specification:focus {
+				background-color: var(--btn-default-hover-bg, var(--gray-300)) !important;
+				border-color: var(--border-color, var(--gray-300)) !important;
+				color: var(--text-color, var(--gray-900)) !important;
+			}
+			.btn.bcc-generate-specification:active {
+				background-color: var(--btn-default-hover-bg, var(--gray-300)) !important;
+				border-color: var(--border-color, var(--gray-300)) !important;
+				color: var(--text-color, var(--gray-900)) !important;
+				box-shadow: none !important;
 			}
 		`;
 	}
 
 	function get_tree_wrapper(frm) {
 		return frm.fields_dict.bom_cost_calculator && frm.fields_dict.bom_cost_calculator.wrapper;
+	}
+
+	function bcc_ensure_generate_specification_button(frm) {
+		const $wrapper = $(get_tree_wrapper(frm));
+		const $card = $wrapper.find(".bcc-cost-summary-card");
+		if (!$card.length) {
+			return;
+		}
+
+		let $footer = $card.find(".bcc-summary-footer");
+		if (!$footer.length) {
+			$footer = $('<div class="bcc-summary-footer"></div>');
+			$card.find(".bcc-summary-total").append($footer);
+		}
+
+		if ($footer.find(".bcc-generate-specification").length) {
+			return;
+		}
+
+		$footer.html(`
+			<button type="button" class="btn btn-sm bcc-generate-specification">
+				${__("Generate Specification")}
+			</button>
+		`);
+
+		$footer.find(".bcc-generate-specification").on("click", () => {
+			fitzgerald_kitchens.bom.show_generate_specification_dialog(frm);
+		});
 	}
 
 	function bcc_get_sub_assembly_modal_fields(view, is_root, read_only, phantom) {
@@ -647,6 +781,8 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 					frappe.bom_cost_configurator.bom_configurator !== frm.doc.name
 				) {
 					frm.trigger("build_tree");
+				} else {
+					frappe.after_ajax(() => bcc_ensure_generate_specification_button(frm));
 				}
 			} else if (!frm.doc.items?.length && frm._bcc_show_new_dialog) {
 				frm._bcc_show_new_dialog = false;
@@ -695,6 +831,7 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 						frappe.after_ajax(() => {
 							frappe.bom_cost_configurator?.refresh_other_charges_table?.();
 							frappe.bom_cost_configurator?.refresh_cost_summary?.();
+							bcc_ensure_generate_specification_button(frm);
 						});
 					} catch (error) {
 						console.error("BOM Cost Configurator init failed:", error);
@@ -790,7 +927,10 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 
 		tab_2_tab(frm) {
 			if (!frm.is_new()) {
-				frappe.after_ajax(() => frm.trigger("build_tree"));
+				frappe.after_ajax(() => {
+					frm.trigger("build_tree");
+					bcc_ensure_generate_specification_button(frm);
+				});
 			}
 		},
 
@@ -808,6 +948,9 @@ fitzgerald_kitchens.bom.resolve_fg_reference_id = function (node, frm) {
 		add_custom_buttons(frm) {
 			if (!frm.is_new()) {
 				frm.add_custom_button(__("Rebuild Tree"), () => frm.trigger("build_tree"));
+				frm.add_custom_button(__("Generate Specification"), () => {
+					fitzgerald_kitchens.bom.show_generate_specification_dialog(frm);
+				});
 			}
 		},
 	});

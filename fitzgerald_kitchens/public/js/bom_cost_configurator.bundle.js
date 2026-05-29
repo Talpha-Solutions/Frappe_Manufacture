@@ -894,7 +894,7 @@ class BOMCostConfigurator {
 									<span class="bcc-summary-value bcc-rm-total">0</span>
 								</div>
 								<div class="bcc-summary-row">
-									<span class="bcc-summary-row-label">${__("Route")}</span>
+									<span class="bcc-summary-row-label">${__("Labor Cost")}</span>
 									<span class="bcc-summary-value bcc-route-total">0</span>
 								</div>
 								<div class="bcc-summary-row">
@@ -903,8 +903,15 @@ class BOMCostConfigurator {
 								</div>
 							</div>
 							<div class="bcc-summary-total">
-								<span class="bcc-summary-total-label">${__("Total Cost")}</span>
-								<span class="bcc-summary-total-value bcc-grand-total">0</span>
+								<div class="bcc-summary-total-row">
+									<span class="bcc-summary-total-label">${__("Total Cost")}</span>
+									<span class="bcc-summary-total-value bcc-grand-total">0</span>
+								</div>
+								<div class="bcc-summary-footer">
+									<button type="button" class="btn btn-sm bcc-generate-specification">
+										${__("Generate Specification")}
+									</button>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -913,8 +920,29 @@ class BOMCostConfigurator {
 		`).appendTo(this.$wrapper);
 
 		this.$bottom_panel.find(".bcc-add-other-charge").on("click", () => this.show_add_other_charge_dialog());
+		this.$bottom_panel.find(".bcc-generate-specification").on("click", () => {
+			fitzgerald_kitchens.bom.show_generate_specification_dialog(this.frm);
+		});
 		this.refresh_other_charges_table();
 		this.refresh_cost_summary();
+		this.ensure_generate_specification_button();
+	}
+
+	ensure_generate_specification_button() {
+		const $card = this.$wrapper.find(".bcc-cost-summary-card");
+		if (!$card.length || $card.find(".bcc-generate-specification").length) {
+			return;
+		}
+
+		const $footer = $('<div class="bcc-summary-footer"></div>').appendTo($card.find(".bcc-summary-total"));
+		$footer.html(`
+			<button type="button" class="btn btn-sm bcc-generate-specification">
+				${__("Generate Specification")}
+			</button>
+		`);
+		$footer.find(".bcc-generate-specification").on("click", () => {
+			fitzgerald_kitchens.bom.show_generate_specification_dialog(this.frm);
+		});
 	}
 
 	show_add_other_charge_dialog() {
@@ -1138,7 +1166,7 @@ class BOMCostConfigurator {
 				<span class="badge badge-info"
 					style="background:var(--blue-100);color:var(--blue-700);
 						font-size:11px; padding:2px 7px; border-radius:10px;">
-					${__("Route")}
+					${__("Labor Cost")}
 				</span>
 				<span class="fg-item-amt"
 					style="background-color:var(--bg-white);

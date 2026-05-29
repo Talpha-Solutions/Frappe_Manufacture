@@ -797,6 +797,119 @@ def get_cost_summary(parent):
 	return breakdown
 
 
+def _build_specification_section(doc, fg_item, assembly_row_name=None, level=0):
+	assembly = doc._get_assembly_row(assembly_row_name) if assembly_row_name and assembly_row_name != doc.name else None
+
+	if assembly:
+		item_name = assembly.item_name or frappe.get_cached_value("Item", assembly.item_code, "item_name")
+		qty = assembly.qty
+		title = assembly.item_code
+	else:
+		item_name = doc.item_name or frappe.get_cached_value("Item", doc.item_code, "item_name")
+		qty = doc.qty
+		title = doc.item_code
+
+	section = {
+		"title": title,
+		"item_name": item_name,
+		"qty": qty,
+		"level": level,
+		"raw_materials": [],
+		"operations": [],
+		"children": [],
+	}
+
+	for row in doc.items:
+		if row.fg_item != fg_item:
+			continue
+		if not doc._is_row_under_assembly(row, assembly):
+			continue
+
+		if row.is_expandable:
+			section["children"].append(
+				_build_specification_section(doc, row.item_code, row.name, level + 1)
+			)
+		else:
+			section["raw_materials"].append(
+				{
+					"item_code": row.item_code,
+					"item_name": row.item_name or row.item_code,
+					"qty": row.qty,
+					"uom": row.uom,
+					"rate": row.rate,
+					"amount": row.amount,
+				}
+			)
+
+	routing_name = None
+	if assembly and assembly.routing:
+		routing_name = assembly.routing
+	elif not assembly and fg_item == doc.item_code and doc.routing and not _has_assembly_routing(doc, fg_item, assembly):
+		routing_name = doc.routing
+
+	if routing_name:
+		for op in _get_routing_operations(routing_name):
+			section["operations"].append(
+				{
+					"operation": op.get("operation"),
+					"time_in_mins": flt(op.get("time_in_mins")),
+					"operating_cost": flt(op.get("operating_cost")),
+				}
+			)
+
+	section["raw_materials_total"] = sum(flt(row.get("amount")) for row in section["raw_materials"])
+	section["operations_total"] = sum(flt(op.get("operating_cost")) for op in section["operations"])
+	section["children_total"] = sum(flt(child.get("section_total")) for child in section["children"])
+	section["section_total"] = (
+		section["raw_materials_total"] + section["operations_total"] + section["children_total"]
+	)
+
+	return section
+
+
+@frappe.whitelist()
+def get_specification_html(
+	parent,
+	include_cost_breakdown=1,
+	include_raw_materials=1,
+	include_route=1,
+	include_other_charges=1,
+):
+	doc = frappe.get_doc("BOM Cost Calculator", parent)
+	breakdown = doc.get_cost_breakdown()
+
+	if _cost_breakdown_is_stale(doc, breakdown):
+		doc.save(ignore_permissions=True)
+		breakdown = doc.get_cost_breakdown()
+
+	currency = doc.currency
+	context = {
+		"doc": doc,
+		"breakdown": breakdown,
+		"currency": currency,
+		"include_cost_breakdown": sbool(include_cost_breakdown),
+		"include_raw_materials": sbool(include_raw_materials),
+		"include_route": sbool(include_route),
+		"include_other_charges": sbool(include_other_charges),
+		"sections": [_build_specification_section(doc, doc.item_code, doc.name)],
+		"other_charges": [
+			{
+				"charge_type": row.charge_type,
+				"description": row.description,
+				"amount": row.amount,
+			}
+			for row in doc.other_charges or []
+		],
+		"fmt": lambda value: frappe.format_value(flt(value), {"fieldtype": "Currency", "options": currency}),
+		"_": _,
+	}
+
+	return frappe.render_template(
+		"fitzgerald_kitchens/fitzgerald_kitchens/doctype/bom_cost_calculator/bom_cost_calculator_specification.html",
+		context,
+	)
+
+
 def _cost_breakdown_is_stale(doc, breakdown):
 	return (
 		flt(doc.raw_materials_total) != flt(breakdown["raw_materials_total"])
