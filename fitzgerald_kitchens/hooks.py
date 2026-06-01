@@ -279,7 +279,7 @@ fixtures = [
 	},
 	{
 		"dt": "Property Setter",
-		"filters": [["doc_type", "=", "Task"], ["property", "=", "max_attachments"]],
+		"filters": [["doc_type", "=", "Task"], ["property", "in", ["max_attachments", "field_order", "fieldtype"]]],
 	},
 ]
 
