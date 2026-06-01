@@ -76,6 +76,19 @@ MANUFACTURING_COST_SUMMARY_ITEM = {
 	"show_arrow": 0,
 }
 
+CAPACITY_PIPELINE_REPORT_ITEM = {
+	"label": "Capacity Pipeline Report",
+	"link_to": "Capacity Pipeline Report",
+	"link_type": "Report",
+	"type": "Link",
+	"icon": "timeline",
+	"child": 1,
+	"collapsible": 1,
+	"indent": 0,
+	"keep_closed": 0,
+	"show_arrow": 0,
+}
+
 BOM_COST_CALCULATOR_ITEM = {
 	"label": "BOM Cost Calculator",
 	"link_to": "BOM Cost Calculator",
@@ -89,6 +102,7 @@ BOM_COST_CALCULATOR_ITEM = {
 }
 
 PROJECT_REPORT_SIDEBAR_ITEMS = [
+	CAPACITY_PIPELINE_REPORT_ITEM,
 	PROJECT_PRODUCTION_TIME_SUMMARY_ITEM,
 	MANUFACTURING_COST_SUMMARY_ITEM,
 ]
@@ -123,15 +137,11 @@ def _ensure_projects_reports_sidebar(sidebar):
 		if _has_link_in(items, report_item["link_to"]):
 			continue
 
-		insert_at = _index_of_link(items, "Project Summary")
-		if insert_at is None:
-			insert_at = _index_after_reports_section(items)
-		else:
-			for existing_item in PROJECT_REPORT_SIDEBAR_ITEMS:
-				existing_index = _index_of_link(items, existing_item["link_to"])
-				if existing_index is not None and existing_index >= insert_at:
-					insert_at = existing_index
-			insert_at += 1
+		insert_at = _index_after_reports_section(items)
+		for existing_item in PROJECT_REPORT_SIDEBAR_ITEMS:
+			existing_index = _index_of_link(items, existing_item["link_to"])
+			if existing_index is not None and existing_index >= insert_at:
+				insert_at = existing_index + 1
 
 		items.insert(insert_at, report_item)
 		changed = True
@@ -180,18 +190,31 @@ def _ensure_manufacturing_tools_sidebar(sidebar):
 
 def _ensure_manufacturing_reports_sidebar(sidebar):
 	items = [_item_dict(row) for row in sidebar.items]
-	if _has_link_in(items, JOB_CARD_SUMMARY_DETAIL_ITEM["link_to"]):
-		return False
+	changed = False
 
-	insert_at = _index_of_link(items, "Job Card Summary")
-	if insert_at is None:
-		insert_at = _index_after_reports_section(items)
-	else:
-		insert_at += 1
+	if not _has_link_in(items, JOB_CARD_SUMMARY_DETAIL_ITEM["link_to"]):
+		insert_at = _index_of_link(items, "Job Card Summary")
+		if insert_at is None:
+			insert_at = _index_after_reports_section(items)
+		else:
+			insert_at += 1
 
-	items.insert(insert_at, JOB_CARD_SUMMARY_DETAIL_ITEM)
-	_apply_items(sidebar, items)
-	return True
+		items.insert(insert_at, JOB_CARD_SUMMARY_DETAIL_ITEM)
+		changed = True
+
+	if not _has_link_in(items, CAPACITY_PIPELINE_REPORT_ITEM["link_to"]):
+		insert_at = _index_of_link(items, JOB_CARD_SUMMARY_DETAIL_ITEM["link_to"])
+		if insert_at is None:
+			insert_at = _index_after_reports_section(items)
+		else:
+			insert_at += 1
+
+		items.insert(insert_at, CAPACITY_PIPELINE_REPORT_ITEM)
+		changed = True
+
+	if changed:
+		_apply_items(sidebar, items)
+	return changed
 
 
 def _index_after_tools_section(items):
