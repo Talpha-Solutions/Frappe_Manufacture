@@ -1,12 +1,18 @@
 [
-    {
-        "doctype": "Property Setter",
-        "name": "Task-max_attachments",
-        "doc_type": "Task",
-        "field_name": "",
-        "property": "max_attachments",
-        "property_type": "Int",
-        "value": "25",
-        "doctype_or_field": "DocType"
-    }
+ {
+  "default_value": null,
+  "doc_type": "Task",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocType",
+  "field_name": "",
+  "is_system_generated": 0,
+  "modified": "2026-05-28 20:24:24.453590",
+  "module": null,
+  "name": "Task-max_attachments",
+  "property": "max_attachments",
+  "property_type": "Int",
+  "row_name": null,
+  "value": "25"
+ }
 ]
