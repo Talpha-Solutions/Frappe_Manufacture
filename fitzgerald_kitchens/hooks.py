@@ -275,7 +275,7 @@ fixtures = [
 	},
 	{
 		"dt": "Custom Field",
-		"filters": [["fieldname", "=", "custom_uploader_target"]],
+		"filters": [["fieldname", "in", ["custom_file_upload", "custom_uploader_target"]]],
 	},
 	{
 		"dt": "Property Setter",
