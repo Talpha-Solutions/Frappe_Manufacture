@@ -32,6 +32,10 @@ QR_SCAN_SIDEBAR_ITEM = {
 SETUP_SIDEBAR_ITEMS = [
 	{"label": "Development Block", "link_to": "Development Block"},
 	{"label": "Development Unit Type", "link_to": "Development Unit Type"},
+	{"label": "Project Unit Configuration", "link_to": "Project Unit Configuration"},
+	{"label": "Manifest", "link_to": "Manifest"},
+	{"label": "Unit Process Template", "link_to": "Unit Process Template"},
+	{"label": "Development Workbook Import", "link_to": "Development Workbook Import"},
 	{"label": "Kitchen Type", "link_to": "Kitchen Type"},
 	{"label": "Kitchen Specification", "link_to": "Kitchen Specification"},
 	{"label": "Wardrobe Type", "link_to": "Wardrobe Type"},

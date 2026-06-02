@@ -1,0 +1,129 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-06-02 12:46:00.000000",
+ "doctype": "DocType",
+ "document_type": "Setup",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "import_section",
+  "import_file",
+  "status_section",
+  "import_status",
+  "counts_section",
+  "unit_count",
+  "subunit_count",
+  "column_break_counts",
+  "configuration_count",
+  "manifest_count",
+  "notes_section",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "DWI-.YYYY.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "import_section",
+   "fieldtype": "Section Break",
+   "label": "Import"
+  },
+  {
+   "fieldname": "import_file",
+   "fieldtype": "Attach",
+   "label": "Import File"
+  },
+  {
+   "fieldname": "status_section",
+   "fieldtype": "Section Break",
+   "label": "Status"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "import_status",
+   "fieldtype": "Select",
+   "label": "Import Status",
+   "options": "Draft\nValidating\nReady\nImporting\nCompleted\nFailed",
+   "reqd": 1
+  },
+  {
+   "fieldname": "counts_section",
+   "fieldtype": "Section Break",
+   "label": "Counts"
+  },
+  {
+   "fieldname": "unit_count",
+   "fieldtype": "Int",
+   "label": "Unit Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "subunit_count",
+   "fieldtype": "Int",
+   "label": "Subunit Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_counts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "configuration_count",
+   "fieldtype": "Int",
+   "label": "Configuration Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "manifest_count",
+   "fieldtype": "Int",
+   "label": "Manifest Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Long Text",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-02 12:46:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Development Workbook Import",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
+

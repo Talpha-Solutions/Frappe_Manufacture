@@ -1,0 +1,130 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "field:configuration_code",
+ "creation": "2026-06-02 12:46:00.000000",
+ "doctype": "DocType",
+ "document_type": "Setup",
+ "engine": "InnoDB",
+ "field_order": [
+  "configuration_code",
+  "configuration_name",
+  "scope",
+  "based_on_configuration",
+  "based_on_project",
+  "notes_section",
+  "notes",
+  "templates_section",
+  "kitchen_utility_manifest",
+  "wardrobe_manifest",
+  "default_planning_bom",
+  "process_template"
+ ],
+ "fields": [
+  {
+   "fieldname": "configuration_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Configuration Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "configuration_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Configuration Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "scope",
+   "fieldtype": "Select",
+   "label": "Scope",
+   "options": "Project Template\nUnit Override",
+   "reqd": 1
+  },
+  {
+   "fieldname": "based_on_configuration",
+   "fieldtype": "Link",
+   "label": "Based On Configuration",
+   "options": "Project Unit Configuration"
+  },
+  {
+   "fieldname": "based_on_project",
+   "fieldtype": "Link",
+   "label": "Based On Project",
+   "link_filters": "[[\"Project\",\"fk_is_root_project\",\"=\",0]]",
+   "options": "Project"
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Long Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "templates_section",
+   "fieldtype": "Section Break",
+   "label": "Templates / Defaults"
+  },
+  {
+   "fieldname": "kitchen_utility_manifest",
+   "fieldtype": "Link",
+   "label": "Kitchen + Utility Manifest",
+   "options": "Manifest"
+  },
+  {
+   "fieldname": "wardrobe_manifest",
+   "fieldtype": "Link",
+   "label": "Wardrobe Manifest",
+   "options": "Manifest"
+  },
+  {
+   "fieldname": "default_planning_bom",
+   "fieldtype": "Link",
+   "label": "Default Planning BOM",
+   "options": "BOM"
+  },
+  {
+   "fieldname": "process_template",
+   "fieldtype": "Link",
+   "label": "Process Template",
+   "options": "Unit Process Template"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-02 12:46:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Project Unit Configuration",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "configuration_code"
+}
+

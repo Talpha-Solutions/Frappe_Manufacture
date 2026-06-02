@@ -26,16 +26,10 @@ def get_project_bom_custom_fields() -> dict:
 	return {
 		"Project": [
 			{
-				"fieldname": "connections_tab",
-				"fieldtype": "Tab Break",
-				"label": "Connections",
-				"show_dashboard": 1,
-				"insert_after": "message",
-			},
-			{
 				"fieldname": "bom_tab",
 				"fieldtype": "Tab Break",
 				"label": "BOM",
+				# ERPNext Project already has a core `connections_tab`
 				"insert_after": "connections_tab",
 			},
 			{
@@ -170,8 +164,36 @@ OBSOLETE_BOM_FIELDS = (
 
 def ensure_project_bom_fields() -> None:
 	cleanup_obsolete_bom_fields()
-	create_custom_fields(get_project_bom_custom_fields(), update=True)
+	cleanup_duplicate_connections_tab()
+	fields_to_sync = _get_project_fields_to_sync(get_project_bom_custom_fields()["Project"])
+	if fields_to_sync:
+		create_custom_fields({"Project": fields_to_sync}, update=True)
 	frappe.clear_cache(doctype="Project")
+
+
+def _get_project_fields_to_sync(field_defs: list[dict]) -> list[dict]:
+	"""Return field defs that still need create/update on Project.
+
+	Frappe's create_custom_fields checks only the Custom Field table. If a field
+	exists on Project meta without a Custom Field record (e.g. after partial
+	migrations), creating it again fails validation. This helper skips those.
+	"""
+	project_fieldnames = {df.fieldname for df in frappe.get_meta("Project").get("fields")}
+	fields_to_sync: list[dict] = []
+
+	for df in field_defs:
+		fieldname = df.get("fieldname")
+		if not fieldname:
+			continue
+
+		if fieldname in project_fieldnames and not frappe.db.exists(
+			"Custom Field", {"dt": "Project", "fieldname": fieldname}
+		):
+			continue
+
+		fields_to_sync.append(df)
+
+	return fields_to_sync
 
 
 def cleanup_obsolete_bom_fields() -> None:
@@ -184,6 +206,13 @@ def cleanup_obsolete_bom_fields() -> None:
 			frappe.delete_doc("Custom Field", custom_field_name, force=True)
 
 
+def cleanup_duplicate_connections_tab() -> None:
+	"""Remove custom `connections_tab` if created; ERPNext already ships it on Project."""
+	custom_field_name = "Project-connections_tab"
+	if frappe.db.exists("Custom Field", custom_field_name):
+		frappe.delete_doc("Custom Field", custom_field_name, force=True)
+
+
 def remove_work_order_button_fields() -> None:
 	"""Remove legacy in-form Button fields; work orders use toolbar Create menu."""
 	cleanup_obsolete_bom_fields()
@@ -193,7 +222,10 @@ def ensure_connections_tab() -> None:
 	"""Ensure Connections tab exists and BOM tab follows it."""
 	import frappe
 
-	create_custom_fields(get_project_bom_custom_fields(), update=True)
+	cleanup_duplicate_connections_tab()
+	fields_to_sync = _get_project_fields_to_sync(get_project_bom_custom_fields()["Project"])
+	if fields_to_sync:
+		create_custom_fields({"Project": fields_to_sync}, update=True)
 
 	if frappe.db.exists("Custom Field", "Project-bom_tab"):
 		frappe.db.set_value(
