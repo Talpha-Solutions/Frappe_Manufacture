@@ -128,7 +128,7 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 
 		const num = cint(value);
 
-		if (rt === "project") return cpr_fmt_project_cell(num, row_data.color_index);
+		if (rt === "project") return cpr_fmt_project_cell(num, row_data, fn);
 		if (rt === "downtime") return cpr_fmt_downtime_cell(num);
 		if (rt === "capacity") return cpr_fmt_capacity_cell(value, fn, row_data);
 		if (rt === "demand") return cpr_fmt_demand_cell(num, fn, row_data);
@@ -160,7 +160,12 @@ function cpr_get_row_type(row_data, project_value) {
 	if (!label || label === " ") {
 		return "separator";
 	}
-	if (label === __("Capacity / month") || label === "Capacity / month") {
+	if (
+		label === __("Capacity per month")
+		|| label === "Capacity per month"
+		|| label === __("Capacity / month")
+		|| label === "Capacity / month"
+	) {
 		return "capacity";
 	}
 	if (label.includes("Downtime") || label === __("Downtime (mins)")) {
@@ -211,6 +216,7 @@ function cpr_inject_styles() {
 		.cpr-sep-cell { border-top: 1px solid #e8eaed; margin: 0; height: 1px; }
 		.cpr-project-link { color: inherit; text-decoration: none; cursor: pointer; }
 		.cpr-project-link:hover { color: var(--primary, #2490ef); text-decoration: underline; }
+		.cpr-demand-badge { cursor: help; }
 	`;
 
 	$("<style>", { id: "cpr-report-styles", text: css }).appendTo("head");
@@ -225,7 +231,7 @@ function cpr_setup_header(report) {
 			<div class="cpr-header">
 				<h4 class="cpr-header-title">${__("Project allocation by month")}</h4>
 				<div class="cpr-header-sub">${__(
-					"Click a project to see its production load · numbers = kitchens produced that month (from Job Card actual time) · drag column edges to resize"
+					"Hover a monthly value to see kitchen and wardrobe counts · drag column edges to resize"
 				)}</div>
 				<div class="cpr-header-bom" style="display:none;font-size:11px;color:#5a6773;margin-top:4px"></div>
 			</div>
@@ -473,11 +479,7 @@ function cpr_fmt_label(rt, value, data) {
 	}
 
 	if (rt === "capacity") {
-		const sub = frappe.utils.escape_html(data.subtitle || "");
-		return `<div style="padding:8px 4px;font-size:12px;color:#8d99a6">
-			<div>${v}</div>
-			${sub ? `<div style="font-size:10px;color:#aeb6bf;margin-top:2px">${sub}</div>` : ""}
-		</div>`;
+		return `<div style="padding:8px 4px;font-size:12px;color:#8d99a6">${v}</div>`;
 	}
 
 	if (rt === "downtime") {
@@ -499,13 +501,19 @@ function cpr_fmt_label(rt, value, data) {
 	return v;
 }
 
-function cpr_fmt_project_cell(num, idx) {
+function cpr_fmt_project_cell(num, row_data, month_key) {
+	const kitchen = cint(row_data[`${month_key}_kitchen`]);
+	const wardrobe = cint(row_data[`${month_key}_wardrobe`]);
+	const tooltip = `${__("Kitchen")}: ${kitchen} · ${__("Wardrobe")}: ${wardrobe}`;
+
 	if (!num) {
-		return `<div style="text-align:center;color:#d1d8dd;font-size:13px;padding:8px 0">—</div>`;
+		return `<div class="cpr-demand-badge" title="${frappe.utils.escape_html(
+			tooltip
+		)}" style="text-align:center;color:#d1d8dd;font-size:13px;padding:8px 0">—</div>`;
 	}
-	const c = CPR_PALETTE[(idx || 0) % CPR_PALETTE.length];
+	const c = CPR_PALETTE[(row_data.color_index || 0) % CPR_PALETTE.length];
 	return `
-	<div style="text-align:center;padding:6px 2px">
+	<div class="cpr-demand-badge" title="${frappe.utils.escape_html(tooltip)}" style="text-align:center;padding:6px 2px">
 		<span style="
 			display:inline-block;
 			background:${c.bg};

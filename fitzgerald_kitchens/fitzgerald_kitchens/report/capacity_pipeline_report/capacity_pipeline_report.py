@@ -101,6 +101,7 @@ def _get_data(filters, months):
     to_date = get_last_day(months[-1][2])
 
     projects = _q_projects(filters)
+    _enrich_project_product_counts(projects)
     project_names = [p.name for p in projects]
     bom_list = _get_capacity_bom_list(filters, projects)
 
@@ -114,6 +115,11 @@ def _get_data(filters, months):
             bom_list,
             bottleneck,
         )
+        if project_names
+        else {}
+    )
+    product_breakdown = (
+        _q_monthly_product_breakdown(projects, project_names, from_date, to_date)
         if project_names
         else {}
     )
@@ -144,7 +150,6 @@ def _get_data(filters, months):
         holidays_map,
         downtime_map,
         months,
-        uniform_capacity=bool(filters.get("bom")),
     )
 
     data = []
@@ -159,6 +164,9 @@ def _get_data(filters, months):
         }
         for mkey, _mlabel, _mdate in months:
             row[mkey] = proj_demand.get(mkey, 0)
+            month_split = product_breakdown.get(proj.name, {}).get(mkey, {})
+            row[f"{mkey}_kitchen"] = month_split.get("kitchen", 0)
+            row[f"{mkey}_wardrobe"] = month_split.get("wardrobe", 0)
         data.append(row)
 
     data.extend(_build_summary_rows(months, demand_map, projects, capacity_result, filters))
@@ -191,7 +199,7 @@ def _build_summary_rows(months, demand_map, projects, capacity_result, filters=N
         downtime_row[mkey] = capacity_result["downtime_total"].get(mkey, 0)
     rows.append(downtime_row)
 
-    cap_row = {"project": _("Capacity / month"), "row_type": "capacity", "bold": 1}
+    cap_row = {"project": _("Capacity per month"), "row_type": "capacity", "bold": 1}
     if filters and filters.get("bom"):
         cap_row["subtitle"] = _get_bom_capacity_subtitle(filters.bom)
     for mkey, _mlabel, _mdate in months:
@@ -225,10 +233,9 @@ def _build_summary_rows(months, demand_map, projects, capacity_result, filters=N
 # ---------------------------------------------------------------------------
 
 def _q_projects(filters):
-    """Return active projects for the company (with or without kitchen BOM)."""
+    """Return active projects with type, units, and kitchen / wardrobe flags."""
     company_cond = "AND p.company = %(company)s" if filters.get("company") else ""
     project_cond = "AND p.name = %(project)s" if filters.get("project") else ""
-    bom_cond = "AND p.kitchen_bom = %(bom)s" if filters.get("bom") else ""
 
     rows = frappe.db.sql(
         f"""
@@ -236,9 +243,12 @@ def _q_projects(filters):
             p.name,
             p.project_name,
             p.customer,
+            p.project_type,
             p.kitchen_bom,
             p.kitchen_required,
-            COUNT(du.name) AS unit_count
+            p.wardrobe_bom,
+            p.wardrobe_required,
+            COUNT(DISTINCT du.name) AS unit_count
         FROM
             `tabProject` p
             LEFT JOIN `tabDevelopment Unit` du ON du.project = p.name
@@ -247,21 +257,40 @@ def _q_projects(filters):
             AND p.status NOT IN ('Cancelled', 'Completed')
             {company_cond}
             {project_cond}
-            {bom_cond}
         GROUP BY
-            p.name, p.project_name, p.customer, p.kitchen_bom, p.kitchen_required
+            p.name,
+            p.project_name,
+            p.customer,
+            p.project_type,
+            p.kitchen_bom,
+            p.kitchen_required,
+            p.wardrobe_bom,
+            p.wardrobe_required
         ORDER BY
             p.project_name
         """,
         {
             "company": filters.get("company"),
             "project": filters.get("project"),
-            "bom": filters.get("bom"),
         },
         as_dict=True,
     )
 
-    return rows
+    return _filter_projects_by_bom(rows, filters.get("bom"))
+
+
+def _enrich_project_product_counts(projects):
+    """Derive kitchen / wardrobe totals from units and project BOM flags."""
+    for proj in projects:
+        units = int(proj.unit_count or 0)
+        proj.kitchen_count = units if proj.kitchen_required else 0
+        proj.wardrobe_count = units if proj.wardrobe_required else 0
+
+
+def _filter_projects_by_bom(projects, bom):
+    if not bom:
+        return projects
+    return [p for p in projects if p.kitchen_bom == bom]
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +402,236 @@ def _q_delivery_demand(project_names, from_date, to_date):
         demand_map[row.project][mkey] = int(row.units)
 
     return demand_map
+
+
+def _q_monthly_product_breakdown(projects, project_names, from_date, to_date):
+    """Kitchen / wardrobe unit counts per project per month (for cell tooltips)."""
+    if not project_names:
+        return {}
+
+    proj_map = {p.name: p for p in projects}
+    if _has_job_card_activity_any(project_names, from_date, to_date):
+        return _q_job_card_product_breakdown(
+            project_names, from_date, to_date, proj_map
+        )
+
+    return _q_delivery_product_breakdown(project_names, from_date, to_date)
+
+
+def _has_job_card_activity_any(project_names, from_date, to_date):
+    return bool(
+        frappe.db.sql(
+            """
+            SELECT 1
+            FROM `tabJob Card` jc
+            WHERE
+                jc.docstatus < 2
+                AND jc.project IN %(project_names)s
+                AND (
+                    (
+                        jc.status = 'Completed'
+                        AND COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
+                        AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
+                    )
+                    OR (
+                        jc.status NOT IN ('Completed', 'Cancelled')
+                        AND COALESCE(jc.expected_start_date, jc.posting_date) >= %(from_date)s
+                        AND COALESCE(jc.expected_start_date, jc.posting_date) <= %(to_date)s
+                    )
+                )
+            LIMIT 1
+            """,
+            {
+                "project_names": project_names,
+                "from_datetime": f"{from_date} 00:00:00",
+                "to_datetime": f"{to_date} 23:59:59",
+                "from_date": from_date,
+                "to_date": to_date,
+            },
+        )
+    )
+
+
+def _get_bottleneck_times_for_projects(projects):
+    bom_names = {
+        bom
+        for proj in projects
+        for bom in (proj.kitchen_bom, proj.wardrobe_bom)
+        if bom
+    }
+    times = {}
+    for bom in bom_names:
+        bottleneck = _get_bottleneck_operation(_q_bom_operations([bom]))
+        if bottleneck and flt(bottleneck.time_in_mins) > 0:
+            times[bom] = flt(bottleneck.time_in_mins)
+    return times
+
+
+def _classify_project_bom(proj, bom_no):
+    if bom_no and bom_no == proj.kitchen_bom:
+        return "kitchen"
+    if bom_no and bom_no == proj.wardrobe_bom:
+        return "wardrobe"
+    return None
+
+
+def _q_job_card_product_breakdown(project_names, from_date, to_date, proj_map):
+    projects = list(proj_map.values())
+    bottleneck_times = _get_bottleneck_times_for_projects(projects)
+    params = {
+        "project_names": project_names,
+        "from_datetime": f"{from_date} 00:00:00",
+        "to_datetime": f"{to_date} 23:59:59",
+        "from_date": from_date,
+        "to_date": to_date,
+    }
+
+    completed_log_rows = frappe.db.sql(
+        """
+        SELECT
+            jc.project,
+            jc.bom_no,
+            DATE_FORMAT(jctl.from_time, '%%Y-%%m') AS ym,
+            SUM(jctl.time_in_mins) AS mins
+        FROM
+            `tabJob Card` jc
+            INNER JOIN `tabJob Card Time Log` jctl ON jctl.parent = jc.name
+        WHERE
+            jc.docstatus < 2
+            AND jc.status = 'Completed'
+            AND jc.project IN %(project_names)s
+            AND jctl.from_time >= %(from_datetime)s
+            AND jctl.from_time <= %(to_datetime)s
+        GROUP BY
+            jc.project, jc.bom_no, ym
+        """,
+        params,
+        as_dict=True,
+    )
+
+    completed_total_rows = frappe.db.sql(
+        """
+        SELECT
+            jc.project,
+            jc.bom_no,
+            DATE_FORMAT(COALESCE(jc.actual_end_date, jc.posting_date), '%%Y-%%m') AS ym,
+            SUM(jc.total_time_in_mins) AS mins
+        FROM
+            `tabJob Card` jc
+        WHERE
+            jc.docstatus < 2
+            AND jc.status = 'Completed'
+            AND jc.project IN %(project_names)s
+            AND COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
+            AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
+            AND IFNULL(jc.total_time_in_mins, 0) > 0
+            AND NOT EXISTS (
+                SELECT 1
+                FROM `tabJob Card Time Log` jctl
+                WHERE jctl.parent = jc.name
+            )
+        GROUP BY
+            jc.project, jc.bom_no, ym
+        """,
+        params,
+        as_dict=True,
+    )
+
+    scheduled_rows = frappe.db.sql(
+        """
+        SELECT
+            jc.project,
+            jc.bom_no,
+            DATE_FORMAT(COALESCE(jc.expected_start_date, jc.posting_date), '%%Y-%%m') AS ym,
+            SUM(
+                CASE
+                    WHEN IFNULL(jc.time_required, 0) > 0 THEN jc.time_required
+                    ELSE IFNULL(jc.for_quantity, 0) * IFNULL(
+                        (
+                            SELECT MAX(bo.time_in_mins)
+                            FROM `tabBOM Operation` bo
+                            WHERE bo.parent = jc.bom_no AND bo.time_in_mins > 0
+                        ),
+                        0
+                    )
+                END
+            ) AS mins
+        FROM
+            `tabJob Card` jc
+        WHERE
+            jc.docstatus < 2
+            AND jc.status NOT IN ('Completed', 'Cancelled')
+            AND jc.project IN %(project_names)s
+            AND COALESCE(jc.expected_start_date, jc.posting_date) >= %(from_date)s
+            AND COALESCE(jc.expected_start_date, jc.posting_date) <= %(to_date)s
+        GROUP BY
+            jc.project, jc.bom_no, ym
+        """,
+        params,
+        as_dict=True,
+    )
+
+    mins_map = defaultdict(lambda: defaultdict(float))
+    for row in completed_log_rows + completed_total_rows + scheduled_rows:
+        if not row.project or not row.ym or not row.bom_no:
+            continue
+        mkey = "m_" + row.ym.replace("-", "_")
+        mins_map[row.project][(row.bom_no, mkey)] += flt(row.mins)
+
+    breakdown = defaultdict(dict)
+    for project, bom_month_mins in mins_map.items():
+        proj = proj_map.get(project)
+        if not proj:
+            continue
+        for (bom_no, mkey), mins in bom_month_mins.items():
+            category = _classify_project_bom(proj, bom_no)
+            if not category:
+                continue
+            bottleneck_time = bottleneck_times.get(bom_no)
+            if not bottleneck_time:
+                continue
+            bucket = breakdown[project].setdefault(mkey, {"kitchen": 0, "wardrobe": 0})
+            bucket[category] += int(mins / bottleneck_time)
+
+    return breakdown
+
+
+def _q_delivery_product_breakdown(project_names, from_date, to_date):
+    rows = frappe.db.sql(
+        """
+        SELECT
+            du.project,
+            DATE_FORMAT(dus.planned_date, '%%Y-%%m') AS ym,
+            SUM(CASE WHEN IFNULL(p.kitchen_required, 0) = 1 THEN 1 ELSE 0 END) AS kitchen,
+            SUM(CASE WHEN IFNULL(p.wardrobe_required, 0) = 1 THEN 1 ELSE 0 END) AS wardrobe
+        FROM
+            `tabDevelopment Unit` du
+            INNER JOIN `tabDevelopment Unit Stage` dus ON dus.parent = du.name
+            INNER JOIN `tabDevelopment Stage` ds ON ds.name = dus.stage
+            INNER JOIN `tabProject` p ON p.name = du.project
+        WHERE
+            ds.stage_category = 'Delivery'
+            AND dus.planned_date BETWEEN %(from_date)s AND %(to_date)s
+            AND du.project IN %(project_names)s
+        GROUP BY
+            du.project, ym
+        """,
+        {
+            "from_date": from_date,
+            "to_date": to_date,
+            "project_names": project_names,
+        },
+        as_dict=True,
+    )
+
+    breakdown = defaultdict(dict)
+    for row in rows:
+        mkey = "m_" + row.ym.replace("-", "_")
+        breakdown[row.project][mkey] = {
+            "kitchen": int(row.kitchen or 0),
+            "wardrobe": int(row.wardrobe or 0),
+        }
+    return breakdown
 
 
 def _get_bottleneck_operation(operations):
@@ -719,15 +978,9 @@ def _q_downtime(workstation_names, from_date, to_date):
 # ---------------------------------------------------------------------------
 
 def _calc_capacity_per_month(
-    operations, ws_map, ws_by_type, holidays_map, downtime_map, months, uniform_capacity=False
+    operations, ws_map, ws_by_type, holidays_map, downtime_map, months
 ):
-    """
-    Compute bottleneck capacity before and after downtime.
-
-    When uniform_capacity is True (BOM selected), theoretical capacity is the same
-    every month — derived from the selected BOM operations and a reference working
-    month. Actual capacity only varies with monthly downtime on those workstations.
-    """
+    """Compute bottleneck capacity before and after downtime for each calendar month."""
     month_keys = [mkey for mkey, _, _ in months]
     result = {
         "theoretical": {mkey: 0 for mkey in month_keys},
@@ -742,32 +995,6 @@ def _calc_capacity_per_month(
     for (ws_name, mkey), mins in downtime_map.items():
         if ws_name in ws_map:
             downtime_by_month[mkey] += mins
-
-    if uniform_capacity and months:
-        ref_mdate = months[0][2]
-        base_ws_avail = _calc_workstation_availability(ws_map, ref_mdate, holidays_map)
-        base_type_avail = _aggregate_type_availability(base_ws_avail, ws_by_type)
-        base_theoretical, _ = _calc_bottleneck_capacity(
-            operations, base_ws_avail, base_type_avail
-        )
-
-        for mkey, _mlabel, _mdate in months:
-            ws_downtime = {
-                ws_name: downtime_map.get((ws_name, mkey), 0) for ws_name in ws_map
-            }
-            type_downtime = _aggregate_type_downtime(ws_downtime, ws_by_type)
-            _, actual = _calc_bottleneck_capacity(
-                operations,
-                base_ws_avail,
-                base_type_avail,
-                ws_downtime,
-                type_downtime,
-            )
-            result["theoretical"][mkey] = base_theoretical
-            result["actual"][mkey] = actual
-            result["downtime_total"][mkey] = int(downtime_by_month.get(mkey, 0))
-
-        return result
 
     for mkey, _mlabel, mdate in months:
         ws_avail = _calc_workstation_availability(ws_map, mdate, holidays_map)
@@ -791,10 +1018,10 @@ def _calc_workstation_availability(ws_map, mdate, holidays_map):
     weekdays_in_month = _count_weekdays(mdate.year, mdate.month)
     ws_avail = {}
     for ws_name, ws in ws_map.items():
-        holidays_this_month = sum(
-            1
-            for h in holidays_map.get(ws.holiday_list or "", [])
-            if h.year == mdate.year and h.month == mdate.month
+        holidays_this_month = _count_weekday_holidays_in_month(
+            holidays_map.get(ws.holiday_list or "", []),
+            mdate.year,
+            mdate.month,
         )
         effective_days = max(0, weekdays_in_month - holidays_this_month)
         daily_hours = flt(ws.total_working_hours) or 8.0
@@ -882,6 +1109,17 @@ def _count_weekdays(year, month):
     )
 
 
+def _count_weekday_holidays_in_month(holiday_dates, year, month):
+    """Count holidays that fall on a working day (Mon–Fri) in the given month."""
+    return sum(
+        1
+        for holiday in holiday_dates
+        if holiday.year == year
+        and holiday.month == month
+        and holiday.weekday() < 5
+    )
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -912,14 +1150,32 @@ def _build_month_list(filters):
 
 
 def _project_subtitle(proj):
-    """Build the subtitle line shown under the project name."""
+    """Build metadata under the project name — counts in brackets, type plain."""
     parts = []
-    if getattr(proj, "customer", None):
-        parts.append(proj.customer)
-    unit_count = int(proj.unit_count or 0)
+
+    unit_count = int(getattr(proj, "unit_count", 0) or 0)
     if unit_count:
-        parts.append(f"{unit_count} units")
-    return " · ".join(parts) if parts else ""
+        parts.append(_("{0} units").format(unit_count))
+
+    kitchen_count = int(getattr(proj, "kitchen_count", 0) or 0)
+    if kitchen_count:
+        parts.append(_("{0} kitchens").format(kitchen_count))
+
+    wardrobe_count = int(getattr(proj, "wardrobe_count", 0) or 0)
+    if wardrobe_count:
+        parts.append(_("{0} wardrobes").format(wardrobe_count))
+
+    project_type = getattr(proj, "project_type", None)
+    counts_part = f"({' · '.join(parts)})" if parts else ""
+
+    if project_type and counts_part:
+        return f"{project_type} · {counts_part}"
+    if project_type:
+        return project_type
+    if counts_part:
+        return counts_part
+
+    return ""
 
 
 def _get_bom_capacity_subtitle(bom):

@@ -68,7 +68,7 @@ KITCHEN_LOCAL_EXPECTED = {
 		"months": {
 			"Jun '26": {"capacity": "9/10", "demand": 3, "utilisation_pct": 33, "free_capacity": 6},
 			"Jul '26": {"capacity": "10/10", "demand": 2, "utilisation_pct": 20, "free_capacity": 8},
-			"Aug '26": {"capacity": "10/10", "demand": 0, "utilisation_pct": 0, "free_capacity": 10},
+			"Aug '26": {"capacity": "9/9", "demand": 0, "utilisation_pct": 0, "free_capacity": 9},
 		},
 	},
 	"BOM-B (capacity 20)": {
@@ -77,7 +77,7 @@ KITCHEN_LOCAL_EXPECTED = {
 		"months": {
 			"Jun '26": {"capacity": "18/20", "demand": 0, "utilisation_pct": 0, "free_capacity": 18},
 			"Jul '26": {"capacity": "20/20", "demand": 1, "utilisation_pct": 5, "free_capacity": 19},
-			"Aug '26": {"capacity": "20/20", "demand": 2, "utilisation_pct": 10, "free_capacity": 18},
+			"Aug '26": {"capacity": "19/19", "demand": 2, "utilisation_pct": 11, "free_capacity": 17},
 		},
 	},
 }
@@ -181,6 +181,7 @@ def reset_kitchen_local_delivery_data():
 	_sync_kitchen_local_masters(company, refs)
 	removed = _remove_kitchen_local_development_units()
 	created = _create_kitchen_local_projects_and_units(refs, company)
+	_ensure_kitchen_local_site_hierarchy(refs, company)
 	removed_mfg = _remove_kitchen_local_manufacturing_data()
 	job_cards = _create_kitchen_local_job_cards(refs, company)
 	frappe.db.commit()
@@ -253,6 +254,10 @@ def show_demand_and_free_capacity():
 
 def verify_capacity_pipeline_test_data():
 	"""Compare kitchen-local report output against expected small-number fixtures."""
+	company = _resolve_company()
+	refs = _get_kitchen_local_refs(company)
+	_sync_kitchen_local_masters(company, refs)
+
 	actual = show_demand_and_free_capacity()
 	checks = []
 
