@@ -170,8 +170,30 @@ OBSOLETE_BOM_FIELDS = (
 
 def ensure_project_bom_fields() -> None:
 	cleanup_obsolete_bom_fields()
-	create_custom_fields(get_project_bom_custom_fields(), update=True)
+	fields_to_sync = _get_project_bom_fields_to_sync()
+	if fields_to_sync:
+		create_custom_fields({"Project": fields_to_sync}, update=True)
 	frappe.clear_cache(doctype="Project")
+
+
+def _get_project_bom_fields_to_sync() -> list[dict]:
+	"""Return BOM custom field defs that still need create or update.
+
+	Skip fields already on Project meta without a Custom Field record (e.g. after a
+	partial migrate) — creating them again fails validation.
+	"""
+	project_fieldnames = {df.fieldname for df in frappe.get_meta("Project").get("fields")}
+	fields_to_sync = []
+
+	for df in get_project_bom_custom_fields()["Project"]:
+		fieldname = df["fieldname"]
+		if fieldname in project_fieldnames:
+			if frappe.db.exists("Custom Field", {"dt": "Project", "fieldname": fieldname}):
+				fields_to_sync.append(df)
+			continue
+		fields_to_sync.append(df)
+
+	return fields_to_sync
 
 
 def cleanup_obsolete_bom_fields() -> None:
