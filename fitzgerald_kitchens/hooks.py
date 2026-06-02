@@ -253,6 +253,8 @@ after_migrate = [
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True
 
+boot_session = "fitzgerald_kitchens.boot.boot_session"
+
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
@@ -262,6 +264,10 @@ after_migrate = [
 # Imported from fitzgerald_kitchens/fixtures/*.json on bench migrate.
 # Re-export after desk edits: bench --site <site> export-fixtures --app fitzgerald_kitchens
 fixtures = [
+	{
+		"dt": "Project Type",
+		"filters": [["name", "in", ["Site", "Kitchen", "Robe", "Utility", "Vanity Unit"]]],
+	},
 	{
 		"dt": "Development Stage",
 	},
