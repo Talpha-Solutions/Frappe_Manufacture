@@ -1,0 +1,32 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "name": "Site",
+  "project_type": "Site"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "name": "Kitchen",
+  "project_type": "Kitchen"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "name": "Robe",
+  "project_type": "Robe"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "name": "Utility",
+  "project_type": "Utility"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "name": "Vanity Unit",
+  "project_type": "Vanity Unit"
+ }
+]

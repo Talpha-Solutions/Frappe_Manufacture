@@ -21,6 +21,10 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 			options: "Company",
 			default: frappe.defaults.get_user_default("Company"),
 			reqd: 1,
+			on_change: function () {
+				frappe.query_report.set_filter_value("bom", "");
+				cpr_set_default_bom(true);
+			},
 		},
 		{
 			label: __("From Date"),
@@ -42,6 +46,23 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 			reqd: 1,
 		},
 		{
+			label: __("BOM"),
+			fieldname: "bom",
+			fieldtype: "Link",
+			options: "BOM",
+			default: frappe.boot?.capacity_pipeline_default_bom || "",
+			get_query: () => {
+				const company = cpr_get_company();
+				return {
+					filters: {
+						docstatus: 1,
+						is_active: 1,
+						...(company ? { company } : {}),
+					},
+				};
+			},
+		},
+		{
 			label: __("Project"),
 			fieldname: "project",
 			fieldtype: "Link",
@@ -53,7 +74,7 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 		cpr_inject_styles();
 		cpr_setup_header(report);
 		cpr_hide_default_chrome(report);
-		cpr_ensure_twelve_month_range();
+		return cpr_prepare_filters_before_refresh(report);
 	},
 
 	get_datatable_options(options) {
@@ -85,6 +106,11 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 		cpr_style_rows();
 		cpr_bind_column_resize();
 		cpr_fix_horizontal_scroll();
+		cpr_update_header_bom();
+	},
+
+	after_refresh(report) {
+		cpr_sync_bom_filter_from_boot(report);
 	},
 
 	formatter(value, row, column, data, default_formatter) {
@@ -113,10 +139,16 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 };
 
 function cpr_get_row_data(row, data) {
-	if (data && typeof data === "object") {
-		return data;
+	const full_row =
+		(frappe.query_report?.data && frappe.query_report.data[row]) || {};
+
+	// Datatable passes a sparse row object (column values only). Merge with the
+	// full report row so metadata like m_2026_06_pct and row_type is available.
+	if (data && typeof data === "object" && !Array.isArray(data)) {
+		return { ...full_row, ...data };
 	}
-	return (frappe.query_report.data && frappe.query_report.data[row]) || {};
+
+	return full_row;
 }
 
 function cpr_get_row_type(row_data, project_value) {
@@ -193,12 +225,113 @@ function cpr_setup_header(report) {
 			<div class="cpr-header">
 				<h4 class="cpr-header-title">${__("Project allocation by month")}</h4>
 				<div class="cpr-header-sub">${__(
-					"Click a project to see its delivery schedule · numbers = kitchens to ship that month · drag column edges to resize"
+					"Click a project to see its production load · numbers = kitchens produced that month (from Job Card actual time) · drag column edges to resize"
 				)}</div>
+				<div class="cpr-header-bom" style="display:none;font-size:11px;color:#5a6773;margin-top:4px"></div>
 			</div>
 		`);
 		$main.find(".page-form").before(header);
 	}
+}
+
+function cpr_get_company(report) {
+	const query_report = report || frappe.query_report;
+	const company_filter = query_report.get_filter("company", false);
+	return (
+		query_report.get_filter_value("company") ||
+		company_filter?.$input?.val() ||
+		company_filter?.value ||
+		frappe.defaults.get_user_default("Company")
+	);
+}
+
+function cpr_get_default_bom_for_company(company) {
+	if (!company) return "";
+	const map = frappe.boot?.capacity_pipeline_default_boms || {};
+	return map[company] || frappe.boot?.capacity_pipeline_default_bom || "";
+}
+
+function cpr_prepare_filters_before_refresh(report) {
+	const query_report = report || frappe.query_report;
+	return cpr_sync_bom_filter_from_boot(query_report, true).then(() => {
+		const from_date = query_report.get_filter_value("from_date");
+		const to_date = query_report.get_filter_value("to_date");
+		if (from_date && (!to_date || cpr_months_between(from_date, to_date) < 11)) {
+			cpr_sync_to_date_filter(query_report);
+		}
+	});
+}
+
+function cpr_sync_bom_filter_from_boot(report, allow_fetch) {
+	const query_report = report || frappe.query_report;
+	if (query_report.get_filter_value("bom")) {
+		return Promise.resolve();
+	}
+
+	const company = cpr_get_company(query_report);
+	const boot_bom = cpr_get_default_bom_for_company(company);
+	if (boot_bom) {
+		return cpr_set_bom_filter_value(query_report, boot_bom);
+	}
+
+	if (!allow_fetch || !company) {
+		return Promise.resolve();
+	}
+
+	return frappe
+		.xcall(
+			"fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report.get_default_bom",
+			{ company }
+		)
+		.then((bom) => cpr_set_bom_filter_value(query_report, bom));
+}
+
+async function cpr_set_bom_filter_value(report, bom) {
+	const filter = report.get_filter("bom", false);
+	if (!filter || !bom) return;
+
+	report._no_refresh = true;
+	filter.set_input(bom);
+	await filter.set_value(bom);
+	report._no_refresh = false;
+}
+
+function cpr_set_default_bom(refresh) {
+	const report = frappe.query_report;
+	const company = cpr_get_company(report);
+	const boot_bom = cpr_get_default_bom_for_company(company);
+
+	const apply = boot_bom
+		? cpr_set_bom_filter_value(report, boot_bom)
+		: cpr_sync_bom_filter_from_boot(report, true);
+
+	return apply.then(() => {
+		if (refresh) {
+			report.refresh();
+		}
+	});
+}
+
+function cpr_update_header_bom() {
+	const bom = frappe.query_report.get_filter_value("bom");
+	const $bom = $(".cpr-header-bom");
+
+	if (!bom) {
+		$bom.hide().empty();
+		return;
+	}
+
+	frappe.db.get_value("BOM", bom, ["item", "name"]).then((r) => {
+		const item = r?.message?.item || bom;
+		const name = r?.message?.name || bom;
+		$bom
+			.html(
+				`${__("Capacity based on BOM")}: <a href="/app/bom/${encodeURIComponent(
+					name
+				)}" style="color:var(--primary,#2490ef)">${frappe.utils.escape_html(item)}</a>`
+			)
+			.show();
+	});
 }
 
 function cpr_hide_default_chrome(report) {
@@ -212,25 +345,13 @@ function cpr_months_between(from_date, to_date) {
 	return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
 }
 
-function cpr_sync_to_date_filter() {
-	const from_date = frappe.query_report.get_filter_value("from_date");
+function cpr_sync_to_date_filter(report) {
+	const query_report = report || frappe.query_report;
+	const from_date = query_report.get_filter_value("from_date");
 	if (!from_date) return;
 
 	const to_date = frappe.datetime.month_end(frappe.datetime.add_months(from_date, 11));
-	frappe.query_report.set_filter_value("to_date", to_date);
-}
-
-function cpr_ensure_twelve_month_range() {
-	setTimeout(() => {
-		const from_date = frappe.query_report.get_filter_value("from_date");
-		const to_date = frappe.query_report.get_filter_value("to_date");
-		if (!from_date) return;
-
-		if (!to_date || cpr_months_between(from_date, to_date) < 11) {
-			cpr_sync_to_date_filter();
-			frappe.query_report.refresh();
-		}
-	}, 300);
+	query_report.set_filter_value("to_date", to_date);
 }
 
 function cpr_get_saved_column_widths() {
@@ -352,7 +473,11 @@ function cpr_fmt_label(rt, value, data) {
 	}
 
 	if (rt === "capacity") {
-		return `<div style="padding:8px 4px;font-size:12px;color:#8d99a6">${v}</div>`;
+		const sub = frappe.utils.escape_html(data.subtitle || "");
+		return `<div style="padding:8px 4px;font-size:12px;color:#8d99a6">
+			<div>${v}</div>
+			${sub ? `<div style="font-size:10px;color:#aeb6bf;margin-top:2px">${sub}</div>` : ""}
+		</div>`;
 	}
 
 	if (rt === "downtime") {
@@ -414,8 +539,30 @@ function cpr_fmt_capacity_cell(value, fn, data) {
 	return `<div style="text-align:center;font-size:14px;font-weight:600;color:#5a6773;padding:8px 0;line-height:1.35">${display}</div>`;
 }
 
+function cpr_get_capacity_actual(fn, row_data) {
+	if (row_data?.[fn + "_actual"] !== undefined) {
+		return cint(row_data[fn + "_actual"]);
+	}
+
+	const cap_row = (frappe.query_report?.data || []).find((r) => r.row_type === "capacity");
+	if (!cap_row) {
+		return 0;
+	}
+
+	if (cap_row[fn + "_actual"] !== undefined) {
+		return cint(cap_row[fn + "_actual"]);
+	}
+
+	const parts = String(cap_row[fn] || "").split("/");
+	return cint(parts[0]);
+}
+
 function cpr_fmt_demand_cell(num, fn, data) {
-	const pct = parseFloat(data[fn + "_pct"] || 0);
+	let pct = parseFloat(data[fn + "_pct"]);
+	if (Number.isNaN(pct)) {
+		const actual = cpr_get_capacity_actual(fn, data);
+		pct = actual ? (num / actual) * 100 : 0;
+	}
 
 	let bg, textCol, pctCol;
 	if (pct > 100) {

@@ -19,11 +19,18 @@ def after_install():
 	)
 
 	ensure_development_stage_settings()
+	ensure_project_types()
 	ensure_project_bom_fields()
 	ensure_projects_sidebar()
 	ensure_manufacturing_sidebar()
 	patch_project_website_list()
 	patch_project_website_tasks()
+
+
+def ensure_project_types():
+	from fitzgerald_kitchens.setup.project_types import ensure_project_types as _ensure
+
+	_ensure()
 
 
 def ensure_development_stage_settings():
