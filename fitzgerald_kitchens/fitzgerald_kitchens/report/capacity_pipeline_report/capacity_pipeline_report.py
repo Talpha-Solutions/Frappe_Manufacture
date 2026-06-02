@@ -228,7 +228,7 @@ def _q_projects(filters):
     """Return active projects for the company (with or without kitchen BOM)."""
     company_cond = "AND p.company = %(company)s" if filters.get("company") else ""
     project_cond = "AND p.name = %(project)s" if filters.get("project") else ""
-    bom_cond = "AND p.kitchen_bom = %(bom)s" if filters.get("bom") else ""
+    bom_cond = "AND p.fk_effective_bom = %(bom)s" if filters.get("bom") else ""
 
     rows = frappe.db.sql(
         f"""
@@ -236,8 +236,7 @@ def _q_projects(filters):
             p.name,
             p.project_name,
             p.customer,
-            p.kitchen_bom,
-            p.kitchen_required,
+            p.fk_effective_bom,
             COUNT(du.name) AS unit_count
         FROM
             `tabProject` p
@@ -249,7 +248,7 @@ def _q_projects(filters):
             {project_cond}
             {bom_cond}
         GROUP BY
-            p.name, p.project_name, p.customer, p.kitchen_bom, p.kitchen_required
+            p.name, p.project_name, p.customer, p.fk_effective_bom
         ORDER BY
             p.project_name
         """,

@@ -1,31 +1,41 @@
 [
  {
+  "description": null,
   "docstatus": 0,
   "doctype": "Project Type",
+  "modified": "2026-06-02 14:55:18.348791",
   "name": "Site",
   "project_type": "Site"
  },
  {
+  "description": null,
   "docstatus": 0,
   "doctype": "Project Type",
+  "modified": "2026-06-02 14:55:18.358838",
   "name": "Kitchen",
   "project_type": "Kitchen"
  },
  {
+  "description": null,
   "docstatus": 0,
   "doctype": "Project Type",
+  "modified": "2026-06-02 14:55:18.364242",
   "name": "Robe",
   "project_type": "Robe"
  },
  {
+  "description": null,
   "docstatus": 0,
   "doctype": "Project Type",
+  "modified": "2026-06-02 14:55:18.371095",
   "name": "Utility",
   "project_type": "Utility"
  },
  {
+  "description": null,
   "docstatus": 0,
   "doctype": "Project Type",
+  "modified": "2026-06-02 14:55:18.377905",
   "name": "Vanity Unit",
   "project_type": "Vanity Unit"
  }

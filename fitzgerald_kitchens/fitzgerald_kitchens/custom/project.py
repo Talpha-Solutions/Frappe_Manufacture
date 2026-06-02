@@ -27,6 +27,18 @@ def get_wardrobe_bom_from_mapping(wardrobe_type: str, wardrobe_specification: st
 
 
 @frappe.whitelist()
+def create_work_order(
+	project: str,
+	bom_no: str,
+	item: str | None = None,
+	qty: float | None = None,
+	sales_order: str | None = None,
+):
+	"""Create a Work Order from the project's Effective BOM (Unit tab)."""
+	return _create_project_work_order(project, bom_no, item, qty, "fk_work_order", sales_order)
+
+
+@frappe.whitelist()
 def create_kitchen_work_order(
 	project: str,
 	bom_no: str,
@@ -34,8 +46,8 @@ def create_kitchen_work_order(
 	qty: float | None = None,
 	sales_order: str | None = None,
 ):
-	"""Create a Work Order from the project's Kitchen BOM and link it on the Project."""
-	return _create_project_work_order(project, bom_no, item, qty, "kitchen_work_order", sales_order)
+	"""Deprecated: use create_work_order with fk_effective_bom."""
+	return create_work_order(project, bom_no, item, qty, sales_order)
 
 
 @frappe.whitelist()
@@ -46,8 +58,8 @@ def create_wardrobe_work_order(
 	qty: float | None = None,
 	sales_order: str | None = None,
 ):
-	"""Create a Work Order from the project's Wardrobe BOM and link it on the Project."""
-	return _create_project_work_order(project, bom_no, item, qty, "wardrobe_work_order", sales_order)
+	"""Deprecated: use create_work_order with fk_effective_bom."""
+	return create_work_order(project, bom_no, item, qty, sales_order)
 
 
 def _create_project_work_order(

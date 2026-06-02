@@ -4,6 +4,8 @@ STANDARD_PROJECT_TYPES = [
 	{"project_type": "Robe"},
 	{"project_type": "Utility"},
 	{"project_type": "Vanity Unit"},
+	{"project_type": "Unit"},
+	{"project_type": "Pantry"},
 ]
 
 STANDARD_PROJECT_TYPE_NAMES = {row["project_type"] for row in STANDARD_PROJECT_TYPES}

@@ -574,8 +574,6 @@ def _create_kitchen_local_projects_and_units(refs, company):
 					"unit_reference": f"{project_name} Unit {index:02d}",
 					"project": project,
 					"customer": refs["customer"],
-					"kitchen_required": 1,
-					"kitchen_bom": bom_map[bom_key],
 				}
 			)
 			unit.insert(ignore_permissions=True)
@@ -592,9 +590,8 @@ def _get_or_create_kitchen_local_project(project_name, kitchen_bom, customer, co
 			"Project",
 			existing,
 			{
-				"kitchen_required": 1,
-				"kitchen_bom": kitchen_bom,
-				"kitchen_item": frappe.db.get_value("BOM", kitchen_bom, "item"),
+				"fk_effective_bom": kitchen_bom,
+				"project_type": "Kitchen",
 				"customer": customer,
 				"company": company,
 			},
@@ -608,9 +605,8 @@ def _get_or_create_kitchen_local_project(project_name, kitchen_bom, customer, co
 			"project_name": project_name,
 			"company": company,
 			"customer": customer,
-			"kitchen_required": 1,
-			"kitchen_bom": kitchen_bom,
-			"kitchen_item": frappe.db.get_value("BOM", kitchen_bom, "item"),
+			"fk_effective_bom": kitchen_bom,
+			"project_type": "Kitchen",
 			"status": "Open",
 		}
 	)
@@ -826,9 +822,8 @@ def _set_demo_project_kitchen_boms():
 			"Project",
 			project,
 			{
-				"kitchen_required": 1,
-				"kitchen_bom": DEMO_KITCHEN_BOM,
-				"kitchen_item": frappe.db.get_value("BOM", DEMO_KITCHEN_BOM, "item"),
+				"fk_effective_bom": DEMO_KITCHEN_BOM,
+				"project_type": "Kitchen",
 			},
 			update_modified=False,
 		)
@@ -875,8 +870,6 @@ def _create_demo_development_units():
 					"project": project,
 					"company": DEMO_COMPANY,
 					"customer": _get_demo_project_customer(project),
-					"kitchen_required": 1,
-					"kitchen_bom": DEMO_KITCHEN_BOM,
 				}
 			)
 			doc.insert(ignore_permissions=True)
