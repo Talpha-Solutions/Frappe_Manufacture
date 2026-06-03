@@ -24,7 +24,6 @@ frappe.pages["my-tasks"].on_page_hide = function () {
 	}
 };
 
-const MAX_TASK_UPLOAD_COUNT = 25;
 const COLLAPSE_STORAGE_KEY = "my_tasks_card_sections";
 
 class MyTasksPage {
@@ -33,7 +32,6 @@ class MyTasksPage {
 		this.active_tab = "today";
 		this.data = null;
 		this.scanner_task = null;
-		this._scanner_dialog = null;
 		this._timer_interval = null;
 		this.$wrapper = $(frappe.render_template("my_tasks")).appendTo(this.page.main);
 		this.bind_events();
@@ -109,9 +107,6 @@ class MyTasksPage {
 			this.$hidden_scan.val("");
 			if (!value) {
 				return;
-			}
-			if (this._scanner_dialog) {
-				this._scanner_dialog.hide();
 			}
 			this.handle_scan(value);
 		});
@@ -531,161 +526,10 @@ class MyTasksPage {
 
 	open_scanner(task) {
 		this.scanner_task = task || null;
-		this.open_scanner_dialog();
+		this.open_qr_camera_scanner();
 	}
 
-	open_scanner_dialog() {
-		const me = this;
-
-		const d = new frappe.ui.Dialog({
-			title: __("Scanner"),
-			size: "large",
-			fields: [{ fieldtype: "HTML", fieldname: "scanner_utility" }],
-			primary_action_label: __("Close"),
-			primary_action() {
-				d.hide();
-			},
-		});
-
-		const $wrapper = d.get_field("scanner_utility").$wrapper;
-		$wrapper.html(me.get_scanner_utility_html());
-
-		me._scanner_dialog = d;
-
-		$wrapper.find(".btn-launch-camera-modal").on("click", (e) => {
-			e.stopPropagation();
-			me.open_qr_camera_scanner(d);
-		});
-
-		$wrapper.find(".my-tasks-scanner-dropzone").on("click", (e) => {
-			if ($(e.target).closest("button").length) {
-				return;
-			}
-			me.$hidden_scan.focus();
-		});
-
-		$wrapper.find(".btn-scan-choose-files").on("click", (e) => {
-			e.stopPropagation();
-			me.open_task_file_uploader();
-		});
-
-		d.on_hide = () => {
-			me._scanner_dialog = null;
-			me.scanner_task = null;
-		};
-
-		d.show();
-		setTimeout(() => me.$hidden_scan.focus(), 300);
-	}
-
-	open_task_file_uploader() {
-		const me = this;
-		const task = this._get_upload_task();
-
-		if (!task?.name) {
-			frappe.msgprint({
-				title: __("Select a task"),
-				message: __(
-					"No open task found. Use Start task or Continue on a task card, or assign yourself a task first."
-				),
-				indicator: "orange",
-			});
-			return;
-		}
-
-		const launch = () => me._show_upload_dialog(task);
-
-		if (frappe.ui.FileUploader) {
-			launch();
-		} else {
-			frappe.require("file_uploader.bundle.js", launch);
-		}
-	}
-
-	_get_upload_task() {
-		if (this.scanner_task?.name) {
-			return this.scanner_task;
-		}
-		const tab_order = ["today", "overdue", "upcoming"];
-		for (const tab of tab_order) {
-			const tasks = this.data?.tabs?.[tab]?.tasks || [];
-			const match = tasks.find((t) => t.status !== "Completed");
-			if (match) {
-				return match;
-			}
-		}
-		return null;
-	}
-
-	_show_upload_dialog(task) {
-		const me = this;
-
-		frappe.call({
-			method: "fitzgerald_kitchens.fitzgerald_kitchens.custom.task.get_attached_files",
-			args: { doctype: "Task", name: task.name },
-			callback: (r) => {
-				const existingCount = r.message ? r.message.length : 0;
-				if (existingCount >= MAX_TASK_UPLOAD_COUNT) {
-					frappe.msgprint(
-						__("Maximum of {0} files already uploaded.", [MAX_TASK_UPLOAD_COUNT])
-					);
-					return;
-				}
-
-				new frappe.ui.FileUploader({
-					doctype: "Task",
-					docname: task.name,
-					folder: "Home/Attachments",
-					allow_multiple: true,
-					dialog_title: __("Upload"),
-					allow_web_link: true,
-					allow_take_photo: true,
-					allow_toggle_private: true,
-					on_success() {
-						frappe.show_alert({
-							message: __("File uploaded to {0}", [task.subject || task.name]),
-							indicator: "green",
-						});
-						me.refresh();
-					},
-				});
-			},
-		});
-	}
-
-	get_scanner_utility_html() {
-		return `
-			<div class="my-tasks-scanner-utility">
-				<div class="camera-action-bar">
-					<div>
-						<h5 class="camera-action-title">
-							<i class="fa fa-camera"></i> ${__("Camera Utility")}
-						</h5>
-					</div>
-					<button type="button" class="btn btn-default btn-sm btn-launch-camera-modal">
-						<i class="fa fa-video-camera"></i> ${__("Open Camera")}
-					</button>
-				</div>
-				<div class="my-tasks-scanner-dropzone uploader-section">
-					<div class="upload-prompt-zone">
-						<div class="upload-cloud-icon"><i class="fa fa-cloud-upload"></i></div>
-						<div class="upload-title">${__("Drag & drop your files here")}</div>
-						<div class="upload-sub text-muted">
-							${__("or click the button below to browse local storage")}
-						</div>
-					</div>
-					<button type="button" class="btn btn-primary btn-sm btn-scan-choose-files">
-						<i class="fa fa-plus"></i> ${__("Choose Files")}
-					</button>
-					<p class="scanner-wedge-hint text-muted small">
-						${__("Handheld label scanner: click this area and scan.")}
-					</p>
-				</div>
-			</div>
-		`;
-	}
-
-	open_qr_camera_scanner(parent_dialog) {
+	open_qr_camera_scanner() {
 		const me = this;
 		const scanner = new frappe.ui.Scanner({
 			dialog: true,
@@ -693,9 +537,7 @@ class MyTasksPage {
 			on_scan(result) {
 				const qr_text = result?.decodedText || result;
 				if (qr_text) {
-					if (parent_dialog) {
-						parent_dialog.hide();
-					}
+					me.scanner_task = null;
 					me.handle_scan(qr_text);
 				}
 			},
