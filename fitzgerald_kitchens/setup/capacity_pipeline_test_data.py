@@ -15,9 +15,13 @@ Run::
 
     bench --site kitchen.local execute fitzgerald_kitchens.setup.capacity_pipeline_test_data.insert_capacity_pipeline_test_data
     bench --site kitchen.local execute fitzgerald_kitchens.setup.capacity_pipeline_test_data.verify_capacity_pipeline_test_data
+    bench --site kitchen.local execute fitzgerald_kitchens.setup.capacity_pipeline_test_data.verify_project_item_counts
+    bench --site kitchen.local execute fitzgerald_kitchens.setup.production_time_summary_test_data.insert_production_time_summary_test_data
+    bench --site kitchen.local execute fitzgerald_kitchens.setup.production_time_summary_test_data.verify_production_time_summary_test_data
 """
 
 import calendar
+import re
 from datetime import date
 
 import frappe
@@ -56,6 +60,21 @@ KITCHEN_LOCAL_PROJECTS = {
 		["2026-07-01", "2026-08-10", "2026-08-20"],
 	),
 }
+
+KITCHEN_LOCAL_SITE = "Riverside Site"
+KITCHEN_LOCAL_SITE_LINKED_PROJECTS = ("Alpha Kitchens", "Beta Kitchens")
+KITCHEN_LOCAL_SITE_EXTRA_CHILD = {
+	"Riverside Kitchen 02": (
+		"A",
+		["2026-06-25", "2026-08-05"],
+	),
+	"Riverside Wardrobe 01": (
+		"B",
+		["2026-06-28", "2026-07-30"],
+	),
+}
+KITCHEN_LOCAL_STANDALONE_PROJECT = "Gamma Kitchens"
+KITCHEN_LOCAL_PROJECT_START_DATE = "2026-06-01"
 
 KITCHEN_LOCAL_EXPECTED = {
 	"filters": {
@@ -162,6 +181,7 @@ def seed_kitchen_local_test_data():
 	_ensure_app_setup()
 	refs = _create_kitchen_local_masters(company)
 	_create_kitchen_local_projects_and_units(refs, company)
+	_ensure_kitchen_local_site_hierarchy(refs, company)
 	job_cards = _create_kitchen_local_job_cards(refs, company)
 	downtime = _create_kitchen_local_downtime(refs["workstation"], company)
 	frappe.db.commit()
@@ -300,6 +320,165 @@ def verify_capacity_pipeline_test_data():
 	}
 
 
+def verify_project_item_counts():
+	"""
+	Audit each Capacity Pipeline project row on kitchen.local:
+
+	- Monthly cell totals vs subtitle (Site rows)
+	- Kitchen / robe tooltip totals vs subtitle
+	- Raw Development Unit delivery counts in the report horizon
+	"""
+	from fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report import (
+		execute,
+	)
+
+	if _detect_profile() != "kitchen_local":
+		frappe.throw("verify_project_item_counts requires kitchen.local test data.")
+
+	company = _resolve_company()
+	month_keys = ["m_2026_06", "m_2026_07", "m_2026_08"]
+	filters_base = frappe._dict({"company": company, **KITCHEN_LOCAL_EXPECTED["filters"]})
+
+	bom_specs = {
+		label: frappe.db.get_value("BOM", {"item": spec["bom_item"], "docstatus": 1}, "name")
+		for label, spec in KITCHEN_LOCAL_EXPECTED.items()
+		if label.startswith("BOM-")
+	}
+
+	audits = []
+	for bom_label, bom in bom_specs.items():
+		if not bom:
+			continue
+		filters = frappe._dict({**filters_base, "bom": bom})
+		_cols, data = execute(filters)
+		project_rows = [r for r in data if r.get("row_type") == "project"]
+
+		for row in project_rows:
+			audit = _audit_project_row(row, month_keys, filters)
+			audit["bom_filter"] = bom_label
+			audits.append(audit)
+
+	db_counts = _kitchen_local_db_unit_counts(filters_base["from_date"], filters_base["to_date"])
+
+	return {
+		"all_passed": all(a["subtitle_matches_monthly"] for a in audits if a["project_type"] == "Site"),
+		"audits": audits,
+		"db_delivery_counts_by_project": db_counts,
+	}
+
+
+def _parse_site_subtitle(subtitle):
+	"""Return (units, kitchens, robes) parsed from a Site subtitle string."""
+	units = kitchens = robes = 0
+	if not subtitle:
+		return units, kitchens, robes
+	match = re.search(r"(\d+)\s+units", subtitle or "")
+	if match:
+		units = int(match.group(1))
+	match = re.search(r"(\d+)\s+kitchens", subtitle or "")
+	if match:
+		kitchens = int(match.group(1))
+	match = re.search(r"(\d+)\s+robes", subtitle or "")
+	if match:
+		robes = int(match.group(1))
+	return units, kitchens, robes
+
+
+def _audit_project_row(row, month_keys, filters):
+	project_id = row.get("project_id")
+	project_type = frappe.db.get_value("Project", project_id, "project_type") if project_id else None
+
+	monthly = {}
+	sum_demand = sum_kitchen = sum_robe = 0
+	for mkey in month_keys:
+		demand = int(row.get(mkey) or 0)
+		kitchen = int(row.get(f"{mkey}_kitchen") or 0)
+		robe = int(row.get(f"{mkey}_wardrobe") or 0)
+		monthly[mkey] = {"demand": demand, "kitchen": kitchen, "robe": robe}
+		sum_demand += demand
+		sum_kitchen += kitchen
+		sum_robe += robe
+
+	sub_units, sub_kitchen, sub_robe = _parse_site_subtitle(row.get("subtitle") or "")
+
+	subtitle_matches = True
+	if project_type == "Site":
+		subtitle_matches = (
+			sub_units == sum_demand
+			and sub_kitchen == sum_kitchen
+			and sub_robe == sum_robe
+		)
+
+	return {
+		"project": row.get("project"),
+		"project_id": project_id,
+		"project_type": project_type,
+		"subtitle": row.get("subtitle") or "",
+		"monthly": monthly,
+		"sum_demand": sum_demand,
+		"sum_kitchen": sum_kitchen,
+		"sum_robe": sum_robe,
+		"subtitle_units": sub_units,
+		"subtitle_kitchens": sub_kitchen,
+		"subtitle_robes": sub_robe,
+		"subtitle_matches_monthly": subtitle_matches,
+	}
+
+
+def _kitchen_local_db_unit_counts(from_date, to_date):
+	"""Delivery-stage Development Unit counts per project (report horizon)."""
+	rows = frappe.db.sql(
+		"""
+		SELECT
+			p.project_name,
+			p.project_type,
+		 DATE_FORMAT(dus.planned_date, '%%Y-%%m') AS ym,
+		 COUNT(*) AS units,
+		 SUM(CASE WHEN IFNULL(p.kitchen_required, 0) = 1
+			 OR p.project_type = 'Kitchen' THEN 1 ELSE 0 END) AS kitchens,
+		 SUM(CASE WHEN IFNULL(p.wardrobe_required, 0) = 1
+			 OR p.project_type = 'Robe' THEN 1 ELSE 0 END) AS robes
+		FROM
+			`tabDevelopment Unit` du
+			INNER JOIN `tabDevelopment Unit Stage` dus ON dus.parent = du.name
+			INNER JOIN `tabDevelopment Stage` ds ON ds.name = dus.stage
+			INNER JOIN `tabProject` p ON p.name = du.project
+		WHERE
+			ds.stage_category = 'Delivery'
+			AND dus.planned_date BETWEEN %(from_date)s AND %(to_date)s
+			AND p.project_name IN %(names)s
+		GROUP BY
+			p.project_name, p.project_type, ym
+		ORDER BY
+			p.project_name, ym
+		""",
+		{
+			"from_date": from_date,
+			"to_date": to_date,
+			"names": _kitchen_local_manufacturing_project_names()
+			+ [KITCHEN_LOCAL_SITE],
+		},
+		as_dict=True,
+	)
+
+	by_project = {}
+	for row in rows:
+		entry = by_project.setdefault(
+			row.project_name,
+			{"project_type": row.project_type, "months": {}, "total": 0, "kitchens": 0, "robes": 0},
+		)
+		entry["months"][row.ym] = {
+			"units": int(row.units),
+			"kitchens": int(row.kitchens or 0),
+			"robes": int(row.robes or 0),
+		}
+		entry["total"] += int(row.units)
+		entry["kitchens"] += int(row.kitchens or 0)
+		entry["robes"] += int(row.robes or 0)
+
+	return by_project
+
+
 # ---------------------------------------------------------------------------
 # Profile detection
 # ---------------------------------------------------------------------------
@@ -313,6 +492,16 @@ def _detect_profile():
 # ---------------------------------------------------------------------------
 # Kitchen-local helpers
 # ---------------------------------------------------------------------------
+
+def _kitchen_local_manufacturing_projects():
+	projects = dict(KITCHEN_LOCAL_PROJECTS)
+	projects.update(KITCHEN_LOCAL_SITE_EXTRA_CHILD)
+	return projects
+
+
+def _kitchen_local_manufacturing_project_names():
+	return list(_kitchen_local_manufacturing_projects().keys())
+
 
 def _kitchen_local_test_data_exists():
 	return bool(
@@ -356,7 +545,7 @@ def _get_kitchen_local_refs(company):
 
 
 def _remove_kitchen_local_development_units():
-	project_names = list(KITCHEN_LOCAL_PROJECTS.keys())
+	project_names = _kitchen_local_manufacturing_project_names()
 	projects = frappe.get_all(
 		"Project", filters={"project_name": ["in", project_names]}, pluck="name"
 	)
@@ -590,21 +779,30 @@ def _create_kitchen_local_projects_and_units(refs, company):
 	return created_units
 
 
-def _get_or_create_kitchen_local_project(project_name, kitchen_bom, customer, company):
+def _get_or_create_kitchen_local_project(
+	project_name,
+	kitchen_bom,
+	customer,
+	company,
+	project_type=None,
+	parent_project=None,
+):
 	existing = frappe.db.get_value("Project", {"project_name": project_name}, "name")
+	values = {
+		"kitchen_required": 1,
+		"kitchen_bom": kitchen_bom,
+		"kitchen_item": frappe.db.get_value("BOM", kitchen_bom, "item"),
+		"customer": customer,
+		"company": company,
+		"expected_start_date": KITCHEN_LOCAL_PROJECT_START_DATE,
+	}
+	if project_type:
+		values["project_type"] = project_type
+	if parent_project is not None:
+		values["parent_project"] = parent_project
+
 	if existing:
-		frappe.db.set_value(
-			"Project",
-			existing,
-			{
-				"kitchen_required": 1,
-				"kitchen_bom": kitchen_bom,
-				"kitchen_item": frappe.db.get_value("BOM", kitchen_bom, "item"),
-				"customer": customer,
-				"company": company,
-			},
-			update_modified=False,
-		)
+		frappe.db.set_value("Project", existing, values, update_modified=False)
 		return existing
 
 	doc = frappe.get_doc(
@@ -617,10 +815,119 @@ def _get_or_create_kitchen_local_project(project_name, kitchen_bom, customer, co
 			"kitchen_bom": kitchen_bom,
 			"kitchen_item": frappe.db.get_value("BOM", kitchen_bom, "item"),
 			"status": "Open",
+			"expected_start_date": KITCHEN_LOCAL_PROJECT_START_DATE,
+			**({"project_type": project_type} if project_type else {}),
+			**({"parent_project": parent_project} if parent_project else {}),
 		}
 	)
 	doc.insert(ignore_permissions=True)
 	return doc.name
+
+
+def _get_or_create_kitchen_local_site_project(refs, company):
+	existing = frappe.db.get_value("Project", {"project_name": KITCHEN_LOCAL_SITE}, "name")
+	values = {
+		"project_type": "Site",
+		"customer": refs["customer"],
+		"company": company,
+		"parent_project": None,
+		"status": "Open",
+	}
+	if existing:
+		frappe.db.set_value("Project", existing, values, update_modified=False)
+		return existing
+
+	doc = frappe.get_doc(
+		{
+			"doctype": "Project",
+			"project_name": KITCHEN_LOCAL_SITE,
+			**values,
+		}
+	)
+	doc.insert(ignore_permissions=True)
+	return doc.name
+
+
+def _ensure_kitchen_local_site_hierarchy(refs, company):
+	"""Link kitchen unit projects under a Site parent for hierarchy report testing."""
+	from fitzgerald_kitchens.setup.project_types import ensure_project_types
+
+	ensure_project_types()
+	site = _get_or_create_kitchen_local_site_project(refs, company)
+	bom_map = {"A": refs["bom_a"], "B": refs["bom_b"]}
+	created_units = 0
+
+	for project_name in KITCHEN_LOCAL_SITE_LINKED_PROJECTS:
+		project = frappe.db.get_value("Project", {"project_name": project_name}, "name")
+		if not project:
+			continue
+		frappe.db.set_value(
+			"Project",
+			project,
+			{
+				"parent_project": site,
+				"project_type": "Kitchen",
+				"expected_start_date": KITCHEN_LOCAL_PROJECT_START_DATE,
+			},
+			update_modified=False,
+		)
+
+	for project_name, (bom_key, dates) in KITCHEN_LOCAL_SITE_EXTRA_CHILD.items():
+		project_type = "Robe" if "Wardrobe" in project_name else "Kitchen"
+		project = _get_or_create_kitchen_local_project(
+			project_name,
+			bom_map[bom_key],
+			refs["customer"],
+			company,
+			project_type=project_type,
+			parent_project=site,
+		)
+		for index, planned_date in enumerate(dates, start=1):
+			unit_reference = f"{project_name} Unit {index:02d}"
+			if frappe.db.exists(
+				"Development Unit", {"unit_reference": unit_reference, "project": project}
+			):
+				_set_delivery_planned_date(
+					frappe.db.get_value(
+						"Development Unit",
+						{"unit_reference": unit_reference, "project": project},
+						"name",
+					),
+					planned_date,
+				)
+				continue
+
+			unit = frappe.get_doc(
+				{
+					"doctype": "Development Unit",
+					"naming_series": "DU-.YYYY.-.#####",
+					"unit_reference": unit_reference,
+					"project": project,
+					"customer": refs["customer"],
+					"kitchen_required": 1,
+					"kitchen_bom": bom_map[bom_key],
+				}
+			)
+			unit.insert(ignore_permissions=True)
+			_set_delivery_planned_date(unit.name, planned_date)
+			created_units += 1
+
+	standalone = frappe.db.get_value(
+		"Project", {"project_name": KITCHEN_LOCAL_STANDALONE_PROJECT}, "name"
+	)
+	if standalone:
+		frappe.db.set_value(
+			"Project",
+			standalone,
+			{
+				"parent_project": None,
+				"project_type": "Kitchen",
+				"expected_start_date": KITCHEN_LOCAL_PROJECT_START_DATE,
+			},
+			update_modified=False,
+		)
+
+	return {"site": site, "created_units": created_units}
 
 
 def _create_kitchen_local_downtime(workstation, company):
@@ -657,7 +964,7 @@ def _get_kitchen_local_warehouses(company):
 
 
 def _remove_kitchen_local_manufacturing_data():
-	project_names = list(KITCHEN_LOCAL_PROJECTS.keys())
+	project_names = _kitchen_local_manufacturing_project_names()
 	projects = frappe.get_all(
 		"Project", filters={"project_name": ["in", project_names]}, pluck="name"
 	)
@@ -707,7 +1014,7 @@ def _create_kitchen_local_job_cards(refs, company):
 	warehouse = _get_kitchen_local_warehouses(company)
 	created = 0
 
-	for project_name, (bom_key, dates) in KITCHEN_LOCAL_PROJECTS.items():
+	for project_name, (bom_key, dates) in _kitchen_local_manufacturing_projects().items():
 		project = frappe.db.get_value("Project", {"project_name": project_name}, "name")
 		bom = refs["bom_a"] if bom_key == "A" else refs["bom_b"]
 		item = frappe.db.get_value("BOM", bom, "item")
