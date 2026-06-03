@@ -1,0 +1,118 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:template_name",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "template_name",
+  "is_default",
+  "section_break_rows",
+  "rows",
+  "section_break_cabinet_mapping",
+  "base_units_price_row",
+  "wall_units_price_row",
+  "tall_units_price_row",
+  "drawer_packs_price_row",
+  "cabinet_price_options_html"
+ ],
+ "fields": [
+  {
+   "fieldname": "template_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Template Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Default"
+  },
+  {
+   "fieldname": "section_break_rows",
+   "fieldtype": "Section Break",
+   "label": "Rows"
+  },
+  {
+   "fieldname": "rows",
+   "fieldtype": "Table",
+   "options": "Kitchen Configuration Template Row",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_cabinet_mapping",
+   "fieldtype": "Section Break",
+   "label": "Cabinet Unit Price Mapping"
+  },
+  {
+   "fieldname": "base_units_price_row",
+   "fieldtype": "Link",
+   "label": "Base Units Price",
+   "options": "Item Price",
+   "reqd": 1
+  },
+  {
+   "fieldname": "wall_units_price_row",
+   "fieldtype": "Link",
+   "label": "Wall Units Price",
+   "options": "Item Price",
+   "reqd": 1
+  },
+  {
+   "fieldname": "tall_units_price_row",
+   "fieldtype": "Link",
+   "label": "Tall Units Price",
+   "options": "Item Price",
+   "reqd": 1
+  },
+  {
+   "fieldname": "drawer_packs_price_row",
+   "fieldtype": "Link",
+   "label": "Drawer Packs Price",
+   "options": "Item Price",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cabinet_price_options_html",
+   "fieldtype": "HTML",
+   "label": "All Item Prices"
+  }
+ ],
+ "module": "fitzgerald_kitchens",
+ "name": "Kitchen Configuration Template",
+ "naming_rule": "By fieldname",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "template_name"
+}
