@@ -68,10 +68,12 @@ def _normalize_report_filters(filters):
 @frappe.whitelist()
 def get_pipeline_totals(filters=None):
     """
-    Total kitchens and project count across all active projects for the horizon.
+    Total delivery items and project count for the KPI card.
 
-    Ignores the BOM filter so KPI totals stay stable when switching BOM; the table
-    and chart still respect the selected BOM.
+    Counts Development Units in the Delivery stage across all active projects
+    in the date horizon. Ignores the BOM filter (and job-card demand paths) so
+    the KPI stays stable when switching BOM; the table and chart still respect
+    the selected BOM.
     """
     filters = _normalize_report_filters(filters)
     granularity = filters.get("granularity") or "Monthly"
@@ -89,21 +91,42 @@ def get_pipeline_totals(filters=None):
     all_filters = frappe._dict(filters)
     all_filters.bom = None
     projects = _q_projects(all_filters)
-    demand_map = _aggregate_demand_all_projects(
-        projects, from_date, to_date, granularity
-    )
-
-    period_keys = [period[0] for period in periods]
-    total = sum(
-        demand_map.get(proj.name, {}).get(pkey, 0)
-        for proj in projects
-        for pkey in period_keys
-    )
+    demand_projects = _projects_for_demand_total(projects)
+    project_names = [p.name for p in demand_projects]
 
     return {
-        "total_demand": int(total),
-        "project_count": len(projects),
+        "total_demand": _count_pipeline_delivery_units(
+            project_names, from_date, to_date
+        ),
+        "project_count": len(demand_projects),
     }
+
+
+def _count_pipeline_delivery_units(project_names, from_date, to_date):
+    """Count delivery-stage development units in the horizon (BOM-independent)."""
+    if not project_names:
+        return 0
+
+    return int(
+        frappe.db.sql(
+            """
+            SELECT COUNT(DISTINCT du.name)
+            FROM `tabDevelopment Unit` du
+                INNER JOIN `tabDevelopment Unit Stage` dus ON dus.parent = du.name
+                INNER JOIN `tabDevelopment Stage` ds ON ds.name = dus.stage
+            WHERE
+                ds.stage_category = 'Delivery'
+                AND dus.planned_date BETWEEN %(from_date)s AND %(to_date)s
+                AND du.project IN %(project_names)s
+            """,
+            {
+                "from_date": from_date,
+                "to_date": to_date,
+                "project_names": project_names,
+            },
+        )[0][0]
+        or 0
+    )
 
 
 def _apply_default_bom_filter(filters):

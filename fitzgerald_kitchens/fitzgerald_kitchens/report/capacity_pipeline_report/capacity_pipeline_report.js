@@ -14,6 +14,8 @@ const CPR_PALETTE = [
 
 let cpr_horizon_months = 12;
 let cpr_view_mode = "monthly";
+let cpr_last_pipeline_totals = null;
+let cpr_pipeline_totals_filter_sig = "";
 
 frappe.query_reports["Capacity Pipeline Report"] = {
 	filters: [
@@ -85,6 +87,7 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 	],
 
 	onload(report) {
+		cpr_ensure_workspace_sidebar();
 		cpr_inject_styles();
 		cpr_setup_header(report);
 		cpr_setup_dashboard(report);
@@ -129,6 +132,7 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 		cpr_sync_bom_filter_from_boot(report);
 		cpr_sync_view_mode_from_filters();
 		cpr_apply_table_site_only_rows(report);
+		cpr_sync_pipeline_totals_cache(report);
 		cpr_render_dashboard(report);
 	},
 
@@ -206,6 +210,16 @@ function cint(v) {
 		return 0;
 	}
 	return parseInt(v, 10) || 0;
+}
+
+function cpr_ensure_workspace_sidebar() {
+	// Report lives under Projects → Reports; module must be Projects so the desk
+	// sidebar shows that workspace (fitzgerald_kitchens has no Workspace Sidebar).
+	if (!frappe.app?.sidebar || !frappe.boot.workspace_sidebar_item?.projects) {
+		return;
+	}
+	frappe.app.sidebar.setup("Projects");
+	setTimeout(() => frappe.app.sidebar.set_active_workspace_item?.(), 0);
 }
 
 function cpr_inject_styles() {
@@ -1202,6 +1216,21 @@ function cpr_render_dashboard(report) {
 	});
 }
 
+function cpr_pipeline_totals_filter_key(query_report) {
+	const filters = query_report?.get_filter_values?.() || {};
+	return [filters.company, filters.from_date, filters.to_date, filters.project].join(
+		"|"
+	);
+}
+
+function cpr_sync_pipeline_totals_cache(query_report) {
+	const sig = cpr_pipeline_totals_filter_key(query_report);
+	if (sig !== cpr_pipeline_totals_filter_sig) {
+		cpr_pipeline_totals_filter_sig = sig;
+		cpr_last_pipeline_totals = null;
+	}
+}
+
 function cpr_load_pipeline_totals(query_report) {
 	const filters = query_report?.get_filter_values
 		? query_report.get_filter_values()
@@ -1212,7 +1241,11 @@ function cpr_load_pipeline_totals(query_report) {
 			"fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report.get_pipeline_totals",
 			{ filters }
 		)
-		.catch(() => ({ total_demand: 0, project_count: 0 }));
+		.then((totals) => {
+			cpr_last_pipeline_totals = totals;
+			return totals;
+		})
+		.catch(() => cpr_last_pipeline_totals || { total_demand: 0, project_count: 0 });
 }
 
 function cpr_render_controls_meta($dash, data) {
@@ -1239,17 +1272,23 @@ function cpr_render_kpi_cards($dash, data) {
 		? `${over_labels} · ${__("need to re-sequence")}`
 		: `${__("all")} ${over_period} ${__("within capacity")}`;
 
-	const pipeline_total = data.pipeline_totals?.total_demand ?? data.total_demand;
-	const pipeline_projects =
-		data.pipeline_totals?.project_count ?? data.project_count;
+	const pipeline_totals = data.pipeline_totals || cpr_last_pipeline_totals;
+	const pipeline_total = pipeline_totals?.total_demand;
+	const pipeline_projects = pipeline_totals?.project_count;
+	const pipeline_value =
+		pipeline_total === undefined || pipeline_total === null ? "—" : pipeline_total;
+	const pipeline_project_label =
+		pipeline_projects === undefined || pipeline_projects === null
+			? "—"
+			: pipeline_projects;
 
 	const cards = [
 		{
 			cls: "cpr-kpi-card--grey",
 			label: __("Total kitchens in pipeline"),
-			value: pipeline_total,
+			value: pipeline_value,
 			value_cls: "",
-			foot: `${__("across")} ${pipeline_projects} ${__("projects · next")} ${cpr_horizon_months} ${__(
+			foot: `${__("across")} ${pipeline_project_label} ${__("projects · next")} ${cpr_horizon_months} ${__(
 				"months"
 			)}`,
 		},

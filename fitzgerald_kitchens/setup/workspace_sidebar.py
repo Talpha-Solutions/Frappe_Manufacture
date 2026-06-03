@@ -81,7 +81,6 @@ CAPACITY_PIPELINE_REPORT_ITEM = {
 	"link_to": "Capacity Pipeline Report",
 	"link_type": "Report",
 	"type": "Link",
-	"icon": "timeline",
 	"child": 1,
 	"collapsible": 1,
 	"indent": 0,

@@ -6,18 +6,15 @@
 Two profiles:
 
 * **kitchen_local** — self-contained small numbers (2 BOMs, capacity 10 & 20,
-  3 projects, 8 delivery units, June downtime). Use on fresh sites like
+  5 projects + 1 Site parent, 12 delivery units, June downtime). Use on fresh sites like
   ``kitchen.local``.
 * **demo** — overlays delivery dates / units / downtime onto an existing
   Fitzgerald demo site (``travel.com``).
 
 Run::
 
-    bench --site kitchen.local execute fitzgerald_kitchens.setup.capacity_pipeline_test_data.insert_capacity_pipeline_test_data
-    bench --site kitchen.local execute fitzgerald_kitchens.setup.capacity_pipeline_test_data.verify_capacity_pipeline_test_data
-    bench --site kitchen.local execute fitzgerald_kitchens.setup.capacity_pipeline_test_data.verify_project_item_counts
-    bench --site kitchen.local execute fitzgerald_kitchens.setup.production_time_summary_test_data.insert_production_time_summary_test_data
-    bench --site kitchen.local execute fitzgerald_kitchens.setup.production_time_summary_test_data.verify_production_time_summary_test_data
+    bench --site kitchen.local execute fitzgerald_kitchens.setup.capacity_pipeline_test_data.reseed_kitchen_local_capacity_pipeline_test_data
+    bench --site kitchen.local execute fitzgerald_kitchens.setup.capacity_pipeline_test_data.verify_all_kitchen_local_capacity_pipeline
 """
 
 import calendar
@@ -81,21 +78,25 @@ KITCHEN_LOCAL_EXPECTED = {
 		"from_date": "2026-06-01",
 		"to_date": "2026-08-31",
 	},
+	"pipeline_kpi": {
+		"total_demand": 12,
+		"project_count": 5,
+	},
 	"BOM-A (capacity 10)": {
 		"bom_item": "Kitchen Type A - KT",
-		"projects": ["Alpha Kitchens", "Beta Kitchens"],
+		"projects": ["Alpha Kitchens", "Beta Kitchens", "Riverside Kitchen 02", "Riverside Site"],
 		"months": {
-			"Jun '26": {"capacity": "9/10", "demand": 3, "utilisation_pct": 33, "free_capacity": 6},
+			"Jun '26": {"capacity": "8/10", "demand": 4, "utilisation_pct": 50, "free_capacity": 4},
 			"Jul '26": {"capacity": "10/10", "demand": 2, "utilisation_pct": 20, "free_capacity": 8},
-			"Aug '26": {"capacity": "9/9", "demand": 0, "utilisation_pct": 0, "free_capacity": 9},
+			"Aug '26": {"capacity": "9/9", "demand": 1, "utilisation_pct": 11, "free_capacity": 8},
 		},
 	},
 	"BOM-B (capacity 20)": {
 		"bom_item": "Kitchen Type B - KT",
-		"projects": ["Gamma Kitchens"],
+		"projects": ["Gamma Kitchens", "Riverside Site", "Riverside Wardrobe 01"],
 		"months": {
-			"Jun '26": {"capacity": "18/20", "demand": 0, "utilisation_pct": 0, "free_capacity": 18},
-			"Jul '26": {"capacity": "20/20", "demand": 1, "utilisation_pct": 5, "free_capacity": 19},
+			"Jun '26": {"capacity": "16/20", "demand": 1, "utilisation_pct": 6, "free_capacity": 15},
+			"Jul '26": {"capacity": "20/20", "demand": 2, "utilisation_pct": 10, "free_capacity": 18},
 			"Aug '26": {"capacity": "19/19", "demand": 2, "utilisation_pct": 11, "free_capacity": 17},
 		},
 	},
@@ -178,14 +179,56 @@ def seed_kitchen_local_test_data():
 	if _kitchen_local_test_data_exists():
 		return reset_kitchen_local_delivery_data()
 
+	return _seed_kitchen_local_fresh(company)
+
+
+def purge_kitchen_local_capacity_pipeline_test_data():
+	"""
+	Remove kitchen.local Capacity Pipeline test data only (not the whole site).
+
+	Deletes test projects, development units, job cards, work orders, and downtime.
+	"""
+	removed_downtime = _remove_kitchen_local_downtime()
+	removed_mfg = _remove_kitchen_local_manufacturing_data(all_on_projects=True)
+	removed_units = _remove_kitchen_local_development_units()
+	removed_projects = _remove_kitchen_local_test_projects()
+	frappe.db.commit()
+	return {
+		"status": "purged",
+		"profile": "kitchen_local",
+		"company": _resolve_company(),
+		"removed_downtime": removed_downtime,
+		"removed_units": removed_units,
+		"removed_projects": removed_projects,
+		"removed_job_cards": removed_mfg.get("job_cards", 0),
+		"removed_work_orders": removed_mfg.get("work_orders", 0),
+	}
+
+
+def reseed_kitchen_local_capacity_pipeline_test_data():
+	"""Purge test data then insert a full fresh dataset for manual + automated testing."""
+	purged = purge_kitchen_local_capacity_pipeline_test_data()
+	seeded = _seed_kitchen_local_fresh(_resolve_company())
+	return {"purged": purged, "seeded": seeded}
+
+
+def _seed_kitchen_local_fresh(company):
 	_ensure_app_setup()
 	refs = _create_kitchen_local_masters(company)
-	_create_kitchen_local_projects_and_units(refs, company)
-	_ensure_kitchen_local_site_hierarchy(refs, company)
+	created_units = _create_kitchen_local_projects_and_units(refs, company)
+	site = _ensure_kitchen_local_site_hierarchy(refs, company)
 	job_cards = _create_kitchen_local_job_cards(refs, company)
 	downtime = _create_kitchen_local_downtime(refs["workstation"], company)
 	frappe.db.commit()
-	return _kitchen_local_summary("seeded", company, downtime=downtime, job_cards=job_cards, **refs)
+	return _kitchen_local_summary(
+		"seeded",
+		company,
+		created_units=created_units,
+		site=site,
+		downtime=downtime,
+		job_cards=job_cards,
+		**refs,
+	)
 
 
 def reset_kitchen_local_delivery_data():
@@ -317,6 +360,68 @@ def verify_capacity_pipeline_test_data():
 		"all_passed": all(c["ok"] for c in checks),
 		"checks": checks,
 		"actual": actual,
+	}
+
+
+def verify_pipeline_kpi():
+	"""Verify Total kitchens in pipeline KPI (stable when BOM changes)."""
+	from fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report import (
+		get_pipeline_totals,
+	)
+
+	if _detect_profile() != "kitchen_local":
+		frappe.throw("verify_pipeline_kpi requires kitchen.local test data.")
+
+	company = _resolve_company()
+	expected = KITCHEN_LOCAL_EXPECTED["pipeline_kpi"]
+	filters = frappe._dict({"company": company, **KITCHEN_LOCAL_EXPECTED["filters"]})
+	bom_a = frappe.db.get_value(
+		"BOM", {"item": KITCHEN_LOCAL_EXPECTED["BOM-A (capacity 10)"]["bom_item"], "docstatus": 1}, "name"
+	)
+	bom_b = frappe.db.get_value(
+		"BOM", {"item": KITCHEN_LOCAL_EXPECTED["BOM-B (capacity 20)"]["bom_item"], "docstatus": 1}, "name"
+	)
+
+	results = {
+		"no_bom": get_pipeline_totals(filters),
+		"bom_a": get_pipeline_totals(frappe._dict({**filters, "bom": bom_a})),
+		"bom_b": get_pipeline_totals(frappe._dict({**filters, "bom": bom_b})),
+	}
+	checks = []
+	for label, totals in results.items():
+		for field, exp in expected.items():
+			checks.append(
+				{
+					"filter": label,
+					"field": field,
+					"expected": exp,
+					"actual": totals.get(field),
+					"ok": totals.get(field) == exp,
+				}
+			)
+	bom_stable = results["no_bom"] == results["bom_a"] == results["bom_b"]
+	return {
+		"all_passed": all(c["ok"] for c in checks) and bom_stable,
+		"bom_independent": bom_stable,
+		"checks": checks,
+		"results": results,
+	}
+
+
+def verify_all_kitchen_local_capacity_pipeline():
+	"""Run all automated Capacity Pipeline checks on kitchen.local."""
+	capacity_report = verify_capacity_pipeline_test_data()
+	project_item_counts = verify_project_item_counts()
+	pipeline_kpi = verify_pipeline_kpi()
+	return {
+		"all_passed": (
+			capacity_report.get("all_passed")
+			and project_item_counts.get("all_passed")
+			and pipeline_kpi.get("all_passed")
+		),
+		"capacity_report": capacity_report,
+		"project_item_counts": project_item_counts,
+		"pipeline_kpi": pipeline_kpi,
 	}
 
 
@@ -503,6 +608,13 @@ def _kitchen_local_manufacturing_project_names():
 	return list(_kitchen_local_manufacturing_projects().keys())
 
 
+def _all_kitchen_local_project_names():
+	names = list(_kitchen_local_manufacturing_projects().keys())
+	if KITCHEN_LOCAL_SITE not in names:
+		names.append(KITCHEN_LOCAL_SITE)
+	return names
+
+
 def _kitchen_local_test_data_exists():
 	return bool(
 		frappe.db.get_value("BOM", {"item": KITCHEN_LOCAL_TEST_ITEMS[0], "docstatus": 1}, "name")
@@ -545,7 +657,7 @@ def _get_kitchen_local_refs(company):
 
 
 def _remove_kitchen_local_development_units():
-	project_names = _kitchen_local_manufacturing_project_names()
+	project_names = _all_kitchen_local_project_names()
 	projects = frappe.get_all(
 		"Project", filters={"project_name": ["in", project_names]}, pluck="name"
 	)
@@ -931,8 +1043,7 @@ def _ensure_kitchen_local_site_hierarchy(refs, company):
 
 
 def _create_kitchen_local_downtime(workstation, company):
-	if frappe.db.exists("Downtime Entry", {"remarks": MARKER}):
-		return 0
+	_remove_kitchen_local_downtime()
 
 	employee = _get_or_create_kitchen_local_employee(company)
 	from_time = f"{KITCHEN_LOCAL_REF_YEAR}-{KITCHEN_LOCAL_REF_MONTH:02d}-03 08:00:00"
@@ -963,8 +1074,48 @@ def _get_kitchen_local_warehouses(company):
 	return warehouse
 
 
-def _remove_kitchen_local_manufacturing_data():
-	project_names = _kitchen_local_manufacturing_project_names()
+def _remove_kitchen_local_downtime():
+	names = frappe.get_all("Downtime Entry", filters={"remarks": MARKER}, pluck="name")
+	for name in names:
+		doc = frappe.get_doc("Downtime Entry", name)
+		if doc.docstatus == 1:
+			doc.cancel()
+		frappe.delete_doc("Downtime Entry", name, ignore_permissions=True, force=True)
+	return len(names)
+
+
+def _remove_kitchen_local_test_projects():
+	removed = []
+	for project_name in _all_kitchen_local_project_names():
+		if project_name == KITCHEN_LOCAL_SITE:
+			continue
+		if _delete_project_by_name(project_name):
+			removed.append(project_name)
+	if _delete_project_by_name(KITCHEN_LOCAL_SITE):
+		removed.append(KITCHEN_LOCAL_SITE)
+	return removed
+
+
+def _delete_project_by_name(project_name):
+	project = frappe.db.get_value("Project", {"project_name": project_name}, "name")
+	if not project:
+		return False
+
+	for child in frappe.get_all("Project", filters={"parent_project": project}, pluck="name"):
+		frappe.db.set_value("Project", child, "parent_project", None, update_modified=False)
+
+	for unit in frappe.get_all("Development Unit", filters={"project": project}, pluck="name"):
+		frappe.delete_doc("Development Unit", unit, ignore_permissions=True, force=True)
+
+	doc = frappe.get_doc("Project", project)
+	if doc.docstatus == 1:
+		doc.cancel()
+	frappe.delete_doc("Project", project, ignore_permissions=True, force=True)
+	return True
+
+
+def _remove_kitchen_local_manufacturing_data(all_on_projects=False):
+	project_names = _all_kitchen_local_project_names()
 	projects = frappe.get_all(
 		"Project", filters={"project_name": ["in", project_names]}, pluck="name"
 	)
@@ -973,9 +1124,10 @@ def _remove_kitchen_local_manufacturing_data():
 
 	removed_jc = 0
 	wo_names = set()
-	for name in frappe.get_all(
-		"Job Card", filters={"project": ["in", projects], "remarks": MARKER}, pluck="name"
-	):
+	jc_filters = {"project": ["in", projects]}
+	if not all_on_projects:
+		jc_filters["remarks"] = MARKER
+	for name in frappe.get_all("Job Card", filters=jc_filters, pluck="name"):
 		work_order = frappe.db.get_value("Job Card", name, "work_order")
 		if work_order:
 			wo_names.add(work_order)

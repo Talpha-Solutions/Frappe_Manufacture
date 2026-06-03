@@ -394,7 +394,7 @@
     "child": 1,
     "collapsible": 1,
     "filters": null,
-    "icon": "timeline",
+    "icon": null,
     "indent": 0,
     "keep_closed": 0,
     "label": "Capacity Pipeline Report",
