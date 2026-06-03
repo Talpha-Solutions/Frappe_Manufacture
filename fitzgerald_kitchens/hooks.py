@@ -29,7 +29,7 @@ app_license = "mit"
 # app_include_js = "/assets/fitzgerald_kitchens/js/fitzgerald_kitchens.js"
 
 # include js, css files in header of web template
-# web_include_css = "/assets/fitzgerald_kitchens/css/fitzgerald_kitchens.css"
+web_include_css = "/assets/fitzgerald_kitchens/css/portal_sidebar.css"
 # web_include_js = "/assets/fitzgerald_kitchens/js/fitzgerald_kitchens.js"
 
 # include custom scss in every website theme (without file extension ".scss")
@@ -69,6 +69,12 @@ doctype_list_js = {
 # role_home_page = {
 # 	"Role": "home_page"
 # }
+
+# Portal sidebar on all customer/supplier portal routes
+# ------------------
+update_website_context = [
+	"fitzgerald_kitchens.website.portal_context.update_website_context",
+]
 
 # Generators
 # ----------
@@ -294,3 +300,21 @@ from fitzgerald_kitchens.setup.project_website_list import (
 
 patch_project_website_list()
 patch_project_website_tasks()
+
+# Website Portal Sidebar
+portal_menu_items = [
+	{"title": "Projects Overview", "route": "/project", "role": "Customer"},
+	{"title": "Projects Photos", "route": "/project_photos", "role": "Customer"},
+	{"title": "Request for Quotations", "route": "/rfq", "role": "Supplier"},
+	{"title": "Supplier Quotation", "route": "/supplier-quotations", "role": "Supplier"},
+	{"title": "Purchase Orders", "route": "/purchase-orders", "role": "Supplier"},
+	{"title": "Purchase Invoices", "route": "/purchase-invoices", "role": "Supplier"},
+	{"title": "Quotations", "route": "/quotations", "role": "Customer"},
+	{"title": "Orders", "route": "/orders", "role": "Customer"},
+	{"title": "Invoices", "route": "/invoices", "role": "Customer"},
+	{"title": "Shipments", "route": "/shipments", "role": "Customer"},
+	{"title": "Issues", "route": "/issues", "role": "Customer"},
+	{"title": "Addresses", "route": "/addresses", "role": "Customer"},
+	{"title": "Timesheets", "route": "/timesheets", "role": "Customer"},
+	{"title": "Material Request", "route": "/material-requests", "role": "Customer"},
+]
