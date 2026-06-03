@@ -52,7 +52,9 @@ def get_item_price_list(doctype, txt, searchfield, start, page_len, filters):
 @frappe.whitelist()
 def get_all_item_price_options():
 	rows = frappe.db.sql(
-		_get_item_price_select_sql() + _get_item_price_from_sql() + _get_item_price_order_sql(),
+		_get_item_price_select_sql()
+		+ _get_item_price_from_sql()
+		+ _get_item_price_order_sql(),
 		as_dict=True,
 	)
 	return [
@@ -100,6 +102,11 @@ def _get_item_price_from_sql() -> str:
 		from `tabItem Price` ip
 		inner join `tabItem` i on i.name = ip.item_code
 		where i.disabled = 0
+	"""
+
+
+def _get_item_price_search_sql() -> str:
+	return """
 		  and (
 			ip.name like %(txt)s
 			or i.item_name like %(txt)s
@@ -119,6 +126,7 @@ def _get_item_price_list_query() -> str:
 	return (
 		_get_item_price_select_sql()
 		+ _get_item_price_from_sql()
+		+ _get_item_price_search_sql()
 		+ _get_item_price_order_sql()
 		+ " limit %(page_len)s offset %(start)s"
 	)
@@ -127,7 +135,8 @@ def _get_item_price_list_query() -> str:
 def _get_item_price_link_query() -> str:
 	# For Link field search: return only value and label columns so each
 	# Item Price appears as a single clean option in the dropdown.
-	return """
+	return (
+		"""
 		select
 			ip.name,
 			concat(
@@ -141,15 +150,9 @@ def _get_item_price_link_query() -> str:
 				case when ifnull(ip.uom, '') != '' then concat('/', ip.uom) else '' end,
 				case when ifnull(ip.price_list, '') != '' then concat(' [', ip.price_list, ']') else '' end
 			) as description
-		from `tabItem Price` ip
-		inner join `tabItem` i on i.name = ip.item_code
-		where i.disabled = 0
-		  and (
-			ip.name like %(txt)s
-			or i.item_name like %(txt)s
-			or i.name like %(txt)s
-			or ifnull(ip.price_list, '') like %(txt)s
-		  )
-		order by i.item_name asc, ip.price_list asc, ip.price_list_rate asc
-		limit %(page_len)s offset %(start)s
 	"""
+		+ _get_item_price_from_sql()
+		+ _get_item_price_search_sql()
+		+ _get_item_price_order_sql()
+		+ " limit %(page_len)s offset %(start)s"
+	)
