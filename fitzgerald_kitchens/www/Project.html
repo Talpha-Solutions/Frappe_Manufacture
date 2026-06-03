@@ -1,38 +1,196 @@
 {% extends "templates/web.html" %}
+{% from "fitzgerald_kitchens/templates/includes/project_type_icon.html" import project_type_icon %}
 
-{% block title %}{{ _("Projects") }}{% endblock %}
+{% block title %}{{ page_title }}{% endblock %}
 
 {% block style %}
 <style>
-  .fk-project-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.25rem;
-    padding: 0.5rem 0 1.5rem;
+  .fk-tracker {
+    max-width: 1280px;
+    margin: 0 auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #0f172a;
+    padding-bottom: 2rem;
   }
 
-  @media (max-width: 768px) {
-    .fk-project-grid {
-      grid-template-columns: 1fr;
+  .fk-tracker-header {
+    margin-bottom: 1.25rem;
+  }
+
+  .fk-tracker-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0 0 0.35rem;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+  }
+
+  .fk-tracker-date {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #64748b;
+  }
+
+  .fk-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.25rem 1.75rem;
+    padding: 0.85rem 1.1rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    font-size: 0.82rem;
+    color: #475569;
+  }
+
+  .fk-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .fk-legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    flex-shrink: 0;
+  }
+
+  .fk-legend-swatch--on_time { background: #f6ffed; border-color: #52c41a; }
+  .fk-legend-swatch--late { background: #fff7e6; border-color: #fa8c16; }
+  .fk-legend-swatch--due_today { background: #fffbe6; border-color: #faad14; }
+  .fk-legend-swatch--overdue { background: #fff1f0; border-color: #ff4d4f; }
+  .fk-legend-swatch--not_started { background: #f8fafc; border-color: #cbd5e1; }
+
+  .fk-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  @media (max-width: 900px) {
+    .fk-kpi-row { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 520px) {
+    .fk-kpi-row { grid-template-columns: 1fr; }
+  }
+
+  .fk-kpi-card {
+    background: #f7f3eb;
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+    min-height: 88px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .fk-kpi-label {
+    font-size: 0.82rem;
+    color: #64748b;
+    margin-bottom: 0.35rem;
+  }
+
+  .fk-kpi-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #0f172a;
+  }
+
+  .fk-kpi-value--danger { color: #dc2626; }
+  .fk-kpi-value--warning { color: #a16207; }
+
+  .fk-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+    margin-bottom: 1rem;
+  }
+
+  .fk-filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .fk-search-input {
+    flex: 0 1 320px;
+    width: min(320px, 100%);
+    min-width: 200px;
+    max-width: 380px;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    background: #fff;
+    outline: none;
+  }
+
+  @media (max-width: 640px) {
+    .fk-search-input {
+      flex: 1 1 100%;
+      width: 100%;
+      max-width: none;
     }
   }
 
-  .fk-project-card {
-    background: #ffffff;
+  .fk-search-input:focus {
+    border-color: #94a3b8;
+    box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
+  }
+
+  .fk-pill {
+    padding: 0.45rem 1rem;
+    border-radius: 999px;
+    background: #fff;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 1.25rem 1.4rem 1rem;
-    transition: box-shadow 0.2s ease, transform 0.15s ease;
+    color: #334155;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .fk-pill:hover {
+    border-color: #cbd5e1;
+  }
+
+  .fk-pill.active {
+    background: #1e293b;
+    border-color: #1e293b;
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .fk-project-list {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 1rem;
+  }
+
+  .fk-project-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1.15rem 1.25rem 1.25rem;
     text-decoration: none;
     color: inherit;
+    display: block;
+    transition: box-shadow 0.2s ease;
   }
 
   .fk-project-card:hover {
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.10);
-    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
     text-decoration: none;
     color: inherit;
   }
@@ -41,369 +199,376 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 0.5rem;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
   }
 
-  .fk-project-name {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #1a202c;
-    line-height: 1.35;
+  .fk-card-title-area {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    min-width: 0;
     flex: 1;
   }
 
-  .fk-status-badge {
-    font-size: 0.72rem;
-    font-weight: 600;
-    padding: 0.22rem 0.6rem;
-    border-radius: 20px;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .fk-badge-primary   { background: #dbeafe; color: #1d4ed8; }
-  .fk-badge-success   { background: #d1fae5; color: #065f46; }
-  .fk-badge-danger    { background: #fee2e2; color: #991b1b; }
-  .fk-badge-secondary { background: #f1f5f9; color: #475569; }
-  .fk-badge-info      { background: #e0f2fe; color: #0369a1; }
-
-  .fk-card-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 0.22rem;
-    font-size: 0.82rem;
+  .fk-card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #f1f5f9;
     color: #64748b;
-  }
-
-  .fk-card-meta span {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
-  .fk-card-meta .icon {
-    width: 14px;
-    height: 14px;
-    stroke: #94a3b8;
-    flex-shrink: 0;
-  }
-
-  .fk-progress-wrap {
-    margin-top: 0.25rem;
-  }
-
-  .fk-progress-label {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    color: #64748b;
-    margin-bottom: 4px;
-  }
-
-  .fk-progress {
-    height: 6px;
-    border-radius: 4px;
-    background: #e2e8f0;
-    overflow: hidden;
-  }
-
-  .fk-progress-bar {
-    height: 100%;
-    border-radius: 4px;
-    transition: width 0.5s ease;
-  }
-
-  .fk-progress-bar.success   { background: #10b981; }
-  .fk-progress-bar.info      { background: #3b82f6; }
-  .fk-progress-bar.warning   { background: #f59e0b; }
-  .fk-progress-bar.secondary { background: #cbd5e1; }
-
-  .fk-card-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 0.15rem;
-    padding-top: 0.6rem;
-    border-top: 1px solid #f1f5f9;
-  }
-
-  .fk-avatar-group {
-    display: flex;
-    align-items: center;
-  }
-
-  .fk-avatar {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: 2px solid #ffffff;
-    margin-left: -6px;
-    object-fit: cover;
-    background: #e2e8f0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.65rem;
-    font-weight: 600;
-    color: #475569;
+    flex-shrink: 0;
+  }
+
+  .fk-card-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 650;
+    line-height: 1.3;
+    color: #0f172a;
+  }
+
+  .fk-card-location {
+    margin: 0.2rem 0 0;
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+
+  .fk-card-progress-area {
+    flex-shrink: 0;
+    align-self: center;
+  }
+
+  .fk-card-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    white-space: nowrap;
+  }
+
+  .fk-card-progress-tasks {
+    font-size: 0.82rem;
+    font-weight: 650;
+    color: #0f172a;
+    flex-shrink: 0;
+  }
+
+  .fk-card-progress-bar {
+    flex: 0 1 120px;
+    width: 120px;
+    min-width: 72px;
+    height: 6px;
+    background: #cbd5e1;
+    border-radius: 999px;
     overflow: hidden;
   }
 
-  .fk-avatar:first-child { margin-left: 0; }
-
-  .fk-avatar img {
-    width: 100%;
+  .fk-card-progress-fill {
     height: 100%;
-    object-fit: cover;
+    background: #1e293b;
+    border-radius: 999px;
+    transition: width 0.35s ease;
   }
 
-  .fk-modified {
-    font-size: 0.73rem;
-    color: #94a3b8;
+  .fk-card-progress-pct {
+    font-size: 0.82rem;
+    font-weight: 650;
+    color: #0f172a;
+    flex-shrink: 0;
+    min-width: 2.25rem;
+    text-align: right;
   }
 
-  .fk-current-stage {
+  .fk-timeline {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+
+  @media (max-width: 1100px) {
+    .fk-timeline {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
+    .fk-timeline {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .fk-stage {
+    border-radius: 10px;
+    border: 1px solid transparent;
+    padding: 0.55rem 0.45rem 0.5rem;
+    text-align: center;
+    min-height: 72px;
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
-    padding: 0.55rem 0.65rem;
-    background: #f8fafc;
-    border-radius: 8px;
-    border: 1px solid #eef2f7;
-  }
-
-  .fk-stage-label {
-    font-size: 0.68rem;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 600;
-  }
-
-  .fk-stage-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
+    justify-content: flex-start;
+    gap: 0.15rem;
   }
 
   .fk-stage-name {
     font-size: 0.82rem;
-    color: #334155;
-    font-weight: 600;
-    line-height: 1.3;
-    flex: 1;
+    font-weight: 650;
+    line-height: 1.25;
   }
 
-  .fk-current-stage .indicator-pill {
-    flex-shrink: 0;
+  .fk-stage-date {
+    font-size: 0.76rem;
+    line-height: 1.25;
+    opacity: 0.95;
   }
 
-  /* Search + filter bar */
-  .fk-toolbar {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-bottom: 1.25rem;
+  .fk-stage-employee {
+    font-size: 0.7rem;
+    line-height: 1.25;
+    margin-top: auto;
+    opacity: 0.9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
   }
 
-  .fk-toolbar .fk-search-input {
-    flex: 1;
-    min-width: 180px;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 0.45rem 0.9rem;
-    font-size: 0.875rem;
-    outline: none;
+  .fk-stage--on_time {
+    background: #f6ffed;
+    border-color: #52c41a;
+    color: #237804;
   }
 
-  .fk-toolbar .fk-search-input:focus {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  .fk-stage--late {
+    background: #fff7e6;
+    border-color: #fa8c16;
+    color: #873800;
   }
 
-  .fk-toolbar .fk-status-select {
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 0.45rem 0.9rem;
-    font-size: 0.875rem;
-    background: #fff;
-    outline: none;
-    cursor: pointer;
+  .fk-stage--overdue {
+    background: #fff1f0;
+    border-color: #ff4d4f;
+    color: #a8071a;
   }
 
-  .fk-toolbar .btn-search {
-    background: #4f46e5;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    padding: 0.45rem 1.1rem;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: background 0.2s;
+  .fk-stage--due_today {
+    background: #fffbe6;
+    border-color: #faad14;
+    color: #874d00;
   }
 
-  .fk-toolbar .btn-search:hover {
-    background: #4338ca;
+  .fk-stage--not_started {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #475569;
   }
 
-  /* Empty state */
   .fk-empty {
-    grid-column: 1 / -1;
     text-align: center;
     padding: 3rem 1rem;
     color: #94a3b8;
-  }
-
-  .fk-empty svg {
-    width: 64px;
-    height: 64px;
-    stroke: #cbd5e1;
-    margin-bottom: 1rem;
+    background: #fff;
+    border: 1px dashed #e2e8f0;
+    border-radius: 12px;
   }
 
   .fk-empty p {
+    margin: 0;
     font-size: 0.95rem;
-  }
-
-  .fk-page-title {
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: #1a202c;
-    margin-bottom: 0.25rem;
-  }
-
-  .fk-page-subtitle {
-    font-size: 0.875rem;
-    color: #64748b;
-    margin-bottom: 1.25rem;
   }
 </style>
 {% endblock %}
 
-{% block header %}
-  <h3 class="my-account-header">{{ _("Projects") }}</h3>
-{% endblock %}
+{% block header %}{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid px-0">
+<div class="fk-tracker container-fluid px-0">
 
-  <!-- Search / Filter toolbar -->
-  <form method="GET" action="/project" class="fk-toolbar">
-    <input
-      type="text"
-      name="txt"
-      value="{{ txt or '' }}"
-      placeholder="{{ _('Search projects…') }}"
-      class="fk-search-input"
-    >
-    <select name="status" class="fk-status-select">
-      <option value="">{{ _("All Statuses") }}</option>
-      {% for s in ["Open", "Completed", "Cancelled", "Template"] %}
-        <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ _(s) }}</option>
-      {% endfor %}
-    </select>
-    <button type="submit" class="btn-search">{{ _("Search") }}</button>
-    {% if txt or status_filter %}
-      <a href="/project" class="btn btn-light btn-sm">{{ _("Clear") }}</a>
-    {% endif %}
-  </form>
+  <header class="fk-tracker-header">
+    <h1 class="fk-tracker-title">{{ page_title }}</h1>
+    <p class="fk-tracker-date">{{ _("Today is") }} {{ today_label }}</p>
+  </header>
 
-  <!-- Two-column card grid -->
-  <div class="fk-project-grid">
-
-    {% if projects %}
-      {% for project in projects %}
-        <a class="fk-project-card" href="/projects?project={{ project.name | urlencode }}">
-
-          <!-- Card header: name + status badge -->
-          <div class="fk-card-header">
-            <div class="fk-project-name">{{ project.project_name or project.name }}</div>
-            <span class="fk-status-badge fk-badge-{{ project.status_class }}">
-              {{ _(project.status) }}
-            </span>
-          </div>
-
-          <!-- Meta: customer + dates -->
-          <div class="fk-card-meta">
-            {% if project.customer %}
-            <span>
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-              </svg>
-              {{ project.customer }}
-            </span>
-            {% endif %}
-            {% if project.expected_start_date or project.expected_end_date %}
-            <span>
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-              {% if project.expected_start_date %}{{ frappe.utils.formatdate(project.expected_start_date) }}{% endif %}
-              {% if project.expected_start_date and project.expected_end_date %} → {% endif %}
-              {% if project.expected_end_date %}{{ frappe.utils.formatdate(project.expected_end_date) }}{% endif %}
-            </span>
-            {% endif %}
-          </div>
-
-          <!-- Progress bar -->
-          <div class="fk-progress-wrap">
-            <div class="fk-progress-label">
-              <span>{{ _("Progress") }}</span>
-              <span>{{ project.progress_int }}%</span>
-            </div>
-            <div class="fk-progress">
-              <div
-                class="fk-progress-bar {{ project.progress_class }}"
-                style="width: {{ project.progress_int }}%;"
-              ></div>
-            </div>
-          </div>
-
-          {% if project.current_stage %}
-          <div class="fk-current-stage">
-            <div class="fk-stage-label">{{ _("Current Stage") }}</div>
-            <div class="fk-stage-row">
-              <span class="fk-stage-name">{{ project.current_stage }}</span>
-              {% if project.current_stage_schedule %}
-                <span class="indicator-pill {{ project.current_stage_schedule_indicator }}">{{ _(project.current_stage_schedule) }}</span>
-              {% endif %}
-            </div>
-          </div>
-          {% endif %}
-
-          <!-- Footer: avatars + modified date -->
-          <div class="fk-card-footer">
-            <div class="fk-avatar-group">
-              {% for user in project.assigned_users %}
-                <div class="fk-avatar" title="{{ user.full_name }}">
-                  {% if user.user_image %}
-                    <img src="{{ user.user_image }}" alt="{{ user.full_name }}">
-                  {% else %}
-                    {{ frappe.utils.get_abbr(user.full_name) }}
-                  {% endif %}
-                </div>
-              {% endfor %}
-            </div>
-            <div class="fk-modified">
-              {{ frappe.utils.pretty_date(project.modified) }}
-            </div>
-          </div>
-
-        </a>
-      {% endfor %}
-
-    {% else %}
-      <div class="fk-empty">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 7h18M3 12h18M3 17h12"/>
-        </svg>
-        <p>{{ no_result_message or _("No projects found.") }}</p>
-      </div>
-    {% endif %}
-
+  <div class="fk-legend" aria-label="{{ _('Stage status legend') }}">
+    {% for item in legend_items %}
+      <span class="fk-legend-item">
+        <span class="fk-legend-swatch fk-legend-swatch--{{ item.state }}"></span>
+        {{ item.label }}
+      </span>
+    {% endfor %}
   </div>
 
+  <div class="fk-kpi-row">
+    <div class="fk-kpi-card">
+      <div class="fk-kpi-label">{{ _("Units in production") }}</div>
+      <div class="fk-kpi-value">{{ kpi.units_in_production }}</div>
+    </div>
+    <div class="fk-kpi-card">
+      <div class="fk-kpi-label">{{ _("Tasks overdue") }}</div>
+      <div class="fk-kpi-value fk-kpi-value--danger">{{ kpi.tasks_overdue }}</div>
+    </div>
+    <div class="fk-kpi-card">
+      <div class="fk-kpi-label">{{ _("Due today") }}</div>
+      <div class="fk-kpi-value fk-kpi-value--warning">{{ kpi.due_today }}</div>
+    </div>
+    <div class="fk-kpi-card">
+      <div class="fk-kpi-label">{{ _("On-time rate") }}</div>
+      <div class="fk-kpi-value">{{ kpi.on_time_rate }} %</div>
+    </div>
+  </div>
+
+  <div class="fk-toolbar">
+    <input
+      type="search"
+      class="fk-search-input"
+      id="projectSearch"
+      placeholder="{{ _('Search by project name or type…') }}"
+      autocomplete="off"
+    >
+    <div class="fk-filter-pills">
+      {% for pill in filter_buttons %}
+        <button
+          type="button"
+          class="fk-pill{% if pill.key == 'all' %} active{% endif %}"
+          data-filter="{{ pill.key }}"
+        >
+          {{ pill.label }}
+        </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="fk-project-list" id="projectList">
+    {% if projects %}
+      {% for project in projects %}
+        <a
+          class="fk-project-card"
+          href="{{ project.detail_url }}"
+          data-category="{{ project.category|e }}"
+          data-search="{{ project.search_text|e }}"
+          data-needs-attention="{{ 1 if project.needs_attention else 0 }}"
+        >
+          <div class="fk-card-header">
+            <div class="fk-card-title-area">
+              <div class="fk-card-icon" aria-hidden="true">
+                {{ project_type_icon(project.category) }}
+              </div>
+              <div>
+                <h2 class="fk-card-title">{{ project.display_title }}</h2>
+                {% if project.location %}
+                  <p class="fk-card-location">{{ project.location }}</p>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="fk-card-progress-area">
+              <div class="fk-card-progress-row">
+                <span class="fk-card-progress-tasks">
+                  {{ project.tasks_completed }}/{{ project.tasks_total }} {{ _("tasks") }}
+                </span>
+                <div class="fk-card-progress-bar">
+                  <div
+                    class="fk-card-progress-fill"
+                    style="width: {{ project.progress_percent }}%;"
+                  ></div>
+                </div>
+                <span class="fk-card-progress-pct">{{ project.progress_percent }}%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="fk-timeline">
+            {% for stage in project.stages %}
+              <div
+                class="fk-stage fk-stage--{{ stage.state }}"
+                title="{{ stage.employee_name }}"
+              >
+                <span class="fk-stage-name">{{ stage.stage }}</span>
+                <span class="fk-stage-date">{{ stage.display_date }}</span>
+                {% if stage.employee_name %}
+                  <span class="fk-stage-employee">{{ stage.employee_name }}</span>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        </a>
+      {% endfor %}
+    {% else %}
+      <div class="fk-empty" id="projectEmpty">
+        <p>{{ no_result_message }}</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="fk-empty" id="filterEmpty" style="display: none;">
+    <p>{{ _("No projects match your search or filter.") }}</p>
+  </div>
 </div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const pills = document.querySelectorAll(".fk-pill");
+    const searchInput = document.getElementById("projectSearch");
+    const cards = document.querySelectorAll(".fk-project-card");
+    const filterEmpty = document.getElementById("filterEmpty");
+    const projectList = document.getElementById("projectList");
+
+    let currentFilter = "all";
+    let currentSearch = "";
+
+    function applyFilters() {
+      let visibleCount = 0;
+
+      cards.forEach(function (card) {
+        const category = card.getAttribute("data-category") || "other";
+        const searchText = card.getAttribute("data-search") || "";
+        const needsAttention = card.getAttribute("data-needs-attention") === "1";
+
+        let show = true;
+
+        if (currentFilter === "attention") {
+          show = needsAttention;
+        } else if (currentFilter !== "all" && category !== currentFilter) {
+          show = false;
+        }
+
+        if (currentSearch && !searchText.includes(currentSearch)) {
+          show = false;
+        }
+
+        card.style.display = show ? "block" : "none";
+        if (show) {
+          visibleCount += 1;
+        }
+      });
+
+      if (filterEmpty && projectList) {
+        const hasCards = cards.length > 0;
+        filterEmpty.style.display = hasCards && visibleCount === 0 ? "block" : "none";
+        projectList.style.display = hasCards && visibleCount === 0 ? "none" : "";
+      }
+    }
+
+    pills.forEach(function (pill) {
+      pill.addEventListener("click", function () {
+        pills.forEach(function (p) {
+          p.classList.remove("active");
+        });
+        pill.classList.add("active");
+        currentFilter = pill.getAttribute("data-filter");
+        applyFilters();
+      });
+    });
+
+    if (searchInput) {
+      searchInput.addEventListener("input", function (event) {
+        currentSearch = (event.target.value || "").toLowerCase().trim();
+        applyFilters();
+      });
+    }
+  });
+</script>
 {% endblock %}

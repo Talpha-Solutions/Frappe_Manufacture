@@ -1,0 +1,53 @@
+{% macro project_type_icon(category, size=20) %}
+  {% if category == "kitchens" %}
+    {# Fork and spoon #}
+    <svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path>
+      <path d="M7 2v20"></path>
+      <path d="M21 15V2a5 5 0 0 0-5 5v6a2 2 0 0 0 2 2h3v5"></path>
+    </svg>
+  {% elif category == "wardrobes" %}
+    {# Coat hanger #}
+    <svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 3a2.5 2.5 0 0 1 0 5"></path>
+      <path d="M12 8L5 20"></path>
+      <path d="M12 8L19 20"></path>
+      <path d="M5 20h14"></path>
+    </svg>
+  {% elif category == "utilities" %}
+    {# Washing machine #}
+    <svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 6h3"></path>
+      <path d="M7 3h10"></path>
+      <path d="M3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6"></path>
+      <path d="M3 6l1.5-3h15L21 6"></path>
+      <circle cx="12" cy="13" r="4"></circle>
+    </svg>
+  {% elif category == "vanity" %}
+    {# Bathroom mirror #}
+    <svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="6" y="2" width="12" height="14" rx="2"></rect>
+      <line x1="12" y1="16" x2="12" y2="20"></line>
+      <line x1="8" y1="20" x2="16" y2="20"></line>
+      <line x1="9" y1="6" x2="15" y2="12"></line>
+      <line x1="9" y1="12" x2="15" y2="6"></line>
+    </svg>
+  {% elif category == "pantry" %}
+    {# Pantry shelves #}
+    <svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="1"></rect>
+      <line x1="3" y1="9" x2="21" y2="9"></line>
+      <line x1="3" y1="15" x2="21" y2="15"></line>
+      <rect x="6" y="5" width="3" height="3" rx="0.5"></rect>
+      <rect x="13" y="11" width="4" height="3" rx="0.5"></rect>
+      <rect x="6" y="17" width="5" height="3" rx="0.5"></rect>
+    </svg>
+  {% else %}
+    {# Generic unit #}
+    <svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+      <line x1="12" y1="22.08" x2="12" y2="12"></line>
+    </svg>
+  {% endif %}
+{% endmacro %}
