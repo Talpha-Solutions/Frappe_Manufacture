@@ -1,0 +1,268 @@
+/**
+ * Fitzgerald Kitchens — customer/supplier portal layout & sidebar
+ * Targets Frappe web.html sidebar structure (.sidebar-column + .main-column)
+ */
+
+:root {
+	--fk-portal-gutter: 1.25rem;
+	--fk-portal-gap: 1.75rem;
+	--fk-portal-sidebar-width: 12rem;
+	--fk-portal-sidebar-bg: #f8fafc;
+	--fk-portal-sidebar-border: #e2e8f0;
+	--fk-portal-nav-color: #475569;
+	--fk-portal-nav-hover-color: #0f172a;
+	--fk-portal-nav-hover-bg: #f1f5f9;
+	--fk-portal-nav-active-color: #1d4ed8;
+	--fk-portal-nav-active-bg: #eff6ff;
+	--fk-portal-nav-active-border: #3b82f6;
+	--fk-portal-nav-font-size: 0.875rem;
+	--fk-portal-nav-font-weight: 500;
+	--fk-portal-nav-radius: 0.5rem;
+	--fk-portal-nav-padding-y: 0.5rem;
+	--fk-portal-nav-padding-x: 0.625rem;
+	--fk-portal-nav-gap: 0.125rem;
+	--fk-portal-transition: 0.18s ease;
+	--fk-portal-content-max: 72rem;
+}
+
+@media (min-width: 992px) {
+	:root {
+		--fk-portal-gutter: 1.5rem;
+		--fk-portal-sidebar-width: 13rem;
+	}
+}
+
+body[frappe-session-status="logged-in"] .container:has(> .row > .sidebar-column) {
+	max-width: none;
+	width: 100%;
+	margin-left: 0;
+	margin-right: 0;
+	padding-left: var(--fk-portal-gutter);
+	padding-right: var(--fk-portal-gutter);
+	box-sizing: border-box;
+}
+
+body[frappe-session-status="logged-in"] .container:has(> .row > .sidebar-column) > .row {
+	display: grid;
+	grid-template-columns: var(--fk-portal-sidebar-width) minmax(0, 1fr);
+	align-items: start;
+	gap: var(--fk-portal-gap);
+	flex-wrap: nowrap;
+	margin-left: 0;
+	margin-right: 0;
+	width: 100%;
+}
+
+body[frappe-session-status="logged-in"]
+	.container:has(> .row > .sidebar-column)
+	> .row
+	> .sidebar-column,
+body[frappe-session-status="logged-in"]
+	.container:has(> .row > .sidebar-column)
+	> .row
+	> .main-column {
+	display: block;
+	width: auto;
+	max-width: none;
+	flex: none;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+body[frappe-session-status="logged-in"]
+	.container:has(> .row > .sidebar-column)
+	> .row
+	> .main-column
+	.page-content-wrapper {
+	margin-top: 1.5rem;
+	margin-bottom: 2rem;
+	min-width: 0;
+}
+
+body[frappe-session-status="logged-in"]
+	.container:has(> .row > .sidebar-column)
+	> .row
+	> .main-column
+	.page_content,
+body[frappe-session-status="logged-in"]
+	.container:has(> .row > .sidebar-column)
+	> .row
+	> .main-column
+	.web-page-content {
+	min-width: 0;
+	max-width: var(--fk-portal-content-max);
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar panel
+   -------------------------------------------------------------------------- */
+
+body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar {
+	position: sticky;
+	top: calc(var(--navbar-height, 4.5rem) + 1rem);
+	padding: 1rem 0 2rem;
+	margin: 0;
+	background: var(--fk-portal-sidebar-bg);
+	border: 1px solid var(--fk-portal-sidebar-border);
+	border-radius: 0.75rem;
+	box-sizing: border-box;
+}
+
+body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar .sidebar-items {
+	padding: 0.5rem;
+}
+
+body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar .list-unstyled {
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--fk-portal-nav-gap);
+}
+
+/* --------------------------------------------------------------------------
+   Navigation links — typography, hover, active
+   -------------------------------------------------------------------------- */
+
+body[frappe-session-status="logged-in"] .sidebar-column .sidebar-item a {
+	display: block;
+	margin: 0;
+	padding: var(--fk-portal-nav-padding-y) var(--fk-portal-nav-padding-x);
+	border-radius: var(--fk-portal-nav-radius);
+	border-left: 3px solid transparent;
+	font-size: var(--fk-portal-nav-font-size);
+	font-weight: var(--fk-portal-nav-font-weight);
+	line-height: 1.4;
+	letter-spacing: 0.01em;
+	color: var(--fk-portal-nav-color);
+	text-decoration: none;
+	transition:
+		color var(--fk-portal-transition),
+		background-color var(--fk-portal-transition),
+		border-color var(--fk-portal-transition),
+		box-shadow var(--fk-portal-transition);
+}
+
+body[frappe-session-status="logged-in"] .sidebar-column .sidebar-item a:hover,
+body[frappe-session-status="logged-in"] .sidebar-column .sidebar-item a:focus-visible {
+	color: var(--fk-portal-nav-hover-color);
+	background-color: var(--fk-portal-nav-hover-bg);
+	outline: none;
+}
+
+body[frappe-session-status="logged-in"] .sidebar-column .sidebar-item a.active {
+	color: var(--fk-portal-nav-active-color);
+	background-color: var(--fk-portal-nav-active-bg);
+	border-left-color: var(--fk-portal-nav-active-border);
+	font-weight: 600;
+}
+
+body[frappe-session-status="logged-in"] .sidebar-column .sidebar-group h6 {
+	margin: 1rem 0 0.5rem;
+	padding: 0 var(--fk-portal-nav-padding-x);
+	font-size: 0.6875rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: #94a3b8;
+}
+
+body[frappe-session-status="logged-in"] .sidebar-column .sidebar-group > ul {
+	padding-left: 0;
+	margin-bottom: 0.5rem;
+}
+
+/* Search / input items in sidebar */
+body[frappe-session-status="logged-in"] .sidebar-column .sidebar-item form {
+	margin: 0;
+	padding: 0 var(--fk-portal-nav-padding-x);
+}
+
+body[frappe-session-status="logged-in"] .sidebar-column .sidebar-item form .form-control {
+	font-size: var(--fk-portal-nav-font-size);
+	border-radius: var(--fk-portal-nav-radius);
+	border-color: var(--fk-portal-sidebar-border);
+}
+
+/* --------------------------------------------------------------------------
+   Main column polish (portal lists & detail pages)
+   -------------------------------------------------------------------------- */
+
+body[frappe-session-status="logged-in"] .main-column .my-account-header {
+	font-size: 1.375rem;
+	font-weight: 650;
+	color: #0f172a;
+	letter-spacing: -0.02em;
+}
+
+body[frappe-session-status="logged-in"] .main-column .page-header-wrapper {
+	gap: 1rem;
+	flex-wrap: nowrap;
+	align-items: flex-start;
+}
+
+body[frappe-session-status="logged-in"] .main-column .breadcrumb-container {
+	margin-top: 0.5rem;
+}
+
+/* --------------------------------------------------------------------------
+   Smaller viewports: keep sidebar visible, avoid column wrap
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 991.98px) {
+	:root {
+		--fk-portal-gutter: 1rem;
+		--fk-portal-gap: 1rem;
+		--fk-portal-sidebar-width: 9.5rem;
+	}
+
+	body[frappe-session-status="logged-in"] .container:has(> .row > .sidebar-column) > .row {
+		grid-template-columns: var(--fk-portal-sidebar-width) minmax(0, 1fr);
+	}
+
+	body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar {
+		padding: 0.75rem 0 1.25rem;
+	}
+
+	body[frappe-session-status="logged-in"] .sidebar-column .sidebar-item a {
+		font-size: 0.8125rem;
+		padding: 0.4rem 0.5rem;
+	}
+}
+
+@media (max-width: 575.98px) {
+	body[frappe-session-status="logged-in"] .container:has(> .row > .sidebar-column) > .row {
+		grid-template-columns: 1fr;
+		grid-template-rows: auto 1fr;
+	}
+
+	body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar {
+		position: static;
+		padding: 0.75rem;
+	}
+
+	body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar .list-unstyled {
+		flex-direction: row;
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		gap: 0.375rem;
+		padding-bottom: 0.25rem;
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: thin;
+	}
+
+	body[frappe-session-status="logged-in"] .sidebar-column .sidebar-item {
+		flex: 0 0 auto;
+	}
+
+	body[frappe-session-status="logged-in"] .sidebar-column .sidebar-item a {
+		white-space: nowrap;
+		border-left-width: 0;
+		border-bottom: 3px solid transparent;
+	}
+
+	body[frappe-session-status="logged-in"] .sidebar-column .sidebar-item a.active {
+		border-left-color: transparent;
+		border-bottom-color: var(--fk-portal-nav-active-border);
+	}
+}
