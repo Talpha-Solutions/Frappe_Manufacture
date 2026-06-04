@@ -24,6 +24,7 @@ from frappe.utils import flt, getdate, get_first_day, get_last_day, add_months
 
 
 _WEEK_START_SQL = "DATE(DATE_SUB({field}, INTERVAL WEEKDAY({field}) DAY))"
+SITE_PARENT_FIELD = "fk_parent_project"
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +306,7 @@ def _get_capacity_bom_list(filters, projects):
 
 def _projects_for_demand_total(projects):
     """Exclude Site rows from totals — demand is already on child kitchen projects."""
-    if not frappe.db.has_column("Project", "parent_project"):
+    if not frappe.db.has_column("Project", SITE_PARENT_FIELD):
         return projects
     if not any(getattr(p, "project_type", None) == "Site" for p in projects):
         return projects
@@ -372,8 +373,8 @@ def _q_projects(filters):
     company_cond = "AND p.company = %(company)s" if filters.get("company") else ""
     project_cond = "AND p.name = %(project)s" if filters.get("project") else ""
     bom_cond = "AND p.fk_effective_bom = %(bom)s" if filters.get("bom") else ""
-    has_parent = frappe.db.has_column("Project", "parent_project")
-    parent_select = ", p.parent_project" if has_parent else ""
+    has_parent = frappe.db.has_column("Project", SITE_PARENT_FIELD)
+    parent_select = f", p.{SITE_PARENT_FIELD}" if has_parent else ""
 
     rows = frappe.db.sql(
         f"""
@@ -414,14 +415,14 @@ def _q_projects(filters):
 
 def _append_site_parent_projects(projects, filters):
     """Include Site parents when child kitchen projects are in the report."""
-    if not frappe.db.has_column("Project", "parent_project"):
+    if not frappe.db.has_column("Project", SITE_PARENT_FIELD):
         return projects
 
     have = {p.name for p in projects}
     parent_names = {
-        p.parent_project
+        getattr(p, SITE_PARENT_FIELD, None)
         for p in projects
-        if getattr(p, "parent_project", None) and p.parent_project not in have
+        if getattr(p, SITE_PARENT_FIELD, None) and getattr(p, SITE_PARENT_FIELD, None) not in have
     }
     if not parent_names:
         return projects
@@ -438,7 +439,7 @@ def _append_site_parent_projects(projects, filters):
             p.kitchen_required,
             p.wardrobe_bom,
             p.wardrobe_required,
-            p.parent_project
+            p.{SITE_PARENT_FIELD}
         FROM
             `tabProject` p
         WHERE
@@ -464,7 +465,7 @@ def _rollup_site_demand(projects, demand_map, product_breakdown, periods):
     Subtitle unit / kitchen / robe counts equal the totals of the monthly item counts
     shown in the same report horizon (so they stay in sync).
     """
-    if not frappe.db.has_column("Project", "parent_project"):
+    if not frappe.db.has_column("Project", SITE_PARENT_FIELD):
         return
 
     site_names = {p.name for p in projects if getattr(p, "project_type", None) == "Site"}
@@ -473,7 +474,7 @@ def _rollup_site_demand(projects, demand_map, product_breakdown, periods):
 
     children_by_site = defaultdict(list)
     for proj in projects:
-        parent = getattr(proj, "parent_project", None)
+        parent = getattr(proj, SITE_PARENT_FIELD, None)
         if parent in site_names and proj.name not in site_names:
             children_by_site[parent].append(proj.name)
 

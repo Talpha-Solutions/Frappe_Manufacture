@@ -38,7 +38,7 @@ def insert_production_time_summary_test_data():
 	site_id = frappe.db.get_value("Project", {"project_name": KITCHEN_LOCAL_SITE}, "name")
 	child_projects = frappe.get_all(
 		"Project",
-		filters={"parent_project": site_id},
+		filters={"fk_parent_project": site_id},
 		fields=["name", "project_name"],
 		order_by="project_name",
 	)
@@ -71,7 +71,7 @@ def verify_production_time_summary_test_data():
 		)
 
 	child_names = set(
-		frappe.get_all("Project", filters={"parent_project": site_id}, pluck="project_name")
+		frappe.get_all("Project", filters={"fk_parent_project": site_id}, pluck="project_name")
 	)
 	expected_children = set(KITCHEN_LOCAL_SITE_LINKED_PROJECTS) | set(KITCHEN_LOCAL_SITE_EXTRA_CHILD)
 	report_rows = _get_report_rows(site_id, company)

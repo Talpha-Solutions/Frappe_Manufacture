@@ -25,16 +25,22 @@ class DevelopmentWorkbookImport(Document):
 
 	@frappe.whitelist()
 	def validate_workbook(self):
+		from fitzgerald_kitchens.workbook_import.import_messages import validate_template_options
 		from fitzgerald_kitchens.workbook_import.runner import validate_import
 
+		validate_template_options(self)
+		self.save(ignore_permissions=True)
 		return validate_import(self.name)
 
 	@frappe.whitelist()
 	def run_workbook_import(self):
+		from fitzgerald_kitchens.workbook_import.import_messages import validate_template_options
 		from fitzgerald_kitchens.workbook_import.runner import enqueue_import
 
 		if self.import_status != "Ready":
 			frappe.throw(frappe._("Validate the file first. Import status must be Ready."))
 
+		validate_template_options(self)
+		self.save(ignore_permissions=True)
 		enqueue_import(self.name)
 		return {"queued": True}

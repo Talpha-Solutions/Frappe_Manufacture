@@ -11,7 +11,6 @@ def after_install():
 	from fitzgerald_kitchens.setup.project_bom_fields import remove_project_bom_fields
 	from fitzgerald_kitchens.setup.project_unit_fields import ensure_project_unit_fields
 	from fitzgerald_kitchens.setup.project_bom_fields import ensure_project_bom_fields
-	from fitzgerald_kitchens.setup.project_hierarchy_fields import ensure_project_hierarchy_fields
 	from fitzgerald_kitchens.setup.project_website_list import (
 		patch_project_website_list,
 		patch_project_website_tasks,
@@ -33,7 +32,6 @@ def after_install():
 	ensure_unit_series_counters()
 	ensure_project_types()
 	ensure_project_bom_fields()
-	ensure_project_hierarchy_fields()
 	ensure_projects_sidebar()
 	ensure_manufacturing_sidebar()
 	patch_project_website_list()

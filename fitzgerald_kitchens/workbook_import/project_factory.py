@@ -38,6 +38,7 @@ class ImportStats:
 	units_created: int = 0
 	units_updated: int = 0
 	configurations_linked: int = 0
+	tasks_from_template_applied: int = 0
 	log: list[ImportLogEntry] = field(default_factory=list)
 
 
@@ -135,6 +136,22 @@ class WorkbookProjectFactory:
 		if self.generate_tasks_from_template and self.project_template:
 			return {"project_template": self.project_template}
 		return {}
+
+	def _maybe_apply_project_template(self, project_name: str, project_type: str) -> bool:
+		"""Apply template tasks to a unit project that has no tasks yet (e.g. on re-import)."""
+		template_fields = self._project_template_fields(project_type)
+		if not template_fields:
+			return False
+		if frappe.db.get_all("Task", {"project": project_name}, limit=1):
+			return False
+
+		doc = frappe.get_doc("Project", project_name)
+		doc.project_template = template_fields["project_template"]
+		doc.save(ignore_permissions=True)
+		self.stats.tasks_from_template_applied += 1
+		if self._run_stats:
+			self._run_stats.tasks_from_template_applied += 1
+		return True
 
 	def _site_project_name(self, site_name: str) -> str:
 		return site_name.strip()
@@ -251,24 +268,43 @@ class WorkbookProjectFactory:
 			if self._run_stats:
 				self._run_stats.units_updated += 1
 				self._run_stats.configurations_linked += 1
-			self._append_log(
-				phase="Phase 3",
-				document_type="Project",
-				document_code=project_name,
-				action="Updated",
-				row_number=row_number,
-				developer=developer,
-				site_name=site_name,
-				house_number=house_number,
-				project_type=project_type,
-				project=existing,
-			)
+			if self._maybe_apply_project_template(existing, project_type):
+				self._append_log(
+					phase="Phase 3",
+					document_type="Project",
+					document_code=project_name,
+					action="Updated",
+					row_number=row_number,
+					developer=developer,
+					site_name=site_name,
+					house_number=house_number,
+					project_type=project_type,
+					project=existing,
+					message="Tasks generated from template.",
+				)
+			else:
+				self._append_log(
+					phase="Phase 3",
+					document_type="Project",
+					document_code=project_name,
+					action="Updated",
+					row_number=row_number,
+					developer=developer,
+					site_name=site_name,
+					house_number=house_number,
+					project_type=project_type,
+					project=existing,
+				)
 			return existing
 
 		doc = frappe.get_doc(
 			{"doctype": "Project", **values, **self._project_template_fields(project_type)}
 		)
 		doc.insert(ignore_permissions=True)
+		if self.generate_tasks_from_template and self.project_template and project_type != SITE_PROJECT_TYPE:
+			self.stats.tasks_from_template_applied += 1
+			if self._run_stats:
+				self._run_stats.tasks_from_template_applied += 1
 		self.stats.units_created += 1
 		self.stats.configurations_linked += 1
 		if self._run_stats:

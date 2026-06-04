@@ -111,6 +111,7 @@ function validate_workbook(frm) {
 		return;
 	}
 
+	const run_validate = () => {
 	frappe.call({
 		method: "validate_workbook",
 		doc: frm.doc,
@@ -133,6 +134,13 @@ function validate_workbook(frm) {
 			});
 		},
 	});
+	};
+
+	if (frm.is_dirty()) {
+		frm.save().then(run_validate);
+	} else {
+		run_validate();
+	}
 }
 
 function run_workbook_import(frm) {
@@ -142,18 +150,26 @@ function run_workbook_import(frm) {
 			: __("Run import and create/update projects?");
 
 	frappe.confirm(prompt, () => {
-		frappe.call({
-			method: "run_workbook_import",
-			doc: frm.doc,
-			freeze: true,
-			freeze_message: __("Queueing import..."),
-			callback() {
-				frappe.show_alert({
-					message: __("Import queued. Refresh shortly to see results."),
-					indicator: "blue",
-				});
-				setTimeout(() => frm.reload_doc(), 3000);
-			},
-		});
+		const queue_import = () => {
+			frappe.call({
+				method: "run_workbook_import",
+				doc: frm.doc,
+				freeze: true,
+				freeze_message: __("Queueing import..."),
+				callback() {
+					frappe.show_alert({
+						message: __("Import queued. Refresh shortly to see results."),
+						indicator: "blue",
+					});
+					setTimeout(() => frm.reload_doc(), 3000);
+				},
+			});
+		};
+
+		if (frm.is_dirty()) {
+			frm.save().then(queue_import);
+		} else {
+			queue_import();
+		}
 	});
 }

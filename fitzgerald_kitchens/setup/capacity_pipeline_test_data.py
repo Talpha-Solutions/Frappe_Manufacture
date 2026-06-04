@@ -895,7 +895,7 @@ def _get_or_create_kitchen_local_project(
 	customer,
 	company,
 	project_type=None,
-	parent_project=None,
+	site_parent=None,
 ):
 	existing = frappe.db.get_value("Project", {"project_name": project_name}, "name")
 	values = {
@@ -908,19 +908,22 @@ def _get_or_create_kitchen_local_project(
 	}
 	if project_type:
 		values["project_type"] = project_type
-	if parent_project is not None:
-		values["parent_project"] = parent_project
+	if site_parent is not None:
+		values["fk_parent_project"] = site_parent
 
 	if existing:
+		update_values = {
+			"fk_effective_bom": kitchen_bom,
+			"project_type": "Kitchen",
+			"customer": customer,
+			"company": company,
+		}
+		if site_parent is not None:
+			update_values["fk_parent_project"] = site_parent
 		frappe.db.set_value(
 			"Project",
 			existing,
-			{
-				"fk_effective_bom": kitchen_bom,
-				"project_type": "Kitchen",
-				"customer": customer,
-				"company": company,
-			},
+			update_values,
 			update_modified=False,
 		)
 		return existing
@@ -936,7 +939,7 @@ def _get_or_create_kitchen_local_project(
 			"status": "Open",
 			"expected_start_date": KITCHEN_LOCAL_PROJECT_START_DATE,
 			**({"project_type": project_type} if project_type else {}),
-			**({"parent_project": parent_project} if parent_project else {}),
+			**({"fk_parent_project": site_parent} if site_parent else {}),
 		}
 	)
 	doc.insert(ignore_permissions=True)
@@ -949,7 +952,6 @@ def _get_or_create_kitchen_local_site_project(refs, company):
 		"project_type": "Site",
 		"customer": refs["customer"],
 		"company": company,
-		"parent_project": None,
 		"status": "Open",
 	}
 	if existing:
@@ -984,7 +986,7 @@ def _ensure_kitchen_local_site_hierarchy(refs, company):
 			"Project",
 			project,
 			{
-				"parent_project": site,
+				"fk_parent_project": site,
 				"project_type": "Kitchen",
 				"expected_start_date": KITCHEN_LOCAL_PROJECT_START_DATE,
 			},
@@ -999,7 +1001,7 @@ def _ensure_kitchen_local_site_hierarchy(refs, company):
 			refs["customer"],
 			company,
 			project_type=project_type,
-			parent_project=site,
+			site_parent=site,
 		)
 		for index, planned_date in enumerate(dates, start=1):
 			unit_reference = f"{project_name} Unit {index:02d}"
@@ -1039,7 +1041,7 @@ def _ensure_kitchen_local_site_hierarchy(refs, company):
 			"Project",
 			standalone,
 			{
-				"parent_project": None,
+				"fk_parent_project": None,
 				"project_type": "Kitchen",
 				"expected_start_date": KITCHEN_LOCAL_PROJECT_START_DATE,
 			},
@@ -1108,8 +1110,8 @@ def _delete_project_by_name(project_name):
 	if not project:
 		return False
 
-	for child in frappe.get_all("Project", filters={"parent_project": project}, pluck="name"):
-		frappe.db.set_value("Project", child, "parent_project", None, update_modified=False)
+	for child in frappe.get_all("Project", filters={"fk_parent_project": project}, pluck="name"):
+		frappe.db.set_value("Project", child, "fk_parent_project", None, update_modified=False)
 
 	for unit in frappe.get_all("Development Unit", filters={"project": project}, pluck="name"):
 		frappe.delete_doc("Development Unit", unit, ignore_permissions=True, force=True)

@@ -95,8 +95,9 @@ def format_import_summary(stats: ImportRunStats, *, template_label: str = "") ->
 	]
 	if template_label:
 		lines.append(
-			frappe._("• Tasks on new unit projects from template: {0} (Site excluded)").format(
-				template_label
+			frappe._("• Tasks from template {0}: {1} unit project(s) (Site excluded)").format(
+				template_label,
+				stats.tasks_from_template_applied,
 			)
 		)
 	return "\n".join(lines)
