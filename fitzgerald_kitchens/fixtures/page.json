@@ -1,0 +1,62 @@
+[
+ {
+  "content": null,
+  "docstatus": 0,
+  "doctype": "Page",
+  "icon": null,
+  "modified": "2026-06-03 12:00:00",
+  "module": "fitzgerald_kitchens",
+  "name": "my-tasks",
+  "page_name": "my-tasks",
+  "restrict_to_domain": null,
+  "roles": [
+   {
+    "role": "My Tasks User"
+   },
+   {
+    "role": "Projects User"
+   },
+   {
+    "role": "Projects Manager"
+   },
+   {
+    "role": "System Manager"
+   }
+  ],
+  "script": null,
+  "standard": "Yes",
+  "style": null,
+  "system_page": 0,
+  "title": "My Tasks"
+ },
+ {
+  "content": null,
+  "docstatus": 0,
+  "doctype": "Page",
+  "icon": null,
+  "modified": "2026-06-04 12:00:00",
+  "module": "fitzgerald_kitchens",
+  "name": "task-scan",
+  "page_name": "task-scan",
+  "restrict_to_domain": null,
+  "roles": [
+   {
+    "role": "My Tasks User"
+   },
+   {
+    "role": "Projects User"
+   },
+   {
+    "role": "Projects Manager"
+   },
+   {
+    "role": "System Manager"
+   }
+  ],
+  "script": null,
+  "standard": "Yes",
+  "style": null,
+  "system_page": 0,
+  "title": "Task Scan"
+ }
+]
