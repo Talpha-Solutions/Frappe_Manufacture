@@ -299,10 +299,8 @@ fixtures = [
 		"dt": "Desktop Icon",
 		"filters": [["name", "=", "My Tasks"]],
 	},
-	{
-		"dt": "Page",
-		"filters": [["name", "in", ["my-tasks", "task-scan"]]],
-	},
+	# Pages live under fitzgerald_kitchens/page/* and are synced via
+	# ensure_my_tasks_pages() — not fixtures (Page insert requires developer_mode).
 ]
 
 # Translation

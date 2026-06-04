@@ -32,3 +32,4 @@ fitzgerald_kitchens.patches.v1_0.reorder_project_form_layout
 fitzgerald_kitchens.patches.v1_0.remove_puc_customize_form_column_breaks
 fitzgerald_kitchens.patches.v1_0.remove_dwi_customize_form_column_breaks
 fitzgerald_kitchens.patches.v1_0.fix_project_form_layout_v2
+fitzgerald_kitchens.patches.v1_0.ensure_my_tasks_pages
