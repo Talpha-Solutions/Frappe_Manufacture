@@ -13,11 +13,12 @@
   "scope",
   "based_on_configuration",
   "based_on_project",
-  "notes_section",
+  "col_break_after_project",
   "notes",
   "templates_section",
   "kitchen_utility_manifest",
   "wardrobe_manifest",
+  "col_break_after_wardrobe",
   "default_planning_bom",
   "process_template",
   "spec_type_tab",
@@ -105,9 +106,8 @@
    "options": "Project"
   },
   {
-   "fieldname": "notes_section",
-   "fieldtype": "Section Break",
-   "label": "Notes"
+   "fieldname": "col_break_after_project",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "notes",
@@ -130,6 +130,10 @@
    "fieldtype": "Link",
    "label": "Wardrobe Manifest",
    "options": "Manifest"
+  },
+  {
+   "fieldname": "col_break_after_wardrobe",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "default_planning_bom",

@@ -88,11 +88,17 @@ def get_project_unit_custom_fields() -> dict:
 				"insert_after": "fk_parent_project",
 			},
 			{
+				"fieldname": "fk_col_break_hierarchy",
+				"fieldtype": "Column Break",
+				"depends_on": UNIT_TAB_DEPENDS_ON,
+				"insert_after": "fk_house_number",
+			},
+			{
 				"fieldname": "fk_bedrooms",
 				"fieldtype": "Int",
 				"label": "Bedrooms",
 				"depends_on": UNIT_TAB_DEPENDS_ON,
-				"insert_after": "fk_house_number",
+				"insert_after": "fk_col_break_hierarchy",
 			},
 			{
 				"fieldname": "fk_unit_qty",
@@ -142,11 +148,17 @@ def get_project_unit_custom_fields() -> dict:
 				"insert_after": "fk_effective_manifest",
 			},
 			{
+				"fieldname": "fk_col_break_configuration",
+				"fieldtype": "Column Break",
+				"depends_on": UNIT_TAB_DEPENDS_ON,
+				"insert_after": "fk_effective_bom",
+			},
+			{
 				"fieldname": "fk_unit_notes",
 				"fieldtype": "Long Text",
 				"label": "Unit Notes",
 				"depends_on": UNIT_TAB_DEPENDS_ON,
-				"insert_after": "fk_effective_bom",
+				"insert_after": "fk_col_break_configuration",
 			},
 		]
 	}
