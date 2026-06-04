@@ -1,0 +1,129 @@
+<div class="task-scan-page">
+	<a href="/app/my-tasks" class="task-scan-back">
+		<span aria-hidden="true">←</span> {{ __("Back to my tasks") }}
+	</a>
+
+	<div class="task-scan-header-card">
+		<div class="task-scan-header-top">
+			<div>
+				<h1 class="task-scan-title"></h1>
+				<p class="task-scan-subtitle text-muted"></p>
+			</div>
+			<span class="task-scan-due-badge"></span>
+		</div>
+		<div class="task-scan-meta row">
+			<div class="col-xs-6 col-sm-3">
+				<div class="task-scan-meta-label">{{ __("Type") }}</div>
+				<div class="task-scan-meta-value task-scan-meta-type"></div>
+			</div>
+			<div class="col-xs-6 col-sm-3">
+				<div class="task-scan-meta-label">{{ __("Due") }}</div>
+				<div class="task-scan-meta-value task-scan-meta-due"></div>
+			</div>
+			<div class="col-xs-6 col-sm-3">
+				<div class="task-scan-meta-label">{{ __("Started") }}</div>
+				<div class="task-scan-meta-value task-scan-meta-started"></div>
+			</div>
+			<div class="col-xs-6 col-sm-3">
+				<div class="task-scan-meta-label">{{ __("Assigned to") }}</div>
+				<div class="task-scan-meta-value task-scan-meta-assigned"></div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row task-scan-actions">
+		<div class="col-sm-6">
+			<div class="task-scan-action-card task-scan-action-scan">
+				<div class="task-scan-action-icon" aria-hidden="true">
+					<svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+						<path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h2v2h-2v-2z" fill="currentColor"/>
+					</svg>
+				</div>
+				<div class="task-scan-action-body">
+					<div class="task-scan-action-title">{{ __("Scan next label") }}</div>
+					<div class="task-scan-action-sub task-scan-scan-remaining text-muted"></div>
+				</div>
+				<button type="button" class="btn btn-dark btn-sm btn-task-scan-primary">
+					<span class="fa fa-qrcode" aria-hidden="true"></span> {{ __("Scan") }}
+				</button>
+			</div>
+		</div>
+		<div class="col-sm-6">
+			<div class="task-scan-action-card task-scan-action-print">
+				<div class="task-scan-action-icon" aria-hidden="true">
+					<svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+						<path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+					</svg>
+				</div>
+				<div class="task-scan-action-body">
+					<div class="task-scan-action-title">{{ __("Print labels") }}</div>
+					<div class="task-scan-action-sub task-scan-print-summary text-muted"></div>
+				</div>
+				<button type="button" class="btn btn-default btn-sm btn-task-scan-print">
+					{{ __("Print") }}
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="task-scan-print-banner">
+		<span class="fa fa-info-circle task-scan-banner-icon" aria-hidden="true"></span>
+		<p class="task-scan-banner-text"></p>
+		<button type="button" class="btn btn-default btn-sm btn-task-scan-reprint">
+			<span class="fa fa-refresh" aria-hidden="true"></span> {{ __("Reprint") }}
+		</button>
+	</div>
+
+	<div class="task-scan-progress-block">
+		<div class="task-scan-progress-header">
+			<span class="task-scan-progress-count"></span>
+			<span class="task-scan-progress-pct text-muted"></span>
+		</div>
+		<div class="task-scan-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+			<span class="task-scan-bar-seg task-scan-bar-scanned"></span>
+			<span class="task-scan-bar-seg task-scan-bar-errors"></span>
+			<span class="task-scan-bar-seg task-scan-bar-outstanding"></span>
+		</div>
+		<div class="row task-scan-stats">
+			<div class="col-xs-6 col-sm-3">
+				<div class="task-scan-stat task-scan-stat-printed">
+					<span class="task-scan-stat-num task-scan-stat-num-printed"></span>
+					<span class="task-scan-stat-label">{{ __("Printed") }}</span>
+				</div>
+			</div>
+			<div class="col-xs-6 col-sm-3">
+				<div class="task-scan-stat task-scan-stat-scanned">
+					<span class="task-scan-stat-num task-scan-stat-num-scanned"></span>
+					<span class="task-scan-stat-label">{{ __("Scanned") }}</span>
+				</div>
+			</div>
+			<div class="col-xs-6 col-sm-3">
+				<div class="task-scan-stat task-scan-stat-outstanding">
+					<span class="task-scan-stat-num task-scan-stat-num-outstanding"></span>
+					<span class="task-scan-stat-label">{{ __("Outstanding") }}</span>
+				</div>
+			</div>
+			<div class="col-xs-6 col-sm-3">
+				<div class="task-scan-stat task-scan-stat-errors">
+					<span class="task-scan-stat-num task-scan-stat-num-errors"></span>
+					<span class="task-scan-stat-label">{{ __("Errors") }}</span>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="task-scan-filters">
+		<span class="task-scan-filters-label">{{ __("Show") }}:</span>
+		<div class="task-scan-filter-btns">
+			<button type="button" class="btn btn-default btn-sm task-scan-filter active" data-filter="all"></button>
+			<button type="button" class="btn btn-default btn-sm task-scan-filter" data-filter="outstanding"></button>
+			<button type="button" class="btn btn-default btn-sm task-scan-filter" data-filter="scanned"></button>
+			<button type="button" class="btn btn-default btn-sm task-scan-filter" data-filter="errors"></button>
+		</div>
+		<button type="button" class="btn btn-default btn-sm btn-task-scan-print-selected">
+			<span class="fa fa-print" aria-hidden="true"></span> {{ __("Print selected") }}
+		</button>
+	</div>
+
+	<div class="task-scan-label-list"></div>
+</div>

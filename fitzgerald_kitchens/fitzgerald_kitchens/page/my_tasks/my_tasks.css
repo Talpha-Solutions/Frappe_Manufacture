@@ -1,0 +1,558 @@
+.my-tasks-page {
+	max-width: 720px;
+	margin: 0 auto;
+	padding: 16px 12px 32px;
+}
+
+.my-tasks-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	margin-bottom: 16px;
+}
+
+.my-tasks-user {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.my-tasks-avatar {
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	background: #e8eef5;
+	color: #1b66ec;
+	font-weight: 700;
+	font-size: 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+}
+
+.my-tasks-avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.my-tasks-user-name {
+	font-weight: 600;
+	font-size: 15px;
+	color: #1f2937;
+}
+
+.my-tasks-user-dept {
+	font-size: 12px;
+}
+
+.my-tasks-date {
+	font-size: 12px;
+	margin-bottom: 6px;
+}
+
+.my-tasks-shift {
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.my-tasks-scan-hero {
+	background: linear-gradient(145deg, #1b66ec 0%, #3b82f6 55%, #60a5fa 100%);
+	border-radius: 14px;
+	padding: 24px 20px;
+	text-align: center;
+	color: #fff;
+	margin-bottom: 16px;
+	box-shadow: 0 8px 24px rgba(27, 102, 236, 0.25);
+}
+
+.my-tasks-scan-icon {
+	opacity: 0.9;
+	margin-bottom: 8px;
+}
+
+.my-tasks-scan-title {
+	color: #fff;
+	font-weight: 600;
+	margin: 0 0 6px;
+}
+
+.my-tasks-scan-sub {
+	color: rgba(255, 255, 255, 0.88);
+	margin-bottom: 14px;
+	font-size: 13px;
+}
+
+.my-tasks-scan-hero .btn-open-scanner {
+	background: #0f172a;
+	border: none;
+	color: #fff;
+	font-weight: 600;
+	padding: 8px 20px;
+	border-radius: 8px;
+}
+
+.my-tasks-scan-hero .btn-open-scanner:hover {
+	background: #1e293b;
+	color: #fff;
+}
+
+.my-tasks-scan-hint {
+	margin-top: 12px;
+	margin-bottom: 0;
+	color: rgba(255, 255, 255, 0.75);
+}
+
+.my-tasks-kpis {
+	margin-bottom: 16px;
+}
+
+.my-tasks-kpi-card {
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 10px;
+	padding: 12px 8px;
+	text-align: center;
+}
+
+.my-tasks-kpi-value {
+	font-size: 26px;
+	font-weight: 700;
+	line-height: 1.1;
+}
+
+.my-tasks-kpi-label {
+	font-size: 11px;
+	margin-top: 4px;
+}
+
+.my-tasks-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 14px;
+}
+
+.my-tasks-tab {
+	border: 1px solid #d1d5db;
+	background: #fff;
+	border-radius: 20px;
+	padding: 6px 14px;
+	font-size: 12px;
+	font-weight: 600;
+	color: #4b5563;
+	cursor: pointer;
+}
+
+.my-tasks-tab.active {
+	background: #1b66ec;
+	border-color: #1b66ec;
+	color: #fff;
+}
+
+.my-tasks-tab .tab-count {
+	opacity: 0.85;
+	margin-left: 4px;
+}
+
+.my-tasks-card {
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 12px;
+	padding: 14px;
+	margin-bottom: 12px;
+	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.my-tasks-card-top {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.my-tasks-card-title {
+	font-weight: 600;
+	font-size: 14px;
+	color: #111827;
+	margin: 0;
+}
+
+.my-tasks-card-sub {
+	font-size: 12px;
+	color: #6b7280;
+	margin-top: 2px;
+}
+
+.my-tasks-due {
+	font-size: 11px;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.my-tasks-due.due-today {
+	color: #b45309;
+}
+
+.my-tasks-due.overdue {
+	color: #dc2626;
+}
+
+.my-tasks-card-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+.my-tasks-badge {
+	font-size: 11px;
+	padding: 3px 8px;
+	border-radius: 6px;
+	background: #f1f5f9;
+	color: #475569;
+	font-weight: 600;
+}
+
+.my-tasks-status-badge {
+	font-size: 11px;
+	padding: 3px 8px;
+	border-radius: 6px;
+	background: #eff6ff;
+	color: #1d4ed8;
+	font-weight: 600;
+}
+
+.my-tasks-task-controls {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-bottom: 12px;
+	padding: 10px;
+	background: #f8fafc;
+	border-radius: 8px;
+	border: 1px solid #e2e8f0;
+}
+
+.my-tasks-control-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.my-tasks-control-label {
+	font-size: 11px;
+	font-weight: 700;
+	color: #64748b;
+	min-width: 56px;
+	margin: 0;
+}
+
+.my-tasks-status-hint {
+	margin: 0 0 4px;
+}
+
+.my-tasks-progress-input {
+	max-width: 72px;
+}
+
+.my-tasks-progress-suffix {
+	font-size: 12px;
+	color: #64748b;
+	font-weight: 600;
+}
+
+.my-tasks-timer-label {
+	margin-bottom: 4px;
+}
+
+.my-tasks-paused-hint {
+	display: block;
+	margin-top: 4px;
+}
+
+.my-tasks-progress-badge {
+	font-size: 11px;
+	padding: 3px 8px;
+	border-radius: 6px;
+	background: #fff7ed;
+	color: #c2410c;
+	font-weight: 600;
+}
+
+.my-tasks-progress-badge.muted {
+	background: #f1f5f9;
+	color: #64748b;
+}
+
+.my-tasks-card-actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.my-tasks-timer-actions {
+	margin-bottom: 10px;
+}
+
+.my-tasks-timer-display {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 22px;
+	font-weight: 700;
+	color: #1b66ec;
+	text-align: center;
+	padding: 10px 8px;
+	margin-bottom: 10px;
+	background: #f4f8ff;
+	border-radius: 8px;
+	border: 1px solid #dbeafe;
+}
+
+.my-tasks-timer-display.paused {
+	font-size: 13px;
+	font-weight: 500;
+	font-family: inherit;
+}
+
+.my-tasks-timer-display .timer-sep {
+	color: #94a3b8;
+	font-weight: 400;
+}
+
+.my-tasks-collapse {
+	margin-bottom: 10px;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	background: #fff;
+	overflow: hidden;
+}
+
+.my-tasks-collapse-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	padding: 10px 12px;
+	border: none;
+	background: #f8fafc;
+	text-align: left;
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 700;
+	color: #334155;
+}
+
+.my-tasks-collapse-header:hover {
+	background: #f1f5f9;
+}
+
+.my-tasks-collapse-chevron {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-right: 2px solid #64748b;
+	border-bottom: 2px solid #64748b;
+	transform: rotate(45deg);
+	transition: transform 0.15s ease;
+	flex-shrink: 0;
+	margin-top: -2px;
+}
+
+.my-tasks-collapse.is-collapsed .my-tasks-collapse-chevron {
+	transform: rotate(-45deg);
+	margin-top: 2px;
+}
+
+.my-tasks-collapse-title {
+	flex: 0 0 auto;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	font-size: 11px;
+	color: #64748b;
+}
+
+.my-tasks-collapse-sub {
+	margin-left: auto;
+	font-size: 11px;
+	font-weight: 600;
+	color: #64748b;
+	text-transform: none;
+	letter-spacing: normal;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 55%;
+}
+
+.my-tasks-collapse-body {
+	padding: 10px 12px 12px;
+	border-top: 1px solid #eef2f6;
+}
+
+.my-tasks-collapse.is-collapsed .my-tasks-collapse-body {
+	display: none;
+}
+
+.my-tasks-collapse .my-tasks-task-controls {
+	margin-bottom: 0;
+	border: none;
+	padding: 0;
+	background: transparent;
+}
+
+.my-tasks-collapse .my-tasks-timer-row {
+	margin-bottom: 0;
+}
+
+.my-tasks-collapse .my-tasks-timer-display {
+	margin-bottom: 0;
+}
+
+.my-tasks-card-details-inner {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.my-tasks-timesheet-block {
+	padding-top: 0;
+}
+
+.my-tasks-timesheet-title {
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #64748b;
+	margin-bottom: 6px;
+}
+
+.my-tasks-ts-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	font-size: 11px;
+	padding: 4px 0;
+	border-bottom: 1px dashed #f1f5f9;
+}
+
+.my-tasks-ts-range {
+	color: #334155;
+}
+
+.my-tasks-ts-meta {
+	color: #64748b;
+	white-space: nowrap;
+}
+
+.my-tasks-card-actions .btn {
+	flex: 1;
+	font-size: 12px;
+	font-weight: 600;
+	min-width: 72px;
+}
+
+.my-tasks-hidden-scan-input {
+	position: fixed;
+	left: -9999px;
+	opacity: 0;
+	width: 1px;
+	height: 1px;
+}
+
+/* Scanner utility dialog (matches Task Camera Utility) */
+.my-tasks-scanner-utility {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	padding: 4px 0 8px;
+}
+
+.my-tasks-scanner-utility .camera-action-bar {
+	padding: 15px 20px;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	background: #fff;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.my-tasks-scanner-utility .camera-action-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: #3c4b57;
+	margin: 0;
+}
+
+.my-tasks-scanner-utility .camera-action-title .fa-camera {
+	margin-right: 6px;
+	color: #1b66ec;
+}
+
+.my-tasks-scanner-utility .btn-launch-camera-modal {
+	padding: 6px 16px;
+	font-weight: 500;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.my-tasks-scanner-utility .uploader-section {
+	padding: 25px 20px;
+	border: 2px dashed #b4c0cc;
+	border-radius: 8px;
+	background: #fdfefe;
+	text-align: center;
+	transition: border-color 0.2s ease, background 0.2s ease;
+	cursor: pointer;
+}
+
+.my-tasks-scanner-utility .uploader-section:hover {
+	border-color: #1b66ec;
+	background: #f4f8ff;
+}
+
+.my-tasks-scanner-utility .upload-cloud-icon {
+	font-size: 32px;
+	color: #8a99a8;
+	margin-bottom: 8px;
+}
+
+.my-tasks-scanner-utility .upload-title {
+	font-size: 14px;
+	font-weight: 500;
+	color: #3c4b57;
+	margin-bottom: 4px;
+}
+
+.my-tasks-scanner-utility .upload-sub {
+	font-size: 12px;
+	margin-bottom: 12px;
+}
+
+.my-tasks-scanner-utility .my-tasks-scanner-dropzone {
+	position: relative;
+}
+
+.my-tasks-scanner-utility .scanner-wedge-hint {
+	margin: 10px 0 0;
+}
+
+.my-tasks-scanner-utility .btn-scan-choose-files {
+	padding: 6px 16px;
+	font-weight: 500;
+	background: #171717;
+	border-color: #171717;
+	color: #fff;
+}
+
+.my-tasks-scanner-utility .btn-scan-choose-files:hover {
+	background: #262626;
+	border-color: #262626;
+	color: #fff;
+}

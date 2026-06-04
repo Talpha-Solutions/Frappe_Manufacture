@@ -295,6 +295,14 @@ fixtures = [
 		"dt": "Property Setter",
 		"filters": [["doc_type", "=", "Task"], ["property", "in", ["max_attachments", "field_order", "fieldtype"]]],
 	},
+	{
+		"dt": "Desktop Icon",
+		"filters": [["name", "=", "My Tasks"]],
+	},
+	{
+		"dt": "Page",
+		"filters": [["name", "in", ["my-tasks", "task-scan"]]],
+	},
 ]
 
 # Translation
@@ -302,11 +310,13 @@ fixtures = [
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+from fitzgerald_kitchens.setup.my_tasks_desk import patch_desktop_icon_external_permission
 from fitzgerald_kitchens.setup.project_website_list import (
 	patch_project_website_list,
 	patch_project_website_tasks,
 )
 
+patch_desktop_icon_external_permission()
 patch_project_website_list()
 patch_project_website_tasks()
 
