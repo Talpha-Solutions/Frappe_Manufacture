@@ -38,3 +38,4 @@ fitzgerald_kitchens.patches.v1_0.remove_manifest_customize_form_overrides
 fitzgerald_kitchens.patches.v1_0.refresh_puc_main_form_layout
 fitzgerald_kitchens.patches.v1_0.fix_project_form_layout_v3
 fitzgerald_kitchens.patches.v1_0.fix_project_form_layout_v4
+fitzgerald_kitchens.patches.v1_0.apply_project_details_tab_layout

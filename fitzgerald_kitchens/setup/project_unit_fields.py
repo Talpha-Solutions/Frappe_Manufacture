@@ -16,9 +16,9 @@ PARENT_UNIT_DEPENDS_ON = (
 	f"&& doc.project_type != '{KITCHEN_PROJECT_TYPE}'"
 )
 
-# Main form: Developer with type/template; Unit tab before Costing.
+# Main form: Developer on Details; Unit tab after Costing + Monitor sections.
 DEVELOPER_INSERT_AFTER = "department"
-UNIT_TAB_INSERT_AFTER = "actual_end_date"
+UNIT_TAB_INSERT_AFTER = "message"
 
 REMOVED_PROJECT_UNIT_FIELDNAMES = (
 	"fk_is_root_project",
