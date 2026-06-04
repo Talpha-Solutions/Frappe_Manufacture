@@ -16,6 +16,10 @@ PARENT_UNIT_DEPENDS_ON = (
 	f"&& doc.project_type != '{KITCHEN_PROJECT_TYPE}'"
 )
 
+# Main form: Developer with type/template; Unit tab before Costing.
+DEVELOPER_INSERT_AFTER = "department"
+UNIT_TAB_INSERT_AFTER = "actual_end_date"
+
 REMOVED_PROJECT_UNIT_FIELDNAMES = (
 	"fk_is_root_project",
 	"fk_unit_category",
@@ -51,14 +55,14 @@ def get_project_unit_custom_fields() -> dict:
 				"fieldtype": "Link",
 				"label": "Developer",
 				"options": "Customer",
-				"insert_after": "customer",
+				"insert_after": DEVELOPER_INSERT_AFTER,
 			},
 			{
 				"fieldname": "fk_unit_tab",
 				"fieldtype": "Tab Break",
 				"label": "Unit",
 				"depends_on": UNIT_TAB_DEPENDS_ON,
-				"insert_after": "connections_tab",
+				"insert_after": UNIT_TAB_INSERT_AFTER,
 			},
 			{
 				"fieldname": "fk_unit_hierarchy_section",
@@ -104,14 +108,14 @@ def get_project_unit_custom_fields() -> dict:
 				"options": "Project",
 				"link_filters": f'[["Project","project_type","=","{KITCHEN_PROJECT_TYPE}"]]',
 				"depends_on": PARENT_UNIT_DEPENDS_ON,
-				"insert_after": "fk_house_number",
+				"insert_after": "fk_unit_qty",
 			},
 			{
 				"fieldname": "fk_unit_configuration_section",
 				"fieldtype": "Section Break",
 				"label": "Configuration",
 				"depends_on": UNIT_TAB_DEPENDS_ON,
-				"insert_after": "fk_house_number",
+				"insert_after": "fk_parent_unit_project",
 			},
 			{
 				"fieldname": "fk_unit_configuration",
@@ -218,12 +222,19 @@ def _update_unit_field_properties() -> None:
 			continue
 
 		updates = {}
+		field_def = next(
+			(df for df in get_project_unit_custom_fields()["Project"] if df["fieldname"] == fieldname),
+			None,
+		)
+		if field_def and field_def.get("insert_after"):
+			updates["insert_after"] = field_def["insert_after"]
+
 		if fieldname == "fk_developer":
-			continue
-		if fieldname == "fk_parent_unit_project":
+			pass
+		elif fieldname == "fk_parent_unit_project":
 			updates["depends_on"] = PARENT_UNIT_DEPENDS_ON
 			updates["link_filters"] = f'[["Project","project_type","=","{KITCHEN_PROJECT_TYPE}"]]'
-		else:
+		elif fieldname != "fk_unit_tab":
 			updates["depends_on"] = UNIT_TAB_DEPENDS_ON
 
 		if fieldname == "fk_parent_project":

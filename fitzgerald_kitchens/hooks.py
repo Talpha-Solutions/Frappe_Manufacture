@@ -267,13 +267,17 @@ boot_session = "fitzgerald_kitchens.boot.boot_session"
 # --------
 # Imported from fitzgerald_kitchens/fixtures/*.json on bench migrate.
 # Re-export after desk edits: bench --site <site> export-fixtures --app fitzgerald_kitchens
+from fitzgerald_kitchens.setup.development_stages import STANDARD_STAGE_NAMES
+from fitzgerald_kitchens.setup.project_types import STANDARD_PROJECT_TYPE_NAMES
+
 fixtures = [
 	{
 		"dt": "Project Type",
-		"filters": [["name", "in", ["Site", "Kitchen", "Robe", "Utility", "Vanity Unit"]]],
+		"filters": [["name", "in", sorted(STANDARD_PROJECT_TYPE_NAMES)]],
 	},
 	{
 		"dt": "Development Stage",
+		"filters": [["name", "in", sorted(STANDARD_STAGE_NAMES)]],
 	},
 	{
 		"dt": "Development Stage Settings",

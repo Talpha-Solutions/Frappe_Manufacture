@@ -121,6 +121,9 @@ def ensure_projects_sidebar():
 	if _ensure_main_sidebar_item(sidebar):
 		changed = True
 
+	if _ensure_qr_scan_sidebar_item(sidebar):
+		changed = True
+
 	if _ensure_setup_sidebar_items(sidebar):
 		changed = True
 

@@ -27,6 +27,7 @@
   "tall_unit_door",
   "tall_unit_carcass",
   "base_unit_door",
+  "col_break_to_supply",
   "base_unit_carcass",
   "island_unit_door",
   "island_unit_carcass",
@@ -40,6 +41,7 @@
   "hob",
   "oven",
   "microwave",
+  "col_break_appliances",
   "fridge_freezer",
   "dishwasher",
   "washing_machine",
@@ -48,6 +50,7 @@
   "bins",
   "cutlery",
   "vents",
+  "col_break_accessories",
   "kitchen_handles",
   "robes_handles",
   "robes_section",
@@ -61,6 +64,7 @@
   "kitchen_worktop",
   "kitchen_backsplash",
   "kitchen_upstand",
+  "col_break_worktops",
   "utility_worktop",
   "utility_worktop_upstand"
  ],
@@ -175,6 +179,10 @@
    "label": "Base Unit Door"
   },
   {
+   "fieldname": "col_break_to_supply",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "base_unit_carcass",
    "fieldtype": "Data",
    "label": "Base Unit Carcass"
@@ -240,6 +248,10 @@
    "label": "Microwave"
   },
   {
+   "fieldname": "col_break_appliances",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "fridge_freezer",
    "fieldtype": "Data",
    "label": "Fridge/freezer"
@@ -278,6 +290,10 @@
    "fieldname": "vents",
    "fieldtype": "Data",
    "label": "Vents"
+  },
+  {
+   "fieldname": "col_break_accessories",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "kitchen_handles",
@@ -343,6 +359,10 @@
    "fieldname": "kitchen_upstand",
    "fieldtype": "Data",
    "label": "Kitchen Upstand"
+  },
+  {
+   "fieldname": "col_break_worktops",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "utility_worktop",
