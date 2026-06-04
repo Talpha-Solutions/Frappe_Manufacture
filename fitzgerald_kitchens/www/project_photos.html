@@ -1,0 +1,814 @@
+{% extends "templates/web.html" %}
+{% from "fitzgerald_kitchens/templates/includes/project_type_icon.html" import project_type_icon %}
+
+{% block title %}{{ _("Project Photos") }}{% endblock %}
+
+{% block style %}
+<style>
+  .fk-dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+  }
+
+  .fk-header-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  .fk-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .fk-header-title {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 260px;
+  }
+
+  .fk-header-icon {
+    width: 48px;
+    height: 48px;
+    background: #f1f5f9;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    flex-shrink: 0;
+  }
+
+  .fk-project-name {
+    font-size: 1.45rem;
+    font-weight: 650;
+    margin: 0;
+    line-height: 1.25;
+  }
+
+  .fk-project-sub {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin: 0.25rem 0 0 0;
+  }
+
+  .fk-header-stats {
+    display: flex;
+    gap: 1.25rem;
+    font-size: 0.9rem;
+    color: #64748b;
+    flex-wrap: wrap;
+  }
+
+  .fk-stat-val {
+    font-weight: 650;
+    color: #0f172a;
+    margin-left: 0.25rem;
+  }
+
+  .fk-stage-totals {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+
+  .fk-stage-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 1rem;
+    min-width: 150px;
+    flex: 1;
+    flex-shrink: 0;
+  }
+
+  .fk-stage-card.fk-stage--despatch {
+    background: #fff7e6;
+  }
+
+  .fk-stage-card.fk-stage--delivery {
+    background: #f6ffed;
+  }
+
+  .fk-stage-card.fk-stage--fitting {
+    background: #f9f0ff;
+  }
+
+  .fk-stage-card.fk-stage--handover {
+    background: #e6f7ff;
+  }
+
+  .fk-stage-card-title {
+    font-size: 0.8rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    white-space: nowrap;
+  }
+
+  .fk-stage-card-val {
+    font-size: 1.55rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .fk-filters {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .fk-filter-label {
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+
+  .fk-pill {
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .fk-pill.active,
+  .fk-pill:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .fk-search-input {
+    width: 100%;
+    padding: 0.65rem 0.9rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+  }
+
+  .fk-units-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .fk-unit-row {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  .fk-unit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    gap: 1rem;
+  }
+
+  .fk-unit-title-area {
+    display: flex;
+    gap: 0.9rem;
+    min-width: 220px;
+  }
+
+  .fk-unit-icon {
+    color: #94a3b8;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  .fk-unit-name {
+    font-size: 1.1rem;
+    font-weight: 650;
+    margin: 0;
+    line-height: 1.25;
+  }
+
+  .fk-unit-meta {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin: 0.25rem 0 0 0;
+  }
+
+  .fk-unit-total-photos {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    white-space: nowrap;
+  }
+
+  .fk-unit-stages {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    margin-left: 2.25rem;
+  }
+
+  .fk-stage-mini {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.85rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    min-height: 78px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+
+  .fk-stage-mini.fk-stage--despatch {
+    background: #fff7e6;
+  }
+
+  .fk-stage-mini.fk-stage--delivery {
+    background: #f6ffed;
+  }
+
+  .fk-stage-mini.fk-stage--fitting {
+    background: #f9f0ff;
+  }
+
+  .fk-stage-mini.fk-stage--handover {
+    background: #e6f7ff;
+  }
+
+  .fk-stage-mini.has-photos:hover {
+    border-color: #cbd5e1;
+  }
+
+  .fk-stage-mini.is-empty {
+    cursor: default;
+    opacity: 0.72;
+    background: #f8fafc;
+  }
+
+  .fk-thumb-grid {
+    width: 56px;
+    height: 56px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 2px;
+    background: #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .fk-thumb-grid span,
+  .fk-thumb-grid img {
+    display: block;
+    min-width: 0;
+    min-height: 0;
+    background: #e2e8f0;
+  }
+
+  .fk-thumb-grid img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .fk-thumb-empty {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    flex-shrink: 0;
+  }
+
+  .fk-stage-mini-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+    min-width: 0;
+  }
+
+  .fk-stage-mini-name {
+    font-size: 0.9rem;
+    font-weight: 650;
+    color: #0f172a;
+  }
+
+  .fk-stage-mini-count {
+    font-size: 0.8rem;
+    color: #64748b;
+  }
+
+  .fk-stage-mini-empty {
+    font-size: 0.8rem;
+    color: #94a3b8;
+  }
+
+  .fk-empty-state {
+    border: 1px dashed #cbd5e1;
+    border-radius: 14px;
+    padding: 2rem;
+    color: #64748b;
+    background: #f8fafc;
+    text-align: center;
+  }
+
+  #imgModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.82);
+    z-index: 999999;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .img-modal-box {
+    width: 95%;
+    max-width: 1100px;
+    height: 85vh;
+    background: #fff;
+    border-radius: 14px;
+    display: flex;
+    overflow: hidden;
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.35);
+    position: relative;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: #111827;
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-close:hover {
+    background: #ef4444;
+  }
+
+  .thumb-panel {
+    width: 320px;
+    background: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+    overflow-y: auto;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    align-content: start;
+  }
+
+  .thumb {
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: 0.2s;
+    background: #fff;
+  }
+
+  .thumb:hover {
+    border-color: #1b66ec;
+    transform: scale(1.02);
+  }
+
+  .thumb img {
+    width: 100%;
+    height: 85px;
+    object-fit: cover;
+  }
+
+  .thumb-name {
+    font-size: 10px;
+    padding: 4px;
+    text-align: center;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .preview-panel {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0b1220;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .preview-panel img {
+    max-width: 100%;
+    max-height: 100%;
+    transition: transform 0.25s ease;
+    transform-origin: center;
+    cursor: grab;
+  }
+
+  @media (max-width: 992px) {
+    .fk-unit-stages {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 768px) {
+    .fk-header,
+    .fk-unit-header {
+      flex-direction: column;
+    }
+
+    .fk-header-stats {
+      width: 100%;
+    }
+
+    .fk-unit-stages {
+      margin-left: 0;
+      grid-template-columns: 1fr;
+    }
+
+    .fk-stage-totals {
+      flex-wrap: wrap;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block header %}
+  <h3 class="my-account-header">{{ _("Project Photos") }}</h3>
+{% endblock %}
+
+{% block page_content %}
+<div class="fk-dashboard">
+
+  <div class="fk-header-card">
+  <div class="fk-header">
+    <div class="fk-header-title">
+      <div class="fk-header-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round"
+             stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+          <polyline points="21 15 16 10 5 21"></polyline>
+        </svg>
+      </div>
+      <div>
+        <h1 class="fk-project-name">{{ _("Project Photos") }}</h1>
+        <p class="fk-project-sub">{{ _("All photos in each project") }}</p>
+      </div>
+    </div>
+
+    <div class="fk-header-stats">
+      <span>{{ _("Projects") }} <span class="fk-stat-val">{{ dashboard_stats.total_projects }}</span></span>
+      <span>{{ _("Units") }} <span class="fk-stat-val">{{ dashboard_stats.total_units }}</span></span>
+      <span>{{ _("Photos") }} <span class="fk-stat-val">{{ dashboard_stats.total_photos }}</span></span>
+      <span>{{ _("Last upload") }} <span class="fk-stat-val">{{ dashboard_stats.last_upload }}</span></span>
+    </div>
+  </div>
+  </div>
+
+  {% if stage_totals %}
+    <div class="fk-stage-totals">
+      {% for st in stage_totals %}
+        <div class="fk-stage-card fk-stage--{{ st.stage|lower }}">
+          <div class="fk-stage-card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+            {{ st.stage }}
+          </div>
+          <div class="fk-stage-card-val">{{ st.count }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="fk-filters">
+    <span class="fk-filter-label">{{ _("Type") }}</span>
+    {% for pill in project_type_filters %}
+      <button
+        type="button"
+        class="fk-pill{% if pill.key == 'all' %} active{% endif %}"
+        data-filter="{{ pill.key }}"
+      >
+        {{ pill.label }}
+      </button>
+    {% endfor %}
+  </div>
+
+  <input
+    type="text"
+    class="fk-search-input"
+    id="unitSearch"
+    placeholder="{{ _('Search units...') }}"
+    autocomplete="off"
+  >
+
+  <div class="fk-units-list" id="unitsList">
+    {% if units %}
+      {% for row in units %}
+        <div
+          class="fk-unit-row"
+          data-category="{{ row.category|e }}"
+          data-search="{{ row.display_name|lower|e }}"
+        >
+          <div class="fk-unit-header">
+            <div class="fk-unit-title-area">
+              <div class="fk-unit-icon">
+                {{ project_type_icon(row.category) }}
+              </div>
+
+              <div>
+                <h3 class="fk-unit-name">{{ row.display_name }}</h3>
+                <p class="fk-unit-meta">{{ _("Last upload:") }} {{ row.last_upload }}</p>
+              </div>
+            </div>
+
+            <div class="fk-unit-total-photos">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              {{ row.total_photos }} {{ _("photos") }}
+            </div>
+          </div>
+
+          <div class="fk-unit-stages">
+            {% for cell in row.stages %}
+              <div
+                class="fk-stage-mini fk-stage--{{ cell.task_type|lower }}{% if cell.count > 0 %} has-photos{% else %} is-empty{% endif %}"
+                {% if cell.count > 0 %}
+                  data-images='{{ cell.gallery_images | tojson | e }}'
+                  data-task-title="{{ row.display_name }} — {{ cell.task_type }}"
+                  role="button"
+                  tabindex="0"
+                {% endif %}
+              >
+                {% if cell.count > 0 %}
+                  <div class="fk-thumb-grid">
+                    {% for photo in cell.preview_photos %}
+                      <img src="{{ photo.url }}" alt="" loading="lazy">
+                    {% endfor %}
+                    {% for blank in cell.blank_slots %}
+                      <span></span>
+                    {% endfor %}
+                  </div>
+                  <div class="fk-stage-mini-info">
+                    <span class="fk-stage-mini-name">{{ cell.task_type }}</span>
+                    <span class="fk-stage-mini-count">{{ cell.count }} {{ _("photos") }}</span>
+                  </div>
+                {% else %}
+                  <div class="fk-thumb-empty">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                      <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                  </div>
+                  <div class="fk-stage-mini-info">
+                    <span class="fk-stage-mini-name">{{ cell.task_type }}</span>
+                    <span class="fk-stage-mini-empty">{{ _("None yet") }}</span>
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="fk-empty-state">
+        {{ _("No task photos found yet. Upload images on Despatch, Delivery, Fitting, or Handover tasks.") }}
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<div id="imgModal">
+  <div class="img-modal-box">
+    <button class="modal-close" id="closeModal" type="button">&times;</button>
+    <div id="thumbs" class="thumb-panel"></div>
+    <div class="preview-panel">
+      <img id="preview" alt="">
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const pills = document.querySelectorAll(".fk-pill");
+    const searchInput = document.getElementById("unitSearch");
+    const rows = document.querySelectorAll(".fk-unit-row");
+
+    let currentFilter = "all";
+    let currentSearch = "";
+
+    function applyFilters() {
+      rows.forEach(function (row) {
+        const category = row.getAttribute("data-category") || "other";
+        const searchText = row.getAttribute("data-search") || "";
+
+        let show = true;
+
+        if (currentFilter !== "all" && category !== currentFilter) {
+          show = false;
+        }
+
+        if (currentSearch && !searchText.includes(currentSearch)) {
+          show = false;
+        }
+
+        row.style.display = show ? "block" : "none";
+      });
+    }
+
+    pills.forEach(function (pill) {
+      pill.addEventListener("click", function () {
+        pills.forEach(function (p) {
+          p.classList.remove("active");
+        });
+        pill.classList.add("active");
+        currentFilter = pill.getAttribute("data-filter");
+        applyFilters();
+      });
+    });
+
+    if (searchInput) {
+      searchInput.addEventListener("input", function (event) {
+        currentSearch = (event.target.value || "").toLowerCase().trim();
+        applyFilters();
+      });
+    }
+
+    const modal = document.getElementById("imgModal");
+    const thumbs = document.getElementById("thumbs");
+    const preview = document.getElementById("preview");
+    const closeBtn = document.getElementById("closeModal");
+
+    let scale = 1;
+    let posX = 0;
+    let posY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    function updateTransform() {
+      preview.style.transform = "translate(" + posX + "px, " + posY + "px) scale(" + scale + ")";
+    }
+
+    function resetImage() {
+      scale = 1;
+      posX = 0;
+      posY = 0;
+      updateTransform();
+      preview.style.cursor = "grab";
+    }
+
+    function openModal(images) {
+      thumbs.innerHTML = "";
+      if (!images || !images.length) {
+        return;
+      }
+
+      preview.src = images[0].file_url;
+      resetImage();
+
+      images.forEach(function (img) {
+        const div = document.createElement("div");
+        div.className = "thumb";
+        div.innerHTML =
+          '<img src="' + img.file_url + '">' +
+          '<div class="thumb-name">' + (img.file_name || "image") + "</div>";
+
+        div.onclick = function () {
+          preview.src = img.file_url;
+          resetImage();
+        };
+
+        thumbs.appendChild(div);
+      });
+
+      modal.style.display = "flex";
+    }
+
+    document.addEventListener("click", function (e) {
+      const cell = e.target.closest(".fk-stage-mini.has-photos");
+      if (!cell) {
+        return;
+      }
+
+      e.preventDefault();
+
+      try {
+        const images = JSON.parse(cell.getAttribute("data-images"));
+        openModal(images);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
+    document.addEventListener("keydown", function (e) {
+      const cell = e.target.closest(".fk-stage-mini.has-photos");
+      if (!cell || (e.key !== "Enter" && e.key !== " ")) {
+        return;
+      }
+      e.preventDefault();
+      cell.click();
+    });
+
+    closeBtn.addEventListener("click", function () {
+      modal.style.display = "none";
+    });
+
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal) {
+        modal.style.display = "none";
+      }
+    });
+
+    preview.addEventListener("wheel", function (e) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      scale += delta;
+      scale = Math.min(Math.max(1, scale), 5);
+      if (scale === 1) {
+        posX = 0;
+        posY = 0;
+      }
+      updateTransform();
+    });
+
+    preview.addEventListener("mousedown", function (e) {
+      if (scale <= 1) {
+        return;
+      }
+      isDragging = true;
+      startX = e.clientX - posX;
+      startY = e.clientY - posY;
+      preview.style.cursor = "grabbing";
+    });
+
+    window.addEventListener("mousemove", function (e) {
+      if (!isDragging) {
+        return;
+      }
+      posX = e.clientX - startX;
+      posY = e.clientY - startY;
+      updateTransform();
+    });
+
+    window.addEventListener("mouseup", function () {
+      isDragging = false;
+      if (scale > 1) {
+        preview.style.cursor = "grab";
+      }
+    });
+  });
+</script>
+{% endblock %}
