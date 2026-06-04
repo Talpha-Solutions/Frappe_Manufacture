@@ -34,39 +34,45 @@ def _check_my_tasks_access():
 		frappe.throw(_("Not permitted to access My Tasks"), frappe.PermissionError)
 
 
-def _get_assigned_task_names(user: str, *, open_only: bool = True) -> list[str]:
-	filters = {"allocated_to": user, "reference_type": "Task"}
-	if open_only:
-		filters["status"] = "Open"
+def _assignees_from_task_row(assign_field) -> list[str]:
+	if not assign_field:
+		return []
+	try:
+		assignees = frappe.parse_json(assign_field)
+	except Exception:
+		return []
+	if isinstance(assignees, str):
+		try:
+			assignees = frappe.parse_json(assignees)
+		except Exception:
+			return [assignees] if assignees else []
+	if not isinstance(assignees, list):
+		return []
+	return [entry for entry in assignees if entry]
 
-	names = frappe.get_all(
-		"ToDo",
-		filters=filters,
-		pluck="reference_name",
-		distinct=True,
-	)
-	return [name for name in names if name]
 
+def _collect_assigned_task_names(user: str) -> list[str]:
+	"""Tasks assigned via ToDo (any status) or Task._assign."""
+	names: set[str] = set()
 
-def _get_completed_assigned_task_names(user: str) -> list[str]:
-	"""Tasks assigned to user (open or closed ToDo) that are completed."""
-	todo_tasks = frappe.get_all(
+	for name in frappe.get_all(
 		"ToDo",
 		filters={"allocated_to": user, "reference_type": "Task"},
 		pluck="reference_name",
 		distinct=True,
-	)
-	if not todo_tasks:
-		return []
+	):
+		if name:
+			names.add(name)
 
-	return frappe.get_all(
+	for row in frappe.get_all(
 		"Task",
-		filters={
-			"name": ["in", todo_tasks],
-			"status": COMPLETED_STATUS,
-		},
-		pluck="name",
-	)
+		filters={"_assign": ["is", "set"]},
+		fields=["name", "_assign"],
+	):
+		if user in _assignees_from_task_row(row._assign):
+			names.add(row.name)
+
+	return list(names)
 
 
 def _load_tasks(task_names: list[str]) -> list[dict]:
@@ -181,12 +187,19 @@ def _bucket_tasks(tasks: list[dict]) -> dict:
 	return buckets
 
 
-def _kpis(tasks: list[dict], buckets: dict) -> dict:
+def _is_completed_today(task, today_date) -> bool:
+	if task.completed_on and getdate(task.completed_on) == today_date:
+		return True
+	if not task.completed_on and task.modified and getdate(task.modified) == today_date:
+		return True
+	return False
+
+
+def _kpis(buckets: dict) -> dict:
 	today_date = getdate(today())
-	completed_today = 0
-	for task in buckets["completed"]:
-		if task.completed_on and getdate(task.completed_on) == today_date:
-			completed_today += 1
+	completed_today = sum(
+		1 for task in buckets["completed"] if _is_completed_today(task, today_date)
+	)
 
 	return {
 		"completed_today": completed_today,
@@ -219,11 +232,7 @@ def get_my_tasks_dashboard():
 	_check_my_tasks_access()
 	user = frappe.session.user
 
-	open_names = _get_assigned_task_names(user, open_only=True)
-	completed_names = _get_completed_assigned_task_names(user)
-	all_names = list(dict.fromkeys(open_names + completed_names))
-
-	tasks = _load_tasks(all_names)
+	tasks = _load_tasks(_collect_assigned_task_names(user))
 	buckets = _bucket_tasks(tasks)
 
 	def serialize_task(task):
@@ -242,7 +251,9 @@ def get_my_tasks_dashboard():
 			"image_count": task.image_count,
 			"scanned_label": task.scanned_label,
 			"timer_running": bool(getattr(task, "timer_running", False)),
+			"timer_paused": bool(getattr(task, "timer_paused", False)),
 			"timer_started_at": getattr(task, "timer_started_at", None),
+			"timer_started_at_epoch": getattr(task, "timer_started_at_epoch", None),
 			"timer_elapsed_seconds": getattr(task, "timer_elapsed_seconds", 0),
 			"timer_expected_hours": getattr(task, "timer_expected_hours", None),
 			"total_logged_hours": getattr(task, "total_logged_hours", 0),
@@ -251,7 +262,7 @@ def get_my_tasks_dashboard():
 
 	return {
 		"user": _user_header(),
-		"kpis": _kpis(tasks, buckets),
+		"kpis": _kpis(buckets),
 		"tabs": {
 			key: {
 				"count": len(items),

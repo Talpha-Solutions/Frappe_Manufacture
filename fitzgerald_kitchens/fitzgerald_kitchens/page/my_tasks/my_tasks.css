@@ -252,19 +252,8 @@
 	margin: 0;
 }
 
-.my-tasks-status-pill {
-	display: inline-block;
-	font-size: 12px;
-	font-weight: 600;
-	padding: 4px 12px;
-	border-radius: 999px;
-	background: #f1f5f9;
-	color: #334155;
-}
-
 .my-tasks-status-hint {
-	flex: 1 1 100%;
-	margin-top: 2px;
+	margin: 0 0 4px;
 }
 
 .my-tasks-progress-input {

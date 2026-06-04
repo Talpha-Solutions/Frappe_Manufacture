@@ -34,6 +34,8 @@ class MyTasksPage {
 		this.scanner_task = null;
 		this._timer_interval = null;
 		this.$wrapper = $(frappe.render_template("my_tasks")).appendTo(this.page.main);
+		// Legacy timer epoch cache caused stale 4h+ stopwatch displays.
+		localStorage.removeItem("my_tasks_timer_epochs");
 		this.bind_events();
 		this.refresh();
 	}
@@ -59,6 +61,12 @@ class MyTasksPage {
 		const state = this.get_collapse_state();
 		state[`${task_name}:${section}`] = collapsed;
 		localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify(state));
+	}
+
+	elapsed_seconds_from_server_base(serverElapsed, renderedAt) {
+		const base = flt(serverElapsed) || 0;
+		const since = renderedAt ? Math.floor((Date.now() - renderedAt) / 1000) : 0;
+		return Math.max(0, base + since);
 	}
 
 	render_collapsible_section(task_name, section, title, body_html, subtitle = "", default_collapsed = false) {
@@ -164,32 +172,21 @@ class MyTasksPage {
 
 	start_timer_interval() {
 		this.clear_timer_interval();
-		if (!this.$wrapper.find(".my-tasks-timer-display[data-started-at]").length) {
+		if (!this.$wrapper.find(".my-tasks-timer-display[data-server-elapsed]").length) {
 			return;
 		}
 		this.update_running_timers();
 		this._timer_interval = setInterval(() => this.update_running_timers(), 1000);
 	}
 
-	parse_timer_start(startedAt) {
-		if (!startedAt) {
-			return null;
-		}
-		const m = moment(startedAt);
-		return m.isValid() ? m : null;
-	}
-
 	update_running_timers() {
 		const me = this;
-		this.$wrapper.find(".my-tasks-timer-display[data-started-at]").each(function () {
+		this.$wrapper.find(".my-tasks-timer-display[data-server-elapsed]").each(function () {
 			const $el = $(this);
-			const startedAt = $el.attr("data-started-at");
+			const serverElapsed = flt($el.attr("data-server-elapsed"));
+			const renderedAt = parseInt($el.attr("data-rendered-at"), 10) || Date.now();
 			const expectedHours = flt($el.attr("data-expected-hours"));
-			const start = me.parse_timer_start(startedAt);
-			if (!start) {
-				return;
-			}
-			const elapsed = Math.max(0, moment().diff(start, "seconds"));
+			const elapsed = me.elapsed_seconds_from_server_base(serverElapsed, renderedAt);
 			$el.find(".timer-elapsed").text(MyTasksPage.format_duration(elapsed));
 			const $remaining = $el.find(".timer-remaining");
 			if (expectedHours > 0) {
@@ -251,9 +248,6 @@ class MyTasksPage {
 
 	get_card_details_subtitle(task) {
 		const parts = [];
-		if (task.status) {
-			parts.push(task.status);
-		}
 		const progress = Math.round(flt(task.progress));
 		if (progress > 0) {
 			parts.push(`${progress}%`);
@@ -272,27 +266,27 @@ class MyTasksPage {
 		}
 		const progress = Math.round(flt(task.progress));
 		const status = task.status || "Open";
-		const status_label = frappe.utils.escape_html(__(status));
+		const timer_active = !!task.timer_running || !!task.timer_paused;
+		const complete_disabled = timer_active ? "disabled" : "";
+		const complete_title = timer_active
+			? frappe.utils.escape_html(__("Stop the timer before completing"))
+			: "";
 		const status_hint =
 			status === "Open"
-				? `<span class="my-tasks-status-hint text-muted small">${__(
-						"Changes to Working when you start the task"
-					)}</span>`
+				? `<p class="my-tasks-status-hint text-muted small">${__(
+						"Start the task, stop the timer to save time, then Complete submits the timesheet and sets progress to 100%."
+					)}</p>`
 				: "";
 
 		return `<div class="my-tasks-task-controls">
-			<div class="my-tasks-control-row">
-				<label class="my-tasks-control-label">${__("Status")}</label>
-				<span class="my-tasks-status-pill">${status_label}</span>
-				${status_hint}
-			</div>
+			${status_hint}
 			<div class="my-tasks-control-row">
 				<label class="my-tasks-control-label">${__("Progress")}</label>
 				<input type="number" class="form-control input-sm my-tasks-progress-input" min="0" max="100" value="${progress}">
 				<span class="my-tasks-progress-suffix">%</span>
 				<button type="button" class="btn btn-default btn-sm btn-task-progress-update">${__("Update")}</button>
 			</div>
-			<button type="button" class="btn btn-success btn-sm btn-task-complete">${__("Complete")}</button>
+			<button type="button" class="btn btn-success btn-sm btn-task-complete" ${complete_disabled} title="${complete_title}">${__("Complete")}</button>
 		</div>`;
 	}
 
@@ -313,14 +307,15 @@ class MyTasksPage {
 
 	render_timer_block(task) {
 		const running = task.timer_running;
-		const hasLogs = (task.timesheet_logs || []).length > 0 || flt(task.total_logged_hours) > 0;
+		const paused = task.timer_paused;
 		const expected = flt(task.timer_expected_hours);
-		const initialElapsed = running
-			? flt(task.timer_elapsed_seconds) || 0
-			: Math.floor(flt(task.total_logged_hours) * 3600);
+		const serverElapsed = running ? flt(task.timer_elapsed_seconds) || 0 : 0;
+		const renderedAt = Date.now();
+		const initialElapsed = running ? this.elapsed_seconds_from_server_base(serverElapsed, renderedAt) : 0;
 		const timerHtml = running
 			? `<div class="my-tasks-timer-display"
-					data-started-at="${frappe.utils.escape_html(task.timer_started_at || "")}"
+					data-server-elapsed="${serverElapsed}"
+					data-rendered-at="${renderedAt}"
 					data-expected-hours="${expected || 0}">
 					<div class="my-tasks-timer-label text-muted small">${__("Elapsed")}</div>
 					<span class="timer-elapsed">${MyTasksPage.format_duration(initialElapsed)}</span>
@@ -330,13 +325,7 @@ class MyTasksPage {
 							: ""
 					}
 				</div>`
-			: hasLogs
-				? `<div class="my-tasks-timer-display paused">
-					<div class="my-tasks-timer-label text-muted small">${__("Logged time")}</div>
-					<span class="timer-elapsed">${MyTasksPage.format_duration(initialElapsed)}</span>
-					<span class="text-muted small my-tasks-paused-hint">${__("Timer paused")}</span>
-				</div>`
-				: "";
+			: "";
 
 		let actionButtons = "";
 		if (task.status !== "Completed") {
@@ -345,7 +334,7 @@ class MyTasksPage {
 					<button type="button" class="btn btn-warning btn-sm btn-task-pause">${__("Pause")}</button>
 					<button type="button" class="btn btn-danger btn-sm btn-task-stop">${__("Stop")}</button>
 				`;
-			} else if (hasLogs) {
+			} else if (paused) {
 				actionButtons = `
 					<button type="button" class="btn btn-primary btn-sm btn-task-resume">${__("Resume")}</button>
 					<button type="button" class="btn btn-danger btn-sm btn-task-stop">${__("Stop")}</button>
@@ -374,14 +363,26 @@ class MyTasksPage {
 				if (!r.message) {
 					return;
 				}
-				if (method === "complete_task" || r.message.task_update?.status === "Completed") {
+				if (method === "complete_task") {
+					let message = __("Task completed");
+					if (r.message.timesheet_submit?.submitted) {
+						message = __("Task completed and timesheet {0} submitted", [
+							r.message.timesheet_submit.timesheet,
+						]);
+					}
 					frappe.show_alert({
-						message: __("Task completed"),
+						message,
 						indicator: "green",
 					});
 					if (this.active_tab !== "completed") {
 						this.active_tab = "completed";
 					}
+				} else if (method === "update_task_progress") {
+					const pct = Math.round(flt(r.message.task_update?.progress));
+					frappe.show_alert({
+						message: __("Progress updated to {0}%", [pct]),
+						indicator: "green",
+					});
 				}
 				this.refresh();
 			},
@@ -397,10 +398,21 @@ class MyTasksPage {
 				if (!r.message) {
 					return;
 				}
-				if (method === "stop_task_timer" && r.message.stopped?.submitted) {
+				if (method === "stop_task_timer") {
 					frappe.show_alert({
-						message: __("Timesheet submitted for {0}", [task.subject || task.name]),
+						message: __("Timer stopped"),
 						indicator: "green",
+					});
+				}
+				if (
+					(method === "start_task_timer" || method === "resume_task_timer") &&
+					r.message.auto_stopped_task?.stopped_task
+				) {
+					frappe.show_alert({
+						message: __("Previous timer on {0} stopped and time saved", [
+							r.message.auto_stopped_task.stopped_task,
+						]),
+						indicator: "blue",
 					});
 				}
 				this.refresh();
@@ -508,15 +520,28 @@ class MyTasksPage {
 			$card.find(".btn-task-resume").on("click", () => this.call_timer_action("resume_task_timer", task));
 			$card.find(".btn-task-pause").on("click", () => this.call_timer_action("pause_task_timer", task));
 			$card.find(".btn-task-stop").on("click", () => this.call_timer_action("stop_task_timer", task));
-			$card.find(".btn-task-scan").on("click", () => this.open_scanner(task));
+			$card.find(".btn-task-scan").on("click", () => {
+				frappe.route_options = { task: task.name };
+				frappe.set_route("task-scan");
+			});
 			$card.find(".btn-task-progress-update").on("click", () => {
 				const progress = flt($card.find(".my-tasks-progress-input").val());
 				this.call_task_update("update_task_progress", task, { progress });
 			});
-			$card.find(".btn-task-complete").on("click", () => {
-				frappe.confirm(__("Mark this task complete and set progress to 100%?"), () => {
-					me.call_task_update("complete_task", task);
-				});
+			$card.find(".btn-task-complete").on("click", function () {
+				if ($(this).prop("disabled")) {
+					frappe.show_alert({
+						message: __("Use Stop to end your session before completing this task."),
+						indicator: "orange",
+					});
+					return;
+				}
+				frappe.confirm(
+					__("Mark this task complete, submit the timesheet, and set progress to 100%?"),
+					() => {
+						me.call_task_update("complete_task", task);
+					}
+				);
 			});
 			me.bind_collapse_handlers($card, task.name);
 

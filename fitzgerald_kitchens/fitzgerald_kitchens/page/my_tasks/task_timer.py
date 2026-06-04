@@ -23,6 +23,25 @@ MY_TASKS_ROLES = frozenset(
 )
 
 
+PAUSE_CACHE_PREFIX = "my_tasks_timer_paused"
+
+
+def _pause_cache_key(user: str, task: str) -> str:
+	return f"{PAUSE_CACHE_PREFIX}:{user}:{task}"
+
+
+def _set_timer_paused(user: str, task: str, paused: bool) -> None:
+	key = _pause_cache_key(user, task)
+	if paused:
+		frappe.cache.set_value(key, 1)
+	else:
+		frappe.cache.delete_value(key)
+
+
+def _is_timer_paused(user: str, task: str) -> bool:
+	return bool(frappe.cache.get_value(_pause_cache_key(user, task)))
+
+
 def _check_my_tasks_access():
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Login required"), frappe.PermissionError)
@@ -77,7 +96,6 @@ def _get_running_time_log(user: str | None = None, task: str | None = None) -> d
 		inner join `tabTimesheet` ts on ts.name = td.parent
 		where ts.docstatus = 0
 			and ts.owner = %(user)s
-			and td.completed = 0
 			and td.from_time is not null
 			and (td.to_time is null or td.to_time = '')
 		{task_clause}
@@ -90,39 +108,55 @@ def _get_running_time_log(user: str | None = None, task: str | None = None) -> d
 	return rows[0] if rows else None
 
 
-def _find_draft_timesheet(user: str, employee: str, project: str | None) -> str | None:
-	"""Prefer an existing draft for this employee and project (update, do not create another)."""
-	if project:
-		row = frappe.db.get_value(
-			"Timesheet",
-			{"docstatus": 0, "employee": employee, "parent_project": project},
-			"name",
-			order_by="modified desc",
-		)
-		if row:
-			return row
-
-	if not project:
-		rows = frappe.db.sql(
-			"""
-			select name from `tabTimesheet`
-			where docstatus = 0 and employee = %s and owner = %s
-				and (parent_project is null or parent_project = '')
-			order by modified desc limit 1
-			""",
-			(employee, user),
-			as_dict=True,
-		)
-		if rows:
-			return rows[0].name
+def _find_draft_timesheet(
+	user: str, employee: str, project: str | None, task: str
+) -> str | None:
+	"""Reuse the draft timesheet for this employee, project, and task (append rows, do not create another)."""
+	rows = frappe.db.sql(
+		"""
+		select ts.name
+		from `tabTimesheet` ts
+		inner join `tabTimesheet Detail` td on td.parent = ts.name and td.task = %(task)s
+		where ts.docstatus = 0
+			and ts.employee = %(employee)s
+			and (%(project)s is null or ts.parent_project is null or ts.parent_project = %(project)s)
+		order by ts.modified desc
+		limit 1
+		""",
+		{"employee": employee, "task": task, "project": project},
+		as_dict=True,
+	)
+	if rows:
+		return rows[0].name
 
 	return None
 
 
+def _has_draft_timesheet_for_task(user: str, task: str) -> bool:
+	return bool(_find_draft_timesheet_name_for_task(user, task))
+
+
+def _find_draft_timesheet_name_for_task(user: str, task: str) -> str | None:
+	rows = frappe.db.sql(
+		"""
+		select ts.name
+		from `tabTimesheet` ts
+		inner join `tabTimesheet Detail` td on td.parent = ts.name and td.task = %(task)s
+		where ts.docstatus = 0
+			and ts.owner = %(user)s
+		order by ts.modified desc
+		limit 1
+		""",
+		{"user": user, "task": task},
+		as_dict=True,
+	)
+	return rows[0].name if rows else None
+
+
 def _get_or_create_draft_timesheet(
-	user: str, employee: str, company: str, project: str | None = None
+	user: str, employee: str, company: str, project: str | None, task: str
 ) -> frappe.Document:
-	existing_name = _find_draft_timesheet(user, employee, project)
+	existing_name = _find_draft_timesheet(user, employee, project, task)
 	if existing_name:
 		doc = frappe.get_doc("Timesheet", existing_name)
 		if not doc.employee:
@@ -162,6 +196,12 @@ def _timer_elapsed_seconds(from_time) -> int:
 	return max(0, int(flt(time_diff_in_hours(now_datetime(), get_datetime(from_time)) * 3600)))
 
 
+def _timer_started_at_epoch(from_time) -> int | None:
+	if not from_time:
+		return None
+	return int(get_datetime(from_time).timestamp())
+
+
 def _set_task_working(task_name: str) -> None:
 	"""When the timer is started, move Open tasks to Working (no manual status change)."""
 	task = frappe.get_doc("Task", task_name)
@@ -197,13 +237,42 @@ def _apply_task_update(
 			if progress < 0 or progress > 100:
 				frappe.throw(_("Progress must be between 0 and 100."))
 			task.progress = progress
-			if progress >= 100:
-				task.status = COMPLETED_STATUS
-				task.completed_by = frappe.session.user
-				task.completed_on = today()
 
 	task.save(ignore_permissions=True)
 	return {"name": task.name, "status": task.status, "progress": flt(task.progress)}
+
+
+def _auto_stop_running_timer_on_other_task(user: str, new_task: str) -> dict | None:
+	"""Stop an active timer on another task so a new task can be started."""
+	existing = _get_running_time_log(user)
+	if not existing or existing.task == new_task:
+		return None
+
+	_check_task_access(existing.task)
+	timesheet = frappe.get_doc("Timesheet", existing.timesheet_name)
+	result = _close_time_log_row(timesheet, existing.detail_name, submit_after=False)
+	_set_timer_paused(user, existing.task, False)
+	return {"stopped_task": existing.task, "stopped": result}
+
+
+def _close_open_time_logs_for_task(user: str, task: str) -> None:
+	rows = frappe.db.sql(
+		"""
+		select td.name as detail_name, td.parent as timesheet
+		from `tabTimesheet Detail` td
+		inner join `tabTimesheet` ts on ts.name = td.parent
+		where ts.docstatus = 0
+			and ts.owner = %(user)s
+			and td.task = %(task)s
+			and td.from_time is not null
+			and (td.to_time is null or td.to_time = '')
+		""",
+		{"user": user, "task": task},
+		as_dict=True,
+	)
+	for row in rows:
+		timesheet = frappe.get_doc("Timesheet", row.timesheet)
+		_close_time_log_row(timesheet, row.detail_name, submit_after=False)
 
 
 def _close_time_log_row(timesheet: frappe.Document, detail_name: str, *, submit_after: bool = False) -> dict:
@@ -212,7 +281,8 @@ def _close_time_log_row(timesheet: frappe.Document, detail_name: str, *, submit_
 		frappe.throw(_("Active timer row not found"))
 
 	row.to_time = now_datetime()
-	row.completed = 1
+	# Do not set row.completed — in ERPNext that flag means "mark task complete"
+	# on timesheet submit (status → Completed, progress → 100%).
 	if row.from_time and row.to_time:
 		row.hours = flt(time_diff_in_hours(get_datetime(row.to_time), get_datetime(row.from_time)), 3)
 
@@ -233,6 +303,42 @@ def _close_time_log_row(timesheet: frappe.Document, detail_name: str, *, submit_
 			result["submitted"] = True
 
 	return result
+
+
+def _submit_draft_timesheet_for_task(user: str, task: str) -> dict | None:
+	"""Close open rows for this task on the draft timesheet, then submit."""
+	name = _find_draft_timesheet_name_for_task(user, task)
+	if not name:
+		return None
+
+	timesheet = frappe.get_doc("Timesheet", name)
+	changed = False
+	for row in timesheet.time_logs:
+		if row.task != task:
+			continue
+		if row.from_time and not row.to_time:
+			row.to_time = now_datetime()
+			if row.from_time and row.to_time:
+				row.hours = flt(
+					time_diff_in_hours(get_datetime(row.to_time), get_datetime(row.from_time)), 3
+				)
+			changed = True
+
+	if changed:
+		timesheet.save(ignore_permissions=True)
+
+	if timesheet.docstatus != 0:
+		return {"timesheet": timesheet.name, "submitted": False, "already_submitted": True}
+
+	task_rows = [r for r in timesheet.time_logs if r.task == task and flt(r.hours) > 0]
+	if not task_rows:
+		return None
+
+	timesheet.reload()
+	if timesheet.docstatus == 0:
+		timesheet.submit()
+
+	return {"timesheet": timesheet.name, "submitted": True}
 
 
 def get_task_timesheet_logs(task_names: list[str], user: str) -> dict[str, list[dict]]:
@@ -292,10 +398,11 @@ def enrich_tasks_with_timer(tasks: list, user: str) -> None:
 		task.timesheet_logs = logs
 		task.total_logged_hours = flt(total_hours, 2)
 		task.timer_running = task.name == running_task
-		task.timer_started_at = running.from_time if task.timer_running and running else None
-		task.timer_elapsed_seconds = (
-			_timer_elapsed_seconds(running.from_time) if task.timer_running and running else 0
-		)
+		started_at = running.from_time if task.timer_running and running else None
+		task.timer_started_at = started_at
+		task.timer_started_at_epoch = _timer_started_at_epoch(started_at)
+		task.timer_elapsed_seconds = _timer_elapsed_seconds(started_at) if task.timer_running and running else 0
+		task.timer_paused = not task.timer_running and _is_timer_paused(user, task.name)
 		task.timer_expected_hours = None
 		if task.timer_running and running:
 			task.timer_timesheet = running.timesheet_name
@@ -327,7 +434,9 @@ def _timer_payload(task_name: str, running: dict | None = None) -> dict:
 		"status": task.status,
 		"progress": flt(task.progress),
 		"timer_running": bool(running),
+		"timer_paused": not bool(running) and _is_timer_paused(frappe.session.user, task_name),
 		"timer_started_at": started_at,
+		"timer_started_at_epoch": _timer_started_at_epoch(started_at),
 		"timer_elapsed_seconds": _timer_elapsed_seconds(started_at) if running else 0,
 		"timer_expected_hours": flt(running.expected_hours if running else task.expected_time) or None,
 		"timer_timesheet": running.timesheet_name if running else None,
@@ -350,14 +459,10 @@ def start_task_timer(task: str):
 			title=_("Employee Required"),
 		)
 
-	existing = _get_running_time_log(user)
-	if existing:
-		if existing.task == task:
-			return _timer_payload(task, existing)
-		frappe.throw(
-			_("Stop the timer on {0} before starting another task.").format(existing.task),
-			title=_("Timer Already Running"),
-		)
+	auto_stopped = _auto_stop_running_timer_on_other_task(user, task)
+
+	_close_open_time_logs_for_task(user, task)
+	_set_timer_paused(user, task, False)
 
 	task_doc = frappe.get_doc("Task", task)
 	company = _get_company(task, task_doc.project)
@@ -365,7 +470,7 @@ def start_task_timer(task: str):
 	if not activity_type:
 		frappe.throw(_("Create an Activity Type before starting a task timer."))
 
-	timesheet = _get_or_create_draft_timesheet(user, employee, company, task_doc.project)
+	timesheet = _get_or_create_draft_timesheet(user, employee, company, task_doc.project, task)
 	_ensure_timesheet_project(timesheet, task_doc.project)
 	_set_task_working(task)
 
@@ -386,8 +491,14 @@ def start_task_timer(task: str):
 		row.to_time = None
 
 	timesheet.save(ignore_permissions=True)
+	frappe.db.commit()
 	running = _get_running_time_log(user, task)
-	return _timer_payload(task, running)
+	payload = _timer_payload(task, running)
+	payload["timer_started_at_epoch"] = _timer_started_at_epoch(from_time)
+	payload["timer_elapsed_seconds"] = 0
+	if auto_stopped:
+		payload["auto_stopped_task"] = auto_stopped
+	return payload
 
 
 @frappe.whitelist()
@@ -399,6 +510,7 @@ def pause_task_timer(task: str):
 
 	timesheet = frappe.get_doc("Timesheet", running.timesheet_name)
 	result = _close_time_log_row(timesheet, running.detail_name, submit_after=False)
+	_set_timer_paused(frappe.session.user, task, True)
 	payload = _timer_payload(task)
 	payload["stopped"] = result
 	return payload
@@ -408,33 +520,16 @@ def pause_task_timer(task: str):
 def stop_task_timer(task: str):
 	_check_task_access(task)
 	user = frappe.session.user
+	_set_timer_paused(user, task, False)
 	running = _get_running_time_log(user, task)
 
 	if running:
 		timesheet = frappe.get_doc("Timesheet", running.timesheet_name)
-		result = _close_time_log_row(timesheet, running.detail_name, submit_after=True)
+		result = _close_time_log_row(timesheet, running.detail_name, submit_after=False)
 		payload = _timer_payload(task)
 		payload["stopped"] = result
 		return payload
 
-	# Submit latest draft timesheet for this task if no open row
-	draft_rows = frappe.db.sql(
-		"""
-		select ts.name
-		from `tabTimesheet` ts
-		inner join `tabTimesheet Detail` td on td.parent = ts.name
-		where ts.docstatus = 0 and ts.owner = %(user)s and td.task = %(task)s
-		order by ts.modified desc limit 1
-		""",
-		{"user": user, "task": task},
-		as_dict=True,
-	)
-	if not draft_rows:
-		frappe.throw(_("No timesheet draft found for this task."))
-
-	timesheet = frappe.get_doc("Timesheet", draft_rows[0].name)
-	if timesheet.docstatus == 0:
-		timesheet.submit()
 	return _timer_payload(task)
 
 
@@ -452,12 +547,7 @@ def get_task_timer_state(task: str):
 @frappe.whitelist()
 def update_task_progress(task: str, progress: float):
 	_check_task_access(task)
-	user = frappe.session.user
-	running = _get_running_time_log(user, task)
 	result = _apply_task_update(task, progress=progress)
-	if result["status"] == COMPLETED_STATUS and running:
-		timesheet = frappe.get_doc("Timesheet", running.timesheet_name)
-		_close_time_log_row(timesheet, running.detail_name, submit_after=False)
 	payload = _timer_payload(task)
 	payload["task_update"] = result
 	return payload
@@ -467,12 +557,17 @@ def update_task_progress(task: str, progress: float):
 def complete_task(task: str):
 	_check_task_access(task)
 	user = frappe.session.user
-	running = _get_running_time_log(user, task)
-	if running:
-		timesheet = frappe.get_doc("Timesheet", running.timesheet_name)
-		_close_time_log_row(timesheet, running.detail_name, submit_after=False)
+	_set_timer_paused(user, task, False)
 
+	if _get_running_time_log(user, task) or _is_timer_paused(user, task):
+		frappe.throw(
+			_("Stop the timer before completing this task."),
+			title=_("Timer Session Active"),
+		)
+
+	timesheet_submit = _submit_draft_timesheet_for_task(user, task)
 	result = _apply_task_update(task, complete=True)
 	payload = _timer_payload(task)
 	payload["task_update"] = result
+	payload["timesheet_submit"] = timesheet_submit
 	return payload

@@ -287,7 +287,7 @@ fixtures = [
 	},
 	{
 		"dt": "Page",
-		"filters": [["name", "=", "my-tasks"]],
+		"filters": [["name", "in", ["my-tasks", "task-scan"]]],
 	},
 ]
 
