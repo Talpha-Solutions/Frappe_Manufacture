@@ -27,6 +27,9 @@ REMOVED_PROJECT_UNIT_FIELDNAMES = (
 	"fk_overall_status",
 	"fk_qr_identifier",
 	"fk_completion_percentage",
+	"fk_work_order",
+	"fk_is_override",
+	"fk_override_reason",
 )
 
 UNIT_CATEGORY_TO_PROJECT_TYPE = {
@@ -81,6 +84,20 @@ def get_project_unit_custom_fields() -> dict:
 				"insert_after": "fk_parent_project",
 			},
 			{
+				"fieldname": "fk_bedrooms",
+				"fieldtype": "Int",
+				"label": "Bedrooms",
+				"depends_on": UNIT_TAB_DEPENDS_ON,
+				"insert_after": "fk_house_number",
+			},
+			{
+				"fieldname": "fk_unit_qty",
+				"fieldtype": "Int",
+				"label": "Unit Qty",
+				"depends_on": UNIT_TAB_DEPENDS_ON,
+				"insert_after": "fk_bedrooms",
+			},
+			{
 				"fieldname": "fk_parent_unit_project",
 				"fieldtype": "Link",
 				"label": "Parent Unit",
@@ -121,34 +138,11 @@ def get_project_unit_custom_fields() -> dict:
 				"insert_after": "fk_effective_manifest",
 			},
 			{
-				"fieldname": "fk_work_order",
-				"fieldtype": "Link",
-				"label": "Work Order",
-				"options": "Work Order",
-				"depends_on": UNIT_TAB_DEPENDS_ON,
-				"insert_after": "fk_effective_bom",
-			},
-			{
-				"fieldname": "fk_is_override",
-				"fieldtype": "Check",
-				"label": "Is Override",
-				"default": "0",
-				"depends_on": UNIT_TAB_DEPENDS_ON,
-				"insert_after": "fk_work_order",
-			},
-			{
-				"fieldname": "fk_override_reason",
-				"fieldtype": "Small Text",
-				"label": "Override Reason",
-				"depends_on": "eval:doc.fk_is_override",
-				"insert_after": "fk_is_override",
-			},
-			{
 				"fieldname": "fk_unit_notes",
 				"fieldtype": "Long Text",
 				"label": "Unit Notes",
 				"depends_on": UNIT_TAB_DEPENDS_ON,
-				"insert_after": "fk_override_reason",
+				"insert_after": "fk_effective_bom",
 			},
 		]
 	}
@@ -226,9 +220,7 @@ def _update_unit_field_properties() -> None:
 		updates = {}
 		if fieldname == "fk_developer":
 			continue
-		if fieldname == "fk_override_reason":
-			updates["depends_on"] = "eval:doc.fk_is_override"
-		elif fieldname == "fk_parent_unit_project":
+		if fieldname == "fk_parent_unit_project":
 			updates["depends_on"] = PARENT_UNIT_DEPENDS_ON
 			updates["link_filters"] = f'[["Project","project_type","=","{KITCHEN_PROJECT_TYPE}"]]'
 		else:

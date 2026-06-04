@@ -4,17 +4,26 @@
 const SITE_PROJECT_TYPE = "Site";
 const KITCHEN_PROJECT_TYPE = "Kitchen";
 
+const PROJECT_NAMING_SERIES = {
+	[SITE_PROJECT_TYPE]: "PROJ-.####",
+	Kitchen: "UNIT-KIT-.#####",
+	Robe: "UNIT-ROB-.#####",
+	Utility: "UNIT-UTL-.#####",
+	"Vanity Unit": "UNIT-VAN-.#####",
+	Pantry: "UNIT-PAN-.#####",
+	Unit: "UNIT-UNT-.#####",
+};
+
 frappe.ui.form.on("Project", {
 	refresh(frm) {
 		toggle_unit_tab(frm);
 		toggle_parent_unit(frm);
 		setup_parent_project_query(frm);
-		setup_work_order_create_menu(frm);
 	},
 	project_type(frm) {
 		toggle_unit_tab(frm);
 		toggle_parent_unit(frm);
-		setup_work_order_create_menu(frm);
+		apply_default_naming_series(frm);
 	},
 });
 
@@ -52,57 +61,12 @@ function setup_parent_project_query(frm) {
 	}));
 }
 
-function setup_work_order_create_menu(frm) {
-	if (frm.is_new() || is_site_project(frm)) {
+function apply_default_naming_series(frm) {
+	if (!frm.is_new() || !frm.doc.project_type) {
 		return;
 	}
-
-	if (!frm.doc.fk_effective_bom) {
-		return;
+	const series = PROJECT_NAMING_SERIES[frm.doc.project_type] || "UNIT-UNT-.#####";
+	if (frm.doc.naming_series !== series) {
+		frm.set_value("naming_series", series);
 	}
-
-	frm.add_custom_button(
-		__("Work Order"),
-		() => create_work_order_from_effective_bom(frm),
-		__("Create")
-	);
-	frm.page.set_inner_btn_group_as_primary(__("Create"));
-}
-
-function create_work_order_from_effective_bom(frm) {
-	if (frm.is_new()) {
-		frappe.msgprint(__("Save the Project before creating a Work Order."));
-		return;
-	}
-
-	if (!frm.doc.fk_effective_bom) {
-		frappe.msgprint(__("Set Effective BOM on the Unit tab first."));
-		return;
-	}
-
-	frappe.call({
-		method: "fitzgerald_kitchens.fitzgerald_kitchens.custom.project.create_work_order",
-		args: {
-			project: frm.doc.name,
-			bom_no: frm.doc.fk_effective_bom,
-			sales_order: frm.doc.sales_order || undefined,
-		},
-		freeze: true,
-		freeze_message: __("Creating Work Order..."),
-		callback(r) {
-			if (!r.message) {
-				return;
-			}
-
-			frm.set_value("fk_work_order", r.message);
-			frappe.show_alert({
-				message: __("Work Order {0} created", [r.message]),
-				indicator: "green",
-			});
-
-			frm.save().then(() => {
-				frappe.set_route("Form", "Work Order", r.message);
-			});
-		},
-	});
 }

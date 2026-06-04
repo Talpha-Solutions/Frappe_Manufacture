@@ -22,6 +22,13 @@ def after_install():
 	ensure_development_stage_settings()
 	remove_project_bom_fields()
 	ensure_project_unit_fields()
+	from fitzgerald_kitchens.setup.project_naming import (
+		ensure_project_naming_series_options,
+		ensure_unit_series_counters,
+	)
+
+	ensure_project_naming_series_options()
+	ensure_unit_series_counters()
 	ensure_project_types()
 	ensure_projects_sidebar()
 	ensure_manufacturing_sidebar()

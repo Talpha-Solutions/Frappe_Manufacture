@@ -11,14 +11,25 @@
   "naming_series",
   "import_section",
   "import_file",
+  "import_mode",
+  "company",
+  "create_missing_developer",
+  "generate_tasks_from_template",
+  "project_template",
+  "strict_item_validation",
   "status_section",
   "import_status",
   "counts_section",
+  "site_count",
   "unit_count",
   "subunit_count",
   "column_break_counts",
   "configuration_count",
   "manifest_count",
+  "log_section",
+  "import_summary",
+  "error_log",
+  "import_log",
   "notes_section",
   "notes"
  ],
@@ -38,7 +49,52 @@
   {
    "fieldname": "import_file",
    "fieldtype": "Attach",
-   "label": "Import File"
+   "label": "Import File",
+   "reqd": 1
+  },
+  {
+   "default": "Full Workbook",
+   "fieldname": "import_mode",
+   "fieldtype": "Select",
+   "label": "Import Mode",
+   "options": "Full Workbook\nQuantity Only",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "create_missing_developer",
+   "fieldtype": "Check",
+   "label": "Create Missing Developer (Customer)"
+  },
+  {
+   "default": "0",
+   "fieldname": "generate_tasks_from_template",
+   "fieldtype": "Check",
+   "label": "Generate Tasks from Template"
+  },
+  {
+   "depends_on": "eval:doc.generate_tasks_from_template",
+   "fieldname": "project_template",
+   "fieldtype": "Link",
+   "label": "Project Template",
+   "mandatory_depends_on": "eval:doc.generate_tasks_from_template",
+   "options": "Project Template",
+   "description": "Sets From Template on new Kitchen, Robe, Utility, and Vanity Unit projects only (not Site). ERPNext creates tasks on insert."
+  },
+  {
+   "default": "1",
+   "depends_on": "eval:doc.import_mode=='Full Workbook'",
+   "fieldname": "strict_item_validation",
+   "fieldtype": "Check",
+   "label": "Strict Item Validation",
+   "description": "Manifest lines must reference existing Items (Description column = item code)"
   },
   {
    "fieldname": "status_section",
@@ -51,6 +107,7 @@
    "fieldtype": "Select",
    "label": "Import Status",
    "options": "Draft\nValidating\nReady\nImporting\nCompleted\nFailed",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -59,15 +116,22 @@
    "label": "Counts"
   },
   {
+   "fieldname": "site_count",
+   "fieldtype": "Int",
+   "label": "Project Site Count",
+   "description": "Distinct site projects (Quantity Sheet Name column)",
+   "read_only": 1
+  },
+  {
    "fieldname": "unit_count",
    "fieldtype": "Int",
-   "label": "Unit Count",
+   "label": "Apartment Count",
    "read_only": 1
   },
   {
    "fieldname": "subunit_count",
    "fieldtype": "Int",
-   "label": "Subunit Count",
+   "label": "Unit Project Count",
    "read_only": 1
   },
   {
@@ -78,12 +142,39 @@
    "fieldname": "configuration_count",
    "fieldtype": "Int",
    "label": "Configuration Count",
+   "description": "Project Unit Configuration records per site and type (e.g. T3-The Lane MOCKSITE)",
    "read_only": 1
   },
   {
    "fieldname": "manifest_count",
    "fieldtype": "Int",
    "label": "Manifest Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "log_section",
+   "fieldtype": "Section Break",
+   "label": "Results"
+  },
+  {
+   "depends_on": "eval:['Ready','Completed'].includes(doc.import_status) || doc.import_summary",
+   "fieldname": "import_summary",
+   "fieldtype": "Long Text",
+   "label": "Import Summary",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.import_status=='Failed' && doc.error_log",
+   "fieldname": "error_log",
+   "fieldtype": "Long Text",
+   "label": "Errors",
+   "read_only": 1
+  },
+  {
+   "fieldname": "import_log",
+   "fieldtype": "Table",
+   "label": "Import Log",
+   "options": "Development Workbook Import Log",
    "read_only": 1
   },
   {
@@ -126,4 +217,3 @@
  "sort_order": "DESC",
  "states": []
 }
-
