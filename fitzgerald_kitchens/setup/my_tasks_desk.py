@@ -28,11 +28,29 @@ PERMISSIONS = [
 
 
 def ensure_my_tasks_desk():
-	"""Role, DocPerms, Desktop Icon visibility, and External icon permission patch."""
+	"""Role, DocPerms, Pages, Desktop Icon visibility, and External icon permission patch."""
 	ensure_my_tasks_role()
 	_ensure_permissions()
+	ensure_my_tasks_pages()
 	ensure_my_tasks_desktop_icon()
 	patch_desktop_icon_external_permission()
+
+
+MY_TASKS_PAGE_NAMES = ("my-tasks", "task-scan")
+
+
+def ensure_my_tasks_pages():
+	"""Import desk pages from module JSON (works without developer_mode on Frappe Cloud)."""
+	import os
+
+	from frappe.modules.import_file import import_file_by_path
+
+	app_path = frappe.get_app_path("fitzgerald_kitchens", "fitzgerald_kitchens")
+	for page_name in MY_TASKS_PAGE_NAMES:
+		folder = frappe.scrub(page_name)
+		page_path = os.path.join(app_path, "page", folder, f"{folder}.json")
+		if os.path.exists(page_path):
+			import_file_by_path(page_path, force=True, reset_permissions=True)
 
 
 def ensure_my_tasks_role():

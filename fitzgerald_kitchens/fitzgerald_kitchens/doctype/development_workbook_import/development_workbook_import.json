@@ -14,9 +14,10 @@
   "import_mode",
   "company",
   "create_missing_developer",
+  "strict_item_validation",
+  "col_break_import_template",
   "generate_tasks_from_template",
   "project_template",
-  "strict_item_validation",
   "status_section",
   "import_status",
   "counts_section",
@@ -74,6 +75,18 @@
    "label": "Create Missing Developer (Customer)"
   },
   {
+   "default": "1",
+   "depends_on": "eval:doc.import_mode=='Full Workbook'",
+   "fieldname": "strict_item_validation",
+   "fieldtype": "Check",
+   "label": "Strict Item Validation",
+   "description": "Manifest lines must reference existing Items (Description column = item code)"
+  },
+  {
+   "fieldname": "col_break_import_template",
+   "fieldtype": "Column Break"
+  },
+  {
    "default": "0",
    "fieldname": "generate_tasks_from_template",
    "fieldtype": "Check",
@@ -87,14 +100,6 @@
    "mandatory_depends_on": "eval:doc.generate_tasks_from_template",
    "options": "Project Template",
    "description": "Sets From Template on new Kitchen, Robe, Utility, and Vanity Unit projects only (not Site). ERPNext creates tasks on insert."
-  },
-  {
-   "default": "1",
-   "depends_on": "eval:doc.import_mode=='Full Workbook'",
-   "fieldname": "strict_item_validation",
-   "fieldtype": "Check",
-   "label": "Strict Item Validation",
-   "description": "Manifest lines must reference existing Items (Description column = item code)"
   },
   {
    "fieldname": "status_section",

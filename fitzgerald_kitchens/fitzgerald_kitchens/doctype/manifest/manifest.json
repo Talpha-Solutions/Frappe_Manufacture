@@ -14,6 +14,7 @@
   "configuration",
   "based_on_manifest",
   "qr_identifier",
+  "col_break_after_qr",
   "notes",
   "items_section",
   "items"
@@ -58,6 +59,10 @@
    "fieldname": "qr_identifier",
    "fieldtype": "Data",
    "label": "QR Identifier"
+  },
+  {
+   "fieldname": "col_break_after_qr",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "notes",

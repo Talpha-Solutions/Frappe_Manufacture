@@ -38,5 +38,21 @@
   "modified": "2026-06-02 14:55:18.377905",
   "name": "Vanity Unit",
   "project_type": "Vanity Unit"
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "modified": "2026-06-02 14:55:18.384000",
+  "name": "Unit",
+  "project_type": "Unit"
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "modified": "2026-06-02 14:55:18.391000",
+  "name": "Pantry",
+  "project_type": "Pantry"
  }
 ]
