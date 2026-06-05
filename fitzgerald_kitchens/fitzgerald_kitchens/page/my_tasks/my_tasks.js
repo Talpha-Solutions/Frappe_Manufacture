@@ -523,6 +523,7 @@ class MyTasksPage {
 			$card.find(".btn-task-pause").on("click", () => this.call_timer_action("pause_task_timer", task));
 			$card.find(".btn-task-stop").on("click", () => this.call_timer_action("stop_task_timer", task));
 			$card.find(".btn-task-scan").on("click", () => {
+				sessionStorage.setItem("task_scan_task", task.name);
 				frappe.route_options = { task: task.name };
 				frappe.set_route("task-scan");
 			});

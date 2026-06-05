@@ -2,6 +2,38 @@
 // For license information, please see license.txt
 
 const TASK_SCAN_PAGE_SIZE = 10;
+const TASK_SCAN_TASK_STORAGE_KEY = "task_scan_task";
+
+function normalize_task_route_value(value) {
+	if (!value) {
+		return "";
+	}
+	if (typeof value === "string") {
+		try {
+			const parsed = JSON.parse(value);
+			if (typeof parsed === "string") {
+				return parsed;
+			}
+		} catch {
+			// route param may already be a plain task name
+		}
+		return value.replace(/^["']|["']$/g, "");
+	}
+	return String(value);
+}
+
+function resolve_task_scan_task_name() {
+	const raw =
+		frappe.route_options?.task ||
+		frappe.utils.get_query_params()?.task ||
+		sessionStorage.getItem(TASK_SCAN_TASK_STORAGE_KEY) ||
+		"";
+	const task_name = normalize_task_route_value(raw);
+	if (task_name) {
+		sessionStorage.setItem(TASK_SCAN_TASK_STORAGE_KEY, task_name);
+	}
+	return task_name;
+}
 
 frappe.pages["task-scan"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
@@ -13,14 +45,24 @@ frappe.pages["task-scan"].on_page_load = function (wrapper) {
 	frappe.task_scan_page = new TaskScanPage(page);
 };
 
+frappe.pages["task-scan"].on_page_show = function () {
+	if (!frappe.task_scan_page) {
+		return;
+	}
+	const task_name = resolve_task_scan_task_name();
+	if (task_name !== frappe.task_scan_page.task_name) {
+		frappe.task_scan_page.task_name = task_name;
+	}
+	frappe.task_scan_page.load();
+};
+
 class TaskScanPage {
 	constructor(page) {
 		this.page = page;
 		this.active_filter = "all";
 		this.label_page = 1;
 		this.selected_label_ids = new Set();
-		this.task_name =
-			frappe.route_options?.task || frappe.utils.get_query_params()?.task || "";
+		this.task_name = resolve_task_scan_task_name();
 		this.$wrapper = $(frappe.render_template("task_scan")).appendTo(this.page.main);
 		this.$wrapper.find(".task-scan-print-banner").remove();
 		this.$hidden_scan = $('<input type="text" class="task-scan-hidden-scan-input" autocomplete="off">');
@@ -42,6 +84,10 @@ class TaskScanPage {
 			freeze: true,
 			callback: (r) => {
 				this.data = r.message || this.get_fallback_data();
+				if (this.data.task) {
+					this.task_name = this.data.task;
+					sessionStorage.setItem(TASK_SCAN_TASK_STORAGE_KEY, this.data.task);
+				}
 				this.render();
 			},
 			error: () => {
@@ -72,6 +118,9 @@ class TaskScanPage {
 
 	render() {
 		const d = this.data;
+		if (d.title && this.page) {
+			this.page.set_title(d.title);
+		}
 		const total = flt(d.total_labels) || 0;
 		const pct = total ? Math.round((flt(d.scanned) / total) * 100) : 0;
 		const remaining = Math.max(0, total - flt(d.scanned));
