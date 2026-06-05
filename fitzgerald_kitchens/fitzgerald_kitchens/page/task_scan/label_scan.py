@@ -117,12 +117,14 @@ def record_task_label_scan(task_name: str, qr_text: str) -> dict:
 			qr_text=qr_text,
 		)
 		state = get_task_label_scan_state(task_name)
-		return {
+		result = {
 			"ok": False,
 			"result": "error",
 			"message": _("Unknown QR code — not part of this project's labels"),
 			**state,
 		}
+		_publish_task_scan_update(task_name, result)
+		return result
 
 	if frappe.db.exists(
 		"Task Label Scan Log",
@@ -148,13 +150,26 @@ def record_task_label_scan(task_name: str, qr_text: str) -> dict:
 	)
 
 	state = get_task_label_scan_state(task_name)
-	return {
+	result = {
 		"ok": True,
 		"result": "scanned",
 		"message": _("Label scanned"),
 		"item_instance_code": normalized,
+		"scanned_by": frappe.session.user,
 		**state,
 	}
+	_publish_task_scan_update(task_name, result)
+	return result
+
+
+def _publish_task_scan_update(task_name: str, payload: dict) -> None:
+	frappe.publish_realtime(
+		event="task_scan_update",
+		message={"task": task_name, **payload},
+		doctype="Task",
+		docname=task_name,
+		after_commit=True,
+	)
 
 
 def _create_scan_log(

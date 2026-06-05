@@ -56,6 +56,12 @@ frappe.pages["task-scan"].on_page_show = function () {
 	frappe.task_scan_page.load();
 };
 
+frappe.pages["task-scan"].on_page_hide = function () {
+	if (frappe.task_scan_page) {
+		frappe.task_scan_page.teardown_realtime();
+	}
+};
+
 class TaskScanPage {
 	constructor(page) {
 		this.page = page;
@@ -63,6 +69,22 @@ class TaskScanPage {
 		this.label_page = 1;
 		this.selected_label_ids = new Set();
 		this.task_name = resolve_task_scan_task_name();
+		this._realtime_task = null;
+		this._on_task_scan_update = (data) => {
+			if (!data || data.task !== this.task_name) {
+				return;
+			}
+			const scanned_by = data.scanned_by;
+			this.data = { ...this.data, ...data };
+			this.render();
+			if (data.ok && scanned_by && scanned_by !== frappe.session.user) {
+				const label = data.item_instance_code ? ` (${data.item_instance_code})` : "";
+				frappe.show_alert({
+					message: __("Label scanned by {0}{1}", [scanned_by, label]),
+					indicator: "blue",
+				});
+			}
+		};
 		this.$wrapper = $(frappe.render_template("task_scan")).appendTo(this.page.main);
 		this.$wrapper.find(".task-scan-print-banner").remove();
 		this.$hidden_scan = $('<input type="text" class="task-scan-hidden-scan-input" autocomplete="off">');
@@ -71,12 +93,38 @@ class TaskScanPage {
 		this.load();
 	}
 
+	setup_realtime() {
+		if (!this.task_name) {
+			this.teardown_realtime();
+			return;
+		}
+		if (this._realtime_task === this.task_name) {
+			return;
+		}
+		this.teardown_realtime();
+		frappe.realtime.on("task_scan_update", this._on_task_scan_update);
+		frappe.realtime.doc_subscribe("Task", this.task_name);
+		this._realtime_task = this.task_name;
+	}
+
+	teardown_realtime() {
+		if (!this._realtime_task) {
+			return;
+		}
+		frappe.realtime.off("task_scan_update", this._on_task_scan_update);
+		frappe.realtime.doc_unsubscribe("Task", this._realtime_task);
+		this._realtime_task = null;
+	}
+
 	load() {
 		if (!this.task_name) {
+			this.teardown_realtime();
 			this.data = this.get_fallback_data();
 			this.render();
 			return;
 		}
+
+		this.setup_realtime();
 
 		frappe.call({
 			method: "fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.task_scan.get_task_scan_context",
