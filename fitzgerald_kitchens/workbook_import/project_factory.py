@@ -13,6 +13,7 @@ from fitzgerald_kitchens.setup.project_naming import get_naming_series_for_proje
 from fitzgerald_kitchens.setup.project_unit_fields import KITCHEN_PROJECT_TYPE, SITE_PROJECT_TYPE
 from fitzgerald_kitchens.workbook_import.constants import QTY_COLUMNS
 from fitzgerald_kitchens.workbook_import.import_log import ImportRunStats, WorkbookImportLogEntry
+from fitzgerald_kitchens.workbook_import.manifest_resolver import resolve_effective_manifest
 from fitzgerald_kitchens.workbook_import.naming import build_unit_project_name
 from fitzgerald_kitchens.workbook_import.validator import parse_row_qtys
 
@@ -260,6 +261,10 @@ class WorkbookProjectFactory:
 			**self._developer_field_values(customer),
 			"fk_unit_configuration": config_code,
 		}
+
+		effective_manifest = resolve_effective_manifest(config_code, project_type)
+		if effective_manifest:
+			values["fk_effective_manifest"] = effective_manifest
 
 		if existing:
 			frappe.db.set_value("Project", existing, values, update_modified=True)
