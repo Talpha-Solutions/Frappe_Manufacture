@@ -26,7 +26,6 @@ class FKProductionPlan(ProductionPlan):
 					{
 						"project": data.name,
 						"project_type": data.project_type,
-						"customer": data.customer,
 						"effective_manifest": data.effective_manifest,
 						"status": data.status,
 					},

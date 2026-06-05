@@ -8,7 +8,6 @@
   "project",
   "project_type",
   "col_break1",
-  "customer",
   "effective_manifest",
   "status"
  ],
@@ -31,14 +30,6 @@
   {
    "fieldname": "col_break1",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "customer",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Customer",
-   "options": "Customer",
-   "read_only": 1
   },
   {
    "fieldname": "effective_manifest",

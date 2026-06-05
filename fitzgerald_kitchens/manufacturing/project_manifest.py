@@ -25,8 +25,8 @@ def get_projects_for_production_plan(production_plan) -> list[dict]:
 		.where((project.company == production_plan.company) & (project.project_type != SITE_PROJECT_TYPE))
 	)
 
-	if production_plan.get("fk_customer"):
-		query = query.where(project.customer == production_plan.fk_customer)
+	if production_plan.get("customer"):
+		query = query.where(project.customer == production_plan.customer)
 
 	if production_plan.get("project"):
 		query = query.where(project.name == production_plan.project)
