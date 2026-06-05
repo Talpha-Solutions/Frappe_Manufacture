@@ -1,0 +1,71 @@
+{
+ "actions": [],
+ "creation": "2026-06-04 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "project",
+  "project_type",
+  "col_break1",
+  "customer",
+  "effective_manifest",
+  "status"
+ ],
+ "fields": [
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Project Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "effective_manifest",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Effective Manifest",
+   "options": "Manifest",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Status",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-04 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Production Plan Project",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "ASC",
+ "states": []
+}

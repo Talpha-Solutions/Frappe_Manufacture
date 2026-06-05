@@ -39,3 +39,5 @@ fitzgerald_kitchens.patches.v1_0.refresh_puc_main_form_layout
 fitzgerald_kitchens.patches.v1_0.fix_project_form_layout_v3
 fitzgerald_kitchens.patches.v1_0.fix_project_form_layout_v4
 fitzgerald_kitchens.patches.v1_0.apply_project_details_tab_layout
+fitzgerald_kitchens.patches.v1_0.add_production_plan_project_fields
+fitzgerald_kitchens.patches.v1_0.fix_production_plan_form_fields

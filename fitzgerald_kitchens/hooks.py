@@ -47,6 +47,7 @@ doctype_js = {
 	"Project": "public/js/project.js",
 	"Task": "public/js/task.js",
 	"BOM Cost Calculator": "public/js/bom_cost_configurator.bundle.js",
+	"Production Plan": "public/js/production_plan.js",
 }
 doctype_list_js = {
 	"Development Stage": "fitzgerald_kitchens/doctype/development_stage/development_stage_list.js",
@@ -186,9 +187,9 @@ doc_events = {
 # ------------------------------
 #
 # Specify custom mixins to extend the standard doctype controller.
-# extend_doctype_class = {
-# 	"Task": "fitzgerald_kitchens.custom.task.CustomTaskMixin"
-# }
+extend_doctype_class = {
+	"Production Plan": "fitzgerald_kitchens.custom.production_plan.FKProductionPlan",
+}
 
 # Overriding Methods
 # ------------------------------
