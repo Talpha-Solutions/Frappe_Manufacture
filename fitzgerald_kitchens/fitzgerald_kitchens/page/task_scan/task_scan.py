@@ -8,8 +8,8 @@ from frappe import _
 from frappe.utils import add_days, getdate, today
 
 from fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.my_tasks import (
-	_assignees_from_task_row,
 	_check_my_tasks_access,
+	get_task_assignee_display,
 )
 
 
@@ -69,49 +69,6 @@ def _format_started_display(task) -> str:
 	return frappe.utils.format_datetime(dt, "d MMM · hh:mm a")
 
 
-def _get_assignee_names(task_name: str, assign_field) -> list[str]:
-	names: list[str] = []
-	seen: set[str] = set()
-
-	try:
-		from frappe.desk.form.assign_to import get as get_assignments
-
-		for entry in get_assignments({"doctype": "Task", "name": task_name}) or []:
-			user_id = entry.get("owner") or entry.get("allocated_to")
-			if not user_id or user_id in seen:
-				continue
-			seen.add(user_id)
-			names.append(entry.get("owner_name") or frappe.db.get_value("User", user_id, "full_name") or user_id)
-	except Exception:
-		pass
-
-	for user_id in _assignees_from_task_row(assign_field):
-		if user_id in seen:
-			continue
-		seen.add(user_id)
-		if frappe.db.exists("User", user_id):
-			names.append(frappe.db.get_value("User", user_id, "full_name") or user_id)
-		else:
-			names.append(user_id)
-
-	for row in frappe.get_all(
-		"ToDo",
-		filters={
-			"reference_type": "Task",
-			"reference_name": task_name,
-			"status": ["in", ["Open", "Working"]],
-		},
-		fields=["allocated_to"],
-	):
-		user_id = row.allocated_to
-		if not user_id or user_id in seen:
-			continue
-		seen.add(user_id)
-		names.append(frappe.db.get_value("User", user_id, "full_name") or user_id)
-
-	return names
-
-
 def _get_task_header(task_name: str) -> dict:
 	if not frappe.db.exists("Task", task_name):
 		frappe.throw(_("Task not found"), frappe.DoesNotExistError)
@@ -128,6 +85,7 @@ def _get_task_header(task_name: str) -> dict:
 			"exp_end_date",
 			"exp_start_date",
 			"act_start_date",
+			"completed_by",
 			"_assign",
 		],
 		as_dict=True,
@@ -151,8 +109,6 @@ def _get_task_header(task_name: str) -> dict:
 
 	due_display, _due_css = _format_relative_due(task.exp_end_date)
 	due_badge_text, due_badge_class = _due_badge(task)
-	assignees = _get_assignee_names(task.name, task._assign)
-
 	return {
 		"task": task.name,
 		"title": task.subject or task.name,
@@ -163,7 +119,11 @@ def _get_task_header(task_name: str) -> dict:
 		"due_badge": due_badge_text,
 		"due_class": due_badge_class,
 		"started_label": _format_started_display(task),
-		"assigned_to": ", ".join(assignees) if assignees else _("Unassigned"),
+		"assigned_to": get_task_assignee_display(
+			task.name,
+			completed_by=task.completed_by,
+			assign_field=task._assign,
+		),
 		"status": task.status,
 	}
 
@@ -181,9 +141,6 @@ def get_task_scan_context(task: str):
 		"outstanding": 9,
 		"errors": 1,
 		"printed": 22,
-		"print_banner": _(
-			"22 of 22 labels printed. Last print run: today 13:05 by Cathal F. on Workshop B printer."
-		),
 		"labels": [
 			{"id": "LBL-001", "status": "scanned"},
 			{"id": "LBL-002", "status": "scanned"},

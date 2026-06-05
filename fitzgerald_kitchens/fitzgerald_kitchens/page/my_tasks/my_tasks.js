@@ -6,7 +6,6 @@ frappe.pages["my-tasks"].on_page_load = function (wrapper) {
 		parent: wrapper,
 		title: __("My Tasks"),
 		single_column: true,
-		hide_sidebar: true,
 	});
 
 	frappe.my_tasks_page = new MyTasksPage(page);
@@ -477,7 +476,10 @@ class MyTasksPage {
 
 		tasks.forEach((task) => {
 			const due_class =
-				task.due_label === __("DUE Today") || task.due_label === "DUE Today"
+				task.due_label === __("Starts today") ||
+				task.due_label === "Starts today" ||
+				task.due_label === __("DUE Today") ||
+				task.due_label === "DUE Today"
 					? "due-today"
 					: task.due_label === __("Overdue") || task.due_label === "Overdue"
 						? "overdue"

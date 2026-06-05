@@ -6,7 +6,6 @@ frappe.pages["task-scan"].on_page_load = function (wrapper) {
 		parent: wrapper,
 		title: __("Task Scan"),
 		single_column: true,
-		hide_sidebar: true,
 	});
 
 	frappe.task_scan_page = new TaskScanPage(page);
@@ -19,6 +18,7 @@ class TaskScanPage {
 		this.task_name =
 			frappe.route_options?.task || frappe.utils.get_query_params()?.task || "";
 		this.$wrapper = $(frappe.render_template("task_scan")).appendTo(this.page.main);
+		this.$wrapper.find(".task-scan-print-banner").remove();
 		this.bind_events();
 		this.load();
 	}
@@ -60,7 +60,6 @@ class TaskScanPage {
 			outstanding: 0,
 			errors: 0,
 			printed: 0,
-			print_banner: "",
 			labels: [],
 		};
 	}
@@ -93,8 +92,6 @@ class TaskScanPage {
 		this.$wrapper
 			.find(".task-scan-print-summary")
 			.text(total ? __("{0} of {1} labels printed", [flt(d.printed), total]) : "");
-		this.$wrapper.find(".task-scan-banner-text").text(d.print_banner || "");
-
 		this.$wrapper
 			.find(".task-scan-progress-count")
 			.text(total ? __("{0} / {1} labels scanned", [d.scanned, total]) : __("No labels"));
@@ -181,7 +178,7 @@ class TaskScanPage {
 			frappe.show_alert({ message: __("Scanner will be connected here"), indicator: "blue" });
 		});
 
-		this.$wrapper.find(".btn-task-scan-print, .btn-task-scan-reprint, .btn-task-scan-print-selected").on(
+		this.$wrapper.find(".btn-task-scan-print, .btn-task-scan-print-selected").on(
 			"click",
 			() => {
 				frappe.show_alert({ message: __("Print will be connected here"), indicator: "blue" });

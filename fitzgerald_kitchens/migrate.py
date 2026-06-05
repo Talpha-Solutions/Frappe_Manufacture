@@ -12,7 +12,11 @@ def before_migrate():
 
 
 def after_migrate():
-	"""Restore developer_mode if it was temporarily enabled for migrate."""
+	"""Sync sidebar items and restore developer_mode after migrate."""
+	from fitzgerald_kitchens.setup.workspace_sidebar import ensure_projects_sidebar
+
+	ensure_projects_sidebar()
+
 	if not hasattr(frappe.flags, "_fitzgerald_restore_developer_mode"):
 		return
 
