@@ -6,7 +6,6 @@ frappe.pages["my-tasks"].on_page_load = function (wrapper) {
 		parent: wrapper,
 		title: __("My Tasks"),
 		single_column: true,
-		hide_sidebar: true,
 	});
 
 	frappe.my_tasks_page = new MyTasksPage(page);
@@ -477,7 +476,10 @@ class MyTasksPage {
 
 		tasks.forEach((task) => {
 			const due_class =
-				task.due_label === __("DUE Today") || task.due_label === "DUE Today"
+				task.due_label === __("Starts today") ||
+				task.due_label === "Starts today" ||
+				task.due_label === __("DUE Today") ||
+				task.due_label === "DUE Today"
 					? "due-today"
 					: task.due_label === __("Overdue") || task.due_label === "Overdue"
 						? "overdue"
@@ -521,6 +523,7 @@ class MyTasksPage {
 			$card.find(".btn-task-pause").on("click", () => this.call_timer_action("pause_task_timer", task));
 			$card.find(".btn-task-stop").on("click", () => this.call_timer_action("stop_task_timer", task));
 			$card.find(".btn-task-scan").on("click", () => {
+				sessionStorage.setItem("task_scan_task", task.name);
 				frappe.route_options = { task: task.name };
 				frappe.set_route("task-scan");
 			});

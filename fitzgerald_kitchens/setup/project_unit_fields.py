@@ -160,6 +160,20 @@ def get_project_unit_custom_fields() -> dict:
 				"depends_on": UNIT_TAB_DEPENDS_ON,
 				"insert_after": "fk_col_break_configuration",
 			},
+			{
+				"fieldname": "fk_download_qr_tab",
+				"fieldtype": "Tab Break",
+				"label": "Download QR",
+				"depends_on": UNIT_TAB_DEPENDS_ON,
+				"insert_after": "fk_unit_notes",
+			},
+			{
+				"fieldname": "fk_download_qr_html",
+				"fieldtype": "HTML",
+				"label": "QR Labels",
+				"depends_on": UNIT_TAB_DEPENDS_ON,
+				"insert_after": "fk_download_qr_tab",
+			},
 		]
 	}
 
@@ -246,7 +260,7 @@ def _update_unit_field_properties() -> None:
 		elif fieldname == "fk_parent_unit_project":
 			updates["depends_on"] = PARENT_UNIT_DEPENDS_ON
 			updates["link_filters"] = f'[["Project","project_type","=","{KITCHEN_PROJECT_TYPE}"]]'
-		elif fieldname != "fk_unit_tab":
+		elif fieldname not in ("fk_unit_tab", "fk_download_qr_tab"):
 			updates["depends_on"] = UNIT_TAB_DEPENDS_ON
 
 		if fieldname == "fk_parent_project":
