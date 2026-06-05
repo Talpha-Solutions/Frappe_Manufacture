@@ -25,6 +25,9 @@ def get_projects_for_production_plan(production_plan) -> list[dict]:
 		.where((project.company == production_plan.company) & (project.project_type != SITE_PROJECT_TYPE))
 	)
 
+	if production_plan.get("fk_customer"):
+		query = query.where(project.customer == production_plan.fk_customer)
+
 	if production_plan.get("project"):
 		query = query.where(project.name == production_plan.project)
 
@@ -51,7 +54,7 @@ def get_projects_for_production_plan(production_plan) -> list[dict]:
 
 
 def get_active_bom_no(item_code: str, linked_bom: str | None = None, project: str | None = None) -> str | None:
-	if linked_bom and frappe.db.get_value("BOM", linked_bom, {"docstatus": 1, "is_active": 1}):
+	if linked_bom and frappe.db.exists("BOM", {"name": linked_bom, "docstatus": 1, "is_active": 1}):
 		return linked_bom
 
 	# Direct DB lookup avoids ERPNext's get_item_details which unconditionally

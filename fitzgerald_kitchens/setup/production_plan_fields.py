@@ -20,10 +20,22 @@ def get_production_plan_custom_fields() -> dict:
 				"insert_after": "material_requests",
 			},
 			{
+				"fieldname": "fk_customer",
+				"fieldtype": "Link",
+				"label": "Customer",
+				"options": "Customer",
+				"insert_after": "fk_projects_detail",
+			},
+			{
+				"fieldname": "fk_project_filter_col_break",
+				"fieldtype": "Column Break",
+				"insert_after": "fk_customer",
+			},
+			{
 				"fieldname": "fk_get_projects",
 				"fieldtype": "Button",
 				"label": "Get Projects",
-				"insert_after": "fk_projects_detail",
+				"insert_after": "fk_project_filter_col_break",
 			},
 			{
 				"fieldname": "fk_projects",
@@ -63,7 +75,9 @@ def _sync_project_section_custom_fields() -> None:
 			"depends_on": PROJECT_SECTION_DEPENDS_ON,
 			"insert_after": "material_requests",
 		},
-		"fk_get_projects": {"depends_on": "", "insert_after": "fk_projects_detail"},
+		"fk_customer": {"depends_on": "", "insert_after": "fk_projects_detail"},
+		"fk_project_filter_col_break": {"depends_on": "", "insert_after": "fk_customer"},
+		"fk_get_projects": {"depends_on": "", "insert_after": "fk_project_filter_col_break"},
 		"fk_projects": {"depends_on": "", "insert_after": "fk_get_projects"},
 		"Production Plan Item-fk_project": {
 			"hidden": 1,

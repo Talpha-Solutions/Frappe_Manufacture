@@ -372,7 +372,6 @@ def _q_projects(filters):
     """Return active projects with type and kitchen / wardrobe flags."""
     company_cond = "AND p.company = %(company)s" if filters.get("company") else ""
     project_cond = "AND p.name = %(project)s" if filters.get("project") else ""
-    bom_cond = "AND p.fk_effective_bom = %(bom)s" if filters.get("bom") else ""
     has_parent = frappe.db.has_column("Project", SITE_PARENT_FIELD)
     parent_select = f", p.{SITE_PARENT_FIELD}" if has_parent else ""
 
@@ -383,7 +382,6 @@ def _q_projects(filters):
             p.project_name,
             p.customer,
             p.fk_effective_bom,
-            COUNT(du.name) AS unit_count
             p.project_type,
             p.kitchen_bom,
             p.kitchen_required,
@@ -396,9 +394,6 @@ def _q_projects(filters):
             AND p.status NOT IN ('Cancelled', 'Completed')
             {company_cond}
             {project_cond}
-            {bom_cond}
-        GROUP BY
-            p.name, p.project_name, p.customer, p.fk_effective_bom
         ORDER BY
             p.project_name
         """,
@@ -532,7 +527,7 @@ def _rollup_site_demand(projects, demand_map, product_breakdown, periods):
 def _filter_projects_by_bom(projects, bom):
     if not bom:
         return projects
-    return [p for p in projects if p.kitchen_bom == bom]
+    return [p for p in projects if p.fk_effective_bom == bom]
 
 
 def _aggregate_demand_all_projects(projects, from_date, to_date, granularity="Monthly"):

@@ -898,23 +898,12 @@ def _get_or_create_kitchen_local_project(
 	site_parent=None,
 ):
 	existing = frappe.db.get_value("Project", {"project_name": project_name}, "name")
-	values = {
-		"kitchen_required": 1,
-		"kitchen_bom": kitchen_bom,
-		"kitchen_item": frappe.db.get_value("BOM", kitchen_bom, "item"),
-		"customer": customer,
-		"company": company,
-		"expected_start_date": KITCHEN_LOCAL_PROJECT_START_DATE,
-	}
-	if project_type:
-		values["project_type"] = project_type
-	if site_parent is not None:
-		values["fk_parent_project"] = site_parent
+	resolved_type = project_type or "Kitchen"
 
 	if existing:
 		update_values = {
 			"fk_effective_bom": kitchen_bom,
-			"project_type": "Kitchen",
+			"project_type": resolved_type,
 			"customer": customer,
 			"company": company,
 		}
@@ -935,10 +924,9 @@ def _get_or_create_kitchen_local_project(
 			"company": company,
 			"customer": customer,
 			"fk_effective_bom": kitchen_bom,
-			"project_type": "Kitchen",
+			"project_type": resolved_type,
 			"status": "Open",
 			"expected_start_date": KITCHEN_LOCAL_PROJECT_START_DATE,
-			**({"project_type": project_type} if project_type else {}),
 			**({"fk_parent_project": site_parent} if site_parent else {}),
 		}
 	)
