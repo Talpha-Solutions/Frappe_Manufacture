@@ -1,6 +1,8 @@
 // Copyright (c) 2026, talpha solutions and contributors
 // For license information, please see license.txt
 
+const TASK_SCAN_PAGE_SIZE = 10;
+
 frappe.pages["task-scan"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -15,10 +17,14 @@ class TaskScanPage {
 	constructor(page) {
 		this.page = page;
 		this.active_filter = "all";
+		this.label_page = 1;
+		this.selected_label_ids = new Set();
 		this.task_name =
 			frappe.route_options?.task || frappe.utils.get_query_params()?.task || "";
 		this.$wrapper = $(frappe.render_template("task_scan")).appendTo(this.page.main);
 		this.$wrapper.find(".task-scan-print-banner").remove();
+		this.$hidden_scan = $('<input type="text" class="task-scan-hidden-scan-input" autocomplete="off">');
+		this.$hidden_scan.appendTo(this.$wrapper);
 		this.bind_events();
 		this.load();
 	}
@@ -126,42 +132,100 @@ class TaskScanPage {
 		this.render_label_list();
 	}
 
+	get_filtered_labels() {
+		const labels = this.data?.labels || [];
+		const filter = this.active_filter;
+		if (filter === "errors") {
+			return [];
+		}
+		if (filter === "all") {
+			return labels;
+		}
+		return labels.filter((label) => label.status === filter);
+	}
+
 	render_label_list() {
-		const d = this.data;
-		const labels = d.labels || [];
 		const status_labels = {
 			scanned: __("Scanned"),
 			outstanding: __("Outstanding"),
-			error: __("Error"),
 		};
-		if (!labels.length) {
-			this.$wrapper
-				.find(".task-scan-label-list")
-				.html(`<div class="text-muted small">${__("No labels yet")}</div>`);
+		const $list = this.$wrapper.find(".task-scan-label-list");
+		const $pagination = this.$wrapper.find(".task-scan-pagination");
+
+		if (!(this.data?.labels || []).length) {
+			$list.html(`<div class="text-muted small">${__("No QR labels for this project yet")}</div>`);
+			$pagination.empty();
 			return;
 		}
-		const rows = labels
-			.map(
-				(label) => `
-			<div class="task-scan-label-row" data-status="${frappe.utils.escape_html(label.status)}">
-				<span class="task-scan-label-id">${frappe.utils.escape_html(label.id)}</span>
+
+		if (this.active_filter === "errors") {
+			$list.html(
+				`<div class="task-scan-errors-hint text-muted small">${__(
+					"Invalid QR scans are counted above but are not listed because they do not match a project label."
+				)}</div>`
+			);
+			$pagination.empty();
+			return;
+		}
+
+		const filtered = this.get_filtered_labels();
+		if (!filtered.length) {
+			$list.html(
+				`<div class="task-scan-errors-hint text-muted small">${__("No labels in this filter")}</div>`
+			);
+			$pagination.empty();
+			return;
+		}
+
+		const total_pages = Math.max(1, Math.ceil(filtered.length / TASK_SCAN_PAGE_SIZE));
+		this.label_page = Math.min(Math.max(this.label_page, 1), total_pages);
+		const start = (this.label_page - 1) * TASK_SCAN_PAGE_SIZE;
+		const page_items = filtered.slice(start, start + TASK_SCAN_PAGE_SIZE);
+
+		const me = this;
+		const rows = page_items
+			.map((label) => {
+				const subtitle = label.item_name
+					? `<span class="task-scan-label-sub text-muted">${frappe.utils.escape_html(label.item_name)}</span>`
+					: "";
+				const selected = me.selected_label_ids.has(label.id);
+				return `
+			<div class="task-scan-label-row ${selected ? "is-selected" : ""}"
+				data-label-id="${frappe.utils.escape_html(label.id)}"
+				data-status="${frappe.utils.escape_html(label.status)}"
+				role="button"
+				tabindex="0"
+				aria-pressed="${selected ? "true" : "false"}">
+				<div class="task-scan-label-main">
+					<span class="task-scan-label-id">${frappe.utils.escape_html(label.id)}</span>
+					${subtitle}
+				</div>
 				<span class="task-scan-label-status ${frappe.utils.escape_html(label.status)}">
 					${frappe.utils.escape_html(status_labels[label.status] || label.status)}
 				</span>
-			</div>`
-			)
+			</div>`;
+			})
 			.join("");
-		this.$wrapper.find(".task-scan-label-list").html(rows);
-		this.apply_filter();
-	}
+		$list.html(rows);
 
-	apply_filter() {
-		const filter = this.active_filter;
-		this.$wrapper.find(".task-scan-label-row").each(function () {
-			const status = $(this).data("status");
-			const show = filter === "all" || status === filter;
-			$(this).toggleClass("is-hidden", !show);
-		});
+		const end = Math.min(start + page_items.length, filtered.length);
+		const range_label = __("Showing {0}–{1} of {2}", [start + 1, end, filtered.length]);
+
+		$pagination.html(`
+			<div class="task-scan-pagination-meta text-muted small">${frappe.utils.escape_html(range_label)}</div>
+			<div class="task-scan-pagination-actions">
+				<button type="button" class="btn btn-default btn-sm btn-task-scan-page-prev" ${
+					this.label_page <= 1 ? "disabled" : ""
+				}>${__("Previous")}</button>
+				<span class="task-scan-pagination-page">${__(
+					"Page {0} of {1}",
+					[this.label_page, total_pages]
+				)}</span>
+				<button type="button" class="btn btn-default btn-sm btn-task-scan-page-next" ${
+					this.label_page >= total_pages ? "disabled" : ""
+				}>${__("Next")}</button>
+			</div>
+		`);
 	}
 
 	bind_events() {
@@ -171,18 +235,238 @@ class TaskScanPage {
 			me.$wrapper.find(".task-scan-filter").removeClass("active");
 			$(this).addClass("active");
 			me.active_filter = $(this).data("filter");
-			me.apply_filter();
+			me.label_page = 1;
+			me.render_label_list();
 		});
 
-		this.$wrapper.find(".btn-task-scan-primary").on("click", () => {
-			frappe.show_alert({ message: __("Scanner will be connected here"), indicator: "blue" });
-		});
-
-		this.$wrapper.find(".btn-task-scan-print, .btn-task-scan-print-selected").on(
-			"click",
-			() => {
-				frappe.show_alert({ message: __("Print will be connected here"), indicator: "blue" });
+		this.$wrapper.on("click", ".btn-task-scan-page-prev", () => {
+			if (me.label_page > 1) {
+				me.label_page -= 1;
+				me.render_label_list();
 			}
+		});
+
+		this.$wrapper.on("click", ".btn-task-scan-page-next", () => {
+			const filtered = me.get_filtered_labels();
+			const total_pages = Math.max(1, Math.ceil(filtered.length / TASK_SCAN_PAGE_SIZE));
+			if (me.label_page < total_pages) {
+				me.label_page += 1;
+				me.render_label_list();
+			}
+		});
+
+		this.$wrapper.find(".btn-task-scan-primary").on("click", () => this.open_scanner());
+
+		this.$hidden_scan.on("keydown", (e) => {
+			if (e.key !== "Enter") {
+				return;
+			}
+			const value = (me.$hidden_scan.val() || "").trim();
+			me.$hidden_scan.val("");
+			if (value) {
+				me.handle_scan(value);
+			}
+		});
+
+		$(document).on("keydown.task_scan_scan", (e) => {
+			if ($(".modal:visible").length) {
+				return;
+			}
+			if (
+				$(e.target).is("input, textarea, select") &&
+				!$(e.target).hasClass("task-scan-hidden-scan-input")
+			) {
+				return;
+			}
+			if (!me.$wrapper.is(":visible")) {
+				return;
+			}
+			me.$hidden_scan.focus();
+		});
+
+		this.$wrapper.find(".btn-task-scan-print").on("click", () => this.download_all_qr_labels());
+		this.$wrapper.find(".btn-task-scan-print-selected").on("click", () =>
+			this.download_selected_qr_labels()
 		);
+
+		this.$wrapper.on("click", ".task-scan-label-row", function () {
+			me.toggle_label_selection($(this).data("label-id"));
+		});
+
+		this.$wrapper.on("keydown", ".task-scan-label-row", function (e) {
+			if (e.key === "Enter" || e.key === " ") {
+				e.preventDefault();
+				me.toggle_label_selection($(this).data("label-id"));
+			}
+		});
+	}
+
+	toggle_label_selection(label_id) {
+		if (!label_id) {
+			return;
+		}
+		if (this.selected_label_ids.has(label_id)) {
+			this.selected_label_ids.delete(label_id);
+		} else {
+			this.selected_label_ids.add(label_id);
+		}
+		this.render_label_list();
+	}
+
+	download_single_qr_png(item_instance_code, qr_base64) {
+		const link = document.createElement("a");
+		link.href = `data:image/png;base64,${qr_base64}`;
+		link.download = `${item_instance_code}.png`;
+		document.body.appendChild(link);
+		link.click();
+		link.remove();
+	}
+
+	download_all_qr_labels() {
+		const project = this.data?.project;
+		if (!project) {
+			frappe.msgprint(__("This task has no project linked."));
+			return;
+		}
+
+		const url = frappe.urllib.get_full_url(
+			"/api/method/fitzgerald_kitchens.setup.project_qr_labels.download_project_qr_zip?" +
+				"project=" +
+				encodeURIComponent(project)
+		);
+
+		frappe.run_serially([
+			() => frappe.dom.freeze(__("Preparing QR download...")),
+			() =>
+				fetch(url, { credentials: "include" }).then((response) => {
+					if (!response.ok) {
+						throw new Error(__("Could not download QR labels"));
+					}
+					return response.blob();
+				}),
+			(blob) => {
+				const object_url = window.URL.createObjectURL(blob);
+				const link = document.createElement("a");
+				link.href = object_url;
+				link.download = `${project}-qr-labels.zip`;
+				document.body.appendChild(link);
+				link.click();
+				link.remove();
+				window.URL.revokeObjectURL(object_url);
+			},
+		])
+			.catch(() => {
+				frappe.msgprint(__("Could not download QR labels"));
+			})
+			.finally(() => {
+				frappe.dom.unfreeze();
+			});
+	}
+
+	download_selected_qr_labels() {
+		const project = this.data?.project;
+		const selected = Array.from(this.selected_label_ids);
+
+		if (!project) {
+			frappe.msgprint(__("This task has no project linked."));
+			return;
+		}
+		if (!selected.length) {
+			frappe.msgprint(__("Select one or more labels from the list first."));
+			return;
+		}
+
+		if (selected.length === 1) {
+			frappe.call({
+				method: "fitzgerald_kitchens.setup.project_qr_labels.get_qr_label_png_base64",
+				args: { project, item_instance_code: selected[0] },
+				freeze: true,
+				callback: (r) => {
+					const msg = r.message;
+					if (!msg?.qr_base64) {
+						frappe.msgprint(__("QR image is not available for this label."));
+						return;
+					}
+					this.download_single_qr_png(msg.item_instance_code, msg.qr_base64);
+				},
+			});
+			return;
+		}
+
+		const url =
+			frappe.urllib.get_full_url(
+				"/api/method/fitzgerald_kitchens.setup.project_qr_labels.download_selected_qr_zip"
+			) +
+			"?project=" +
+			encodeURIComponent(project) +
+			"&item_instance_codes=" +
+			encodeURIComponent(JSON.stringify(selected));
+
+		frappe.run_serially([
+			() => frappe.dom.freeze(__("Preparing QR download...")),
+			() =>
+				fetch(url, { credentials: "include" }).then((response) => {
+					if (!response.ok) {
+						throw new Error(__("Could not download QR labels"));
+					}
+					return response.blob();
+				}),
+			(blob) => {
+				const object_url = window.URL.createObjectURL(blob);
+				const link = document.createElement("a");
+				link.href = object_url;
+				link.download = `${project}-qr-selected.zip`;
+				document.body.appendChild(link);
+				link.click();
+				link.remove();
+				window.URL.revokeObjectURL(object_url);
+			},
+		])
+			.catch(() => {
+				frappe.msgprint(__("Could not download selected QR labels"));
+			})
+			.finally(() => {
+				frappe.dom.unfreeze();
+			});
+	}
+
+	open_scanner() {
+		const me = this;
+		const scanner = new frappe.ui.Scanner({
+			dialog: true,
+			multiple: false,
+			on_scan(result) {
+				const qr_text = result?.decodedText || result;
+				if (qr_text) {
+					me.handle_scan(qr_text);
+				}
+			},
+		});
+		scanner.scan();
+	}
+
+	handle_scan(qr_text) {
+		if (!this.task_name) {
+			frappe.msgprint(__("Open this page from a task to scan labels."));
+			return;
+		}
+
+		frappe.call({
+			method: "fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.task_scan.scan_task_label",
+			args: { task: this.task_name, qr_text },
+			freeze: true,
+			callback: (r) => {
+				const msg = r.message;
+				if (!msg) {
+					return;
+				}
+				this.data = { ...this.data, ...msg };
+				this.render();
+				frappe.show_alert({
+					message: msg.message || (msg.ok ? __("Label scanned") : __("Scan failed")),
+					indicator: msg.ok ? "green" : msg.result === "duplicate" ? "orange" : "red",
+				});
+			},
+		});
 	}
 }

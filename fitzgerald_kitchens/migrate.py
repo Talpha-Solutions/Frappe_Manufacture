@@ -12,10 +12,12 @@ def before_migrate():
 
 
 def after_migrate():
-	"""Sync sidebar items and restore developer_mode after migrate."""
+	"""Sync sidebar items, desk permissions, and restore developer_mode after migrate."""
+	from fitzgerald_kitchens.setup.my_tasks_desk import ensure_my_tasks_desk
 	from fitzgerald_kitchens.setup.workspace_sidebar import ensure_projects_sidebar
 
 	ensure_projects_sidebar()
+	ensure_my_tasks_desk()
 
 	if not hasattr(frappe.flags, "_fitzgerald_restore_developer_mode"):
 		return

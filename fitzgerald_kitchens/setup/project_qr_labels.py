@@ -117,3 +117,50 @@ def download_project_qr_zip(project: str):
 	frappe.local.response.filename = f"{project}-qr-labels.zip"
 	frappe.local.response.filecontent = buffer.getvalue()
 	frappe.local.response.type = "download"
+
+
+def _valid_manifest_codes(project: str) -> set[str]:
+	return {row["item_instance_code"] for row in expand_manifest_item_instances(project)}
+
+
+@frappe.whitelist()
+def get_qr_label_png_base64(project: str, item_instance_code: str) -> dict:
+	"""Return base64 PNG for one manifest label on a project."""
+	frappe.has_permission("Project", "read", project, throw=True)
+
+	code = (item_instance_code or "").strip()
+	if not code or code not in _valid_manifest_codes(project):
+		frappe.throw(_("QR label not found for this project"))
+
+	png = generate_qr_png_bytes(code)
+	return {
+		"item_instance_code": code,
+		"qr_base64": base64.b64encode(png).decode("ascii"),
+	}
+
+
+@frappe.whitelist()
+def download_selected_qr_zip(project: str, item_instance_codes):
+	"""Download a ZIP of QR PNG files for selected manifest item instances."""
+	frappe.has_permission("Project", "read", project, throw=True)
+
+	codes = frappe.parse_json(item_instance_codes)
+	if isinstance(codes, str):
+		codes = [codes]
+	if not isinstance(codes, list) or not codes:
+		frappe.throw(_("Select at least one label to download"))
+
+	valid_codes = _valid_manifest_codes(project)
+	selected = [code for code in codes if code in valid_codes]
+	if not selected:
+		frappe.throw(_("None of the selected labels belong to this project"))
+
+	buffer = BytesIO()
+	with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+		for code in selected:
+			png = generate_qr_png_bytes(code)
+			archive.writestr(f"{code}.png", png)
+
+	frappe.local.response.filename = f"{project}-qr-selected.zip"
+	frappe.local.response.filecontent = buffer.getvalue()
+	frappe.local.response.type = "download"

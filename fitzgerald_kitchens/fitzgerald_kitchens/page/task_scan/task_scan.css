@@ -285,6 +285,33 @@
 	gap: 8px;
 }
 
+.task-scan-pagination {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 12px;
+	flex-wrap: wrap;
+}
+
+.task-scan-pagination-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.task-scan-pagination-page {
+	font-size: 12px;
+	color: #64748b;
+	min-width: 88px;
+	text-align: center;
+}
+
+.task-scan-pagination .btn {
+	border-radius: 8px;
+	font-weight: 600;
+}
+
 .task-scan-label-row {
 	display: flex;
 	align-items: center;
@@ -295,15 +322,48 @@
 	border-radius: 8px;
 	padding: 10px 14px;
 	font-size: 13px;
+	cursor: pointer;
+	transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+
+.task-scan-label-row:hover {
+	border-color: #cbd5e1;
+	background: #f8fafc;
+}
+
+.task-scan-label-row.is-selected {
+	border-color: #7c3aed;
+	background: #f5f3ff;
+	box-shadow: 0 0 0 1px #7c3aed;
 }
 
 .task-scan-label-row.is-hidden {
 	display: none;
 }
 
+.task-scan-label-main {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
 .task-scan-label-id {
 	font-weight: 600;
 	color: #334155;
+	word-break: break-all;
+}
+
+.task-scan-label-sub {
+	font-size: 11px;
+}
+
+.task-scan-hidden-scan-input {
+	position: absolute;
+	left: -9999px;
+	width: 1px;
+	height: 1px;
+	opacity: 0;
 }
 
 .task-scan-label-status {

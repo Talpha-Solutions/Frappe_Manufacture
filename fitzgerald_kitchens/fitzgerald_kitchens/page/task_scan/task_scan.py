@@ -11,6 +11,10 @@ from fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.my_tasks import (
 	_check_my_tasks_access,
 	get_task_assignee_display,
 )
+from fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.label_scan import (
+	get_task_label_scan_state,
+	record_task_label_scan,
+)
 
 
 def _format_relative_due(exp_end_date) -> tuple[str, str]:
@@ -34,7 +38,7 @@ def _format_relative_due(exp_end_date) -> tuple[str, str]:
 	elif delta == -1:
 		relative = _("Yesterday")
 	else:
-		relative = frappe.utils.formatdate(exp, "dddd")
+		relative = frappe.utils.formatdate(exp, "EEE")
 
 	return f"{relative} · {date_part}", ""
 
@@ -111,6 +115,7 @@ def _get_task_header(task_name: str) -> dict:
 	due_badge_text, due_badge_class = _due_badge(task)
 	return {
 		"task": task.name,
+		"project": task.project,
 		"title": task.subject or task.name,
 		"subtitle": unit_subtitle or project_label or "",
 		"project_label": project_label,
@@ -132,21 +137,18 @@ def _get_task_header(task_name: str) -> dict:
 def get_task_scan_context(task: str):
 	_check_my_tasks_access()
 	header = _get_task_header(task)
-
-	# Label scan stats remain demo until wired
+	label_state = get_task_label_scan_state(task)
 	return {
 		**header,
-		"total_labels": 22,
-		"scanned": 12,
-		"outstanding": 9,
-		"errors": 1,
-		"printed": 22,
-		"labels": [
-			{"id": "LBL-001", "status": "scanned"},
-			{"id": "LBL-002", "status": "scanned"},
-			{"id": "LBL-003", "status": "outstanding"},
-			{"id": "LBL-004", "status": "error"},
-			{"id": "LBL-005", "status": "scanned"},
-			{"id": "LBL-006", "status": "outstanding"},
-		],
+		**label_state,
 	}
+
+
+@frappe.whitelist()
+def scan_task_label(task: str, qr_text: str):
+	_check_my_tasks_access()
+	if not frappe.db.exists("Task", task):
+		frappe.throw(_("Task not found"), frappe.DoesNotExistError)
+	if not frappe.has_permission("Task", doc=task, ptype="read"):
+		frappe.throw(_("Not permitted to access this task"), frappe.PermissionError)
+	return record_task_label_scan(task, qr_text)

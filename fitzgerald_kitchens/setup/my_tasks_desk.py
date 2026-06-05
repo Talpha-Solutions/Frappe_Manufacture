@@ -24,6 +24,9 @@ PERMISSIONS = [
 	("Development Unit QR Scan", "read"),
 	("Development Unit QR Scan", "write"),
 	("Development Unit QR Scan", "create"),
+	("Task Label Scan Log", "read"),
+	("Task Label Scan Log", "write"),
+	("Task Label Scan Log", "create"),
 ]
 
 
