@@ -11,7 +11,7 @@ from frappe.utils import flt
 CABINET_KEYS = ("base_units", "wall_units", "tall_units", "drawer_packs")
 
 
-class KitchenConfiguration(Document):
+class TenderConfiguration(Document):
 	def validate(self):
 		if not self.template:
 			frappe.throw(_("Template is required."))
@@ -177,7 +177,7 @@ def _validate_and_calculate_rows(rows: list[dict], template_rows: list[dict]) ->
 	return total
 
 
-def _apply_cabinet_costing(doc: KitchenConfiguration, cabinet_prices: dict) -> float:
+def _apply_cabinet_costing(doc: TenderConfiguration, cabinet_prices: dict) -> float:
 	cabinet_total = 0.0
 	for key in CABINET_KEYS:
 		price_data = cabinet_prices.get(key) or {}
@@ -190,7 +190,7 @@ def _apply_cabinet_costing(doc: KitchenConfiguration, cabinet_prices: dict) -> f
 	return cabinet_total
 
 
-def _apply_tender_pricing(doc: KitchenConfiguration):
+def _apply_tender_pricing(doc: TenderConfiguration):
 	doc.cost_base = flt(doc.grand_total_cost)
 	doc.target_margin_pct = flt(doc.target_margin_pct)
 	doc.margin_amount = flt(doc.cost_base) * (flt(doc.target_margin_pct) / 100.0)

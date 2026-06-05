@@ -250,7 +250,8 @@
  "index_web_pages_for_search": 1,
  "links": [],
  "module": "fitzgerald_kitchens",
- "name": "Kitchen Configuration",
+ "default_print_format": "Kitchen Configuration Tender Summary",
+ "name": "Tender Configuration",
  "naming_rule": "Set by user",
  "permissions": [
   {
