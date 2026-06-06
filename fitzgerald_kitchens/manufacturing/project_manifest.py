@@ -20,6 +20,7 @@ def get_projects_for_production_plan(production_plan) -> list[dict]:
 		frappe.qb.from_(project)
 		.select(
 			project.name,
+			project.project_name,
 			project.project_type,
 			project.customer,
 			project.fk_effective_manifest.as_("effective_manifest"),

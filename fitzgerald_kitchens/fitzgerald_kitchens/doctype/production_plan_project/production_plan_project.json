@@ -6,6 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "project",
+  "project_name",
   "project_type",
   "col_break1",
   "effective_manifest",
@@ -15,10 +16,17 @@
   {
    "fieldname": "project",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Project",
    "options": "Project",
    "reqd": 1
+  },
+  {
+   "fetch_from": "project.project_name",
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Project Name",
+   "read_only": 1
   },
   {
    "fieldname": "project_type",
