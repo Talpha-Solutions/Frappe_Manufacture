@@ -107,10 +107,10 @@ def get_pipeline_totals(filters=None):
     """
     Total delivery items and project count for the KPI card.
 
-    Counts Development Units in the Delivery stage across all active projects
-    in the date horizon. Ignores the BOM filter (and job-card demand paths) so
-    the KPI stays stable when switching BOM; the table and chart still respect
-    the selected BOM.
+    Counts Development Units in the Delivery stage in the date horizon and
+    projects that have at least one such unit scheduled. Ignores the BOM
+    filter (and job-card demand paths) so the KPI stays stable when switching
+    BOM; the table and chart still respect the selected BOM.
     """
     filters = _normalize_report_filters(filters)
     granularity = filters.get("granularity") or "Monthly"
@@ -135,8 +135,30 @@ def get_pipeline_totals(filters=None):
         "total_demand": _count_pipeline_delivery_units(
             project_names, from_date, to_date
         ),
-        "project_count": len(demand_projects),
+        "project_count": _count_pipeline_delivery_projects(
+            project_names, from_date, to_date
+        ),
     }
+
+
+def _pipeline_delivery_units_sql(project_names, from_date, to_date):
+    """Shared FROM/WHERE for pipeline delivery unit queries (BOM-independent)."""
+    return (
+        """
+        FROM `tabDevelopment Unit` du
+            INNER JOIN `tabDevelopment Unit Stage` dus ON dus.parent = du.name
+            INNER JOIN `tabDevelopment Stage` ds ON ds.name = dus.stage
+        WHERE
+            ds.stage_category = 'Delivery'
+            AND dus.planned_date BETWEEN %(from_date)s AND %(to_date)s
+            AND du.project IN %(project_names)s
+        """,
+        {
+            "from_date": from_date,
+            "to_date": to_date,
+            "project_names": project_names,
+        },
+    )
 
 
 def _count_pipeline_delivery_units(project_names, from_date, to_date):
@@ -144,24 +166,25 @@ def _count_pipeline_delivery_units(project_names, from_date, to_date):
     if not project_names:
         return 0
 
+    sql_from, params = _pipeline_delivery_units_sql(
+        project_names, from_date, to_date
+    )
     return int(
-        frappe.db.sql(
-            """
-            SELECT COUNT(DISTINCT du.name)
-            FROM `tabDevelopment Unit` du
-                INNER JOIN `tabDevelopment Unit Stage` dus ON dus.parent = du.name
-                INNER JOIN `tabDevelopment Stage` ds ON ds.name = dus.stage
-            WHERE
-                ds.stage_category = 'Delivery'
-                AND dus.planned_date BETWEEN %(from_date)s AND %(to_date)s
-                AND du.project IN %(project_names)s
-            """,
-            {
-                "from_date": from_date,
-                "to_date": to_date,
-                "project_names": project_names,
-            },
-        )[0][0]
+        frappe.db.sql(f"SELECT COUNT(DISTINCT du.name) {sql_from}", params)[0][0]
+        or 0
+    )
+
+
+def _count_pipeline_delivery_projects(project_names, from_date, to_date):
+    """Count projects with at least one scheduled delivery unit in the horizon."""
+    if not project_names:
+        return 0
+
+    sql_from, params = _pipeline_delivery_units_sql(
+        project_names, from_date, to_date
+    )
+    return int(
+        frappe.db.sql(f"SELECT COUNT(DISTINCT du.project) {sql_from}", params)[0][0]
         or 0
     )
 

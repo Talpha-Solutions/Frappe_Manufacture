@@ -1571,6 +1571,195 @@ def _set_delivery_planned_date(unit_name, planned_date):
 	)
 
 
+def _expected_demo_demand_by_month(from_date, to_date):
+	"""Count delivery dates per project/month from DEMO_DELIVERY_SCHEDULE."""
+	from_date = getdate(from_date)
+	to_date = getdate(to_date)
+	by_project = {}
+	by_month = {}
+
+	for project, dates in DEMO_DELIVERY_SCHEDULE.items():
+		by_project[project] = {}
+		for planned_date in dates:
+			d = getdate(planned_date)
+			if d < from_date or d > to_date:
+				continue
+			mkey = f"m_{d.year}_{d.month:02d}"
+			by_project[project][mkey] = by_project[project].get(mkey, 0) + 1
+			by_month[mkey] = by_month.get(mkey, 0) + 1
+
+	return by_project, by_month
+
+
+def verify_travel_com_capacity_pipeline():
+	"""
+	Verify Capacity Pipeline calculations on travel.com against DEMO_DELIVERY_SCHEDULE.
+
+	Checks summary rows (capacity, demand, utilisation, free capacity), per-project
+	demand, pipeline KPI, and internal row consistency (free = actual − demand).
+	"""
+	from fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report import (
+		execute,
+		get_pipeline_totals,
+	)
+
+	if _detect_profile() != "demo":
+		frappe.throw("verify_travel_com_capacity_pipeline is for travel.com demo data only.")
+
+	company = DEMO_COMPANY
+	filters = frappe._dict(
+		{"company": company, "bom": DEMO_KITCHEN_BOM, **KITCHEN_LOCAL_EXPECTED["filters"]}
+	)
+	from_date = filters["from_date"]
+	to_date = filters["to_date"]
+	month_keys = ["m_2026_06", "m_2026_07", "m_2026_08"]
+	month_labels = {"m_2026_06": "Jun '26", "m_2026_07": "Jul '26", "m_2026_08": "Aug '26"}
+
+	expected_by_project, expected_by_month = _expected_demo_demand_by_month(from_date, to_date)
+	_cols, data = execute(filters)
+
+	cap = next((r for r in data if r.get("row_type") == "capacity"), {})
+	dem = next((r for r in data if r.get("row_type") == "demand"), {})
+	free = next((r for r in data if r.get("row_type") == "free"), {})
+	downtime = next((r for r in data if r.get("row_type") == "downtime"), {})
+	project_rows = {r["project_id"]: r for r in data if r.get("row_type") == "project"}
+
+	checks = []
+
+	for mkey in month_keys:
+		exp_demand = expected_by_month.get(mkey, 0)
+		act_demand = int(dem.get(mkey) or 0)
+		act_actual = int(cap.get(f"{mkey}_actual") or 0)
+		act_theoretical = int(cap.get(f"{mkey}_theoretical") or 0)
+		act_free = int(free.get(mkey) or 0)
+		act_pct = int(dem.get(f"{mkey}_pct") or 0)
+		exp_pct = int(act_demand / act_actual * 100) if act_actual else 0
+		exp_free = act_actual - act_demand
+
+		for field, expected, actual in (
+			("demand", exp_demand, act_demand),
+			("free_capacity", exp_free, act_free),
+			("utilisation_pct", exp_pct, act_pct),
+		):
+			checks.append(
+				{
+					"scope": "summary",
+					"month": month_labels[mkey],
+					"field": field,
+					"expected": expected,
+					"actual": actual,
+					"ok": expected == actual,
+				}
+			)
+
+		checks.append(
+			{
+				"scope": "summary",
+				"month": month_labels[mkey],
+				"field": "capacity_actual_lte_theoretical",
+				"expected": True,
+				"actual": act_actual <= act_theoretical,
+				"ok": act_actual <= act_theoretical,
+			}
+		)
+		checks.append(
+			{
+				"scope": "summary",
+				"month": month_labels[mkey],
+				"field": "downtime_mins",
+				"expected": ">= 0",
+				"actual": int(downtime.get(mkey) or 0),
+				"ok": int(downtime.get(mkey) or 0) >= 0,
+			}
+		)
+
+	for mkey in month_keys:
+		proj_sum = sum(int(row.get(mkey) or 0) for row in project_rows.values())
+		dem_total = int(dem.get(mkey) or 0)
+		checks.append(
+			{
+				"scope": "consistency",
+				"month": month_labels[mkey],
+				"field": "project_rows_sum_equals_demand",
+				"expected": dem_total,
+				"actual": proj_sum,
+				"ok": proj_sum == dem_total,
+			}
+		)
+
+	for project_id, exp_months in expected_by_project.items():
+		row = project_rows.get(project_id)
+		if not row:
+			checks.append(
+				{
+					"scope": "project",
+					"project": project_id,
+					"field": "in_report",
+					"expected": True,
+					"actual": False,
+					"ok": False,
+				}
+			)
+			continue
+
+		for mkey in month_keys:
+			exp = exp_months.get(mkey, 0)
+			act = int(row.get(mkey) or 0)
+			checks.append(
+				{
+					"scope": "project",
+					"project": project_id,
+					"month": month_labels[mkey],
+					"field": "demand",
+					"expected": exp,
+					"actual": act,
+					"ok": exp == act,
+				}
+			)
+
+	pipeline = get_pipeline_totals(filters)
+	exp_total = sum(expected_by_month.get(mkey, 0) for mkey in month_keys)
+	exp_projects = len(
+		[p for p, months in expected_by_project.items() if any(months.get(m) for m in month_keys)]
+	)
+	for field, expected, actual in (
+		("total_demand", exp_total, pipeline.get("total_demand")),
+		("project_count", exp_projects, pipeline.get("project_count")),
+	):
+		checks.append(
+			{
+				"scope": "pipeline_kpi",
+				"field": field,
+				"expected": expected,
+				"actual": actual,
+				"ok": expected == actual,
+			}
+		)
+
+	failed = [c for c in checks if not c.get("ok")]
+	return {
+		"all_passed": not failed,
+		"failed_count": len(failed),
+		"failed": failed[:20],
+		"checks_passed": len(checks) - len(failed),
+		"checks_total": len(checks),
+		"expected_monthly_demand": {
+			month_labels[k]: expected_by_month.get(k, 0) for k in month_keys
+		},
+		"actual_summary": {
+			month_labels[k]: {
+				"capacity": cap.get(k),
+				"demand": int(dem.get(k) or 0),
+				"free_capacity": int(free.get(k) or 0),
+				"utilisation_pct": int(dem.get(f"{k}_pct") or 0),
+				"downtime_mins": int(downtime.get(k) or 0),
+			}
+			for k in month_keys
+		},
+		"pipeline_kpi": pipeline,
+	}
+
+
 def audit_travel_com_capacity_pipeline():
 	"""
 	Diagnose Capacity Pipeline data issues on travel.com (demo profile).
