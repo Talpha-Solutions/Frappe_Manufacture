@@ -8,7 +8,6 @@ from frappe.utils import flt
 from pypika.terms import ExistsCriterion
 
 from erpnext.manufacturing.doctype.work_order.work_order import get_item_details
-from fitzgerald_kitchens.setup.project_unit_fields import SITE_PROJECT_TYPE
 
 
 def get_projects_for_production_plan(production_plan) -> list[dict]:
@@ -23,8 +22,6 @@ def get_projects_for_production_plan(production_plan) -> list[dict]:
 			project.status,
 		)
 		.where(project.company == production_plan.company)
-		# SQL NULL != 'Site' is unknown — explicitly include NULL project_type rows.
-		.where((project.project_type != SITE_PROJECT_TYPE) | (project.project_type.isnull()))
 	)
 
 	if production_plan.get("customer"):

@@ -15,7 +15,7 @@ from fitzgerald_kitchens.manufacturing.project_manifest import (
 class FKProductionPlan(ProductionPlan):
 	@frappe.whitelist()
 	def get_open_projects(self):
-		"""Pull unit projects based on criteria selected."""
+		"""Pull projects based on criteria selected."""
 		open_projects = get_projects_for_production_plan(self)
 
 		if open_projects:
@@ -45,7 +45,7 @@ class FKProductionPlan(ProductionPlan):
 			if active_filters:
 				message += " " + _("Check Filters — {0}.").format(", ".join(active_filters))
 			else:
-				message += " " + _("Ensure unit projects exist for this company (Site projects are excluded).")
+				message += " " + _("Ensure projects exist for this company.")
 
 			frappe.msgprint(message, indicator="orange", title=_("No Projects Found"))
 
