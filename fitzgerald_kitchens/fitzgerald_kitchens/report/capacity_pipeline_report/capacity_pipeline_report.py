@@ -27,6 +27,11 @@ _WEEK_START_SQL = "DATE(DATE_SUB({field}, INTERVAL WEEKDAY({field}) DAY))"
 SITE_PARENT_FIELD = "fk_parent_project"
 
 
+def _project_kitchen_bom(project):
+    """Effective kitchen BOM — Unit tab (fk_effective_bom) wins over legacy kitchen_bom."""
+    return getattr(project, "fk_effective_bom", None) or getattr(project, "kitchen_bom", None)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -46,10 +51,41 @@ def execute(filters=None):
 
 @frappe.whitelist()
 def get_default_bom(company=None):
-    """Return the most recently created active submitted BOM for the company."""
+    """
+    Return the best default BOM for the Capacity Pipeline filter.
+
+    Prefer the BOM assigned to the most active projects (fk_effective_bom or
+    kitchen_bom), then fall back to the most recently created active BOM.
+    """
     company = company or frappe.defaults.get_user_default("Company")
     if not company:
         return None
+
+    has_fk_bom = frappe.db.has_column("Project", "fk_effective_bom")
+    fk_select = "p.fk_effective_bom" if has_fk_bom else "NULL"
+    row = frappe.db.sql(
+        f"""
+        SELECT bom_name, COUNT(*) AS project_count
+        FROM (
+            SELECT COALESCE({fk_select}, p.kitchen_bom) AS bom_name
+            FROM `tabProject` p
+            WHERE
+                p.company = %(company)s
+                AND p.docstatus < 2
+                AND p.status NOT IN ('Cancelled', 'Completed')
+                AND COALESCE({fk_select}, p.kitchen_bom) IS NOT NULL
+        ) AS assigned
+        INNER JOIN `tabBOM` b ON b.name = assigned.bom_name
+        WHERE b.company = %(company)s AND b.docstatus = 1 AND b.is_active = 1
+        GROUP BY bom_name
+        ORDER BY project_count DESC, bom_name DESC
+        LIMIT 1
+        """,
+        {"company": company},
+        as_dict=True,
+    )
+    if row:
+        return row[0].bom_name
 
     return frappe.db.get_value(
         "BOM",
@@ -430,6 +466,7 @@ def _append_site_parent_projects(projects, filters):
             p.project_name,
             p.customer,
             p.project_type,
+            p.fk_effective_bom,
             p.kitchen_bom,
             p.kitchen_required,
             p.wardrobe_bom,
@@ -527,7 +564,7 @@ def _rollup_site_demand(projects, demand_map, product_breakdown, periods):
 def _filter_projects_by_bom(projects, bom):
     if not bom:
         return projects
-    return [p for p in projects if p.fk_effective_bom == bom]
+    return [p for p in projects if _project_kitchen_bom(p) == bom]
 
 
 def _aggregate_demand_all_projects(projects, from_date, to_date, granularity="Monthly"):
@@ -540,8 +577,9 @@ def _aggregate_demand_all_projects(projects, from_date, to_date, granularity="Mo
     no_bom_names = []
 
     for proj in projects:
-        if proj.kitchen_bom:
-            by_bom[proj.kitchen_bom].append(proj.name)
+        kitchen_bom = _project_kitchen_bom(proj)
+        if kitchen_bom:
+            by_bom[kitchen_bom].append(proj.name)
         else:
             no_bom_names.append(proj.name)
 
@@ -739,7 +777,7 @@ def _get_bottleneck_times_for_projects(projects):
     bom_names = {
         bom
         for proj in projects
-        for bom in (proj.kitchen_bom, proj.wardrobe_bom)
+        for bom in (_project_kitchen_bom(proj), proj.wardrobe_bom)
         if bom
     }
     times = {}
@@ -751,7 +789,7 @@ def _get_bottleneck_times_for_projects(projects):
 
 
 def _classify_project_bom(proj, bom_no):
-    if bom_no and bom_no == proj.kitchen_bom:
+    if bom_no and bom_no == _project_kitchen_bom(proj):
         return "kitchen"
     if bom_no and bom_no == proj.wardrobe_bom:
         return "wardrobe"

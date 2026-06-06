@@ -1288,6 +1288,8 @@ def _set_demo_project_kitchen_boms():
 			project,
 			{
 				"fk_effective_bom": DEMO_KITCHEN_BOM,
+				"kitchen_bom": DEMO_KITCHEN_BOM,
+				"kitchen_required": 1,
 				"project_type": "Kitchen",
 			},
 			update_modified=False,
@@ -1567,3 +1569,99 @@ def _set_delivery_planned_date(unit_name, planned_date):
 		""",
 		(getdate(planned_date), unit_name, DELIVERY_STAGE),
 	)
+
+
+def audit_travel_com_capacity_pipeline():
+	"""
+	Diagnose Capacity Pipeline data issues on travel.com (demo profile).
+
+	Run after fixes or when report numbers look wrong.
+	"""
+	from fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report import (
+		_project_kitchen_bom,
+		execute,
+		get_default_bom,
+		get_pipeline_totals,
+	)
+
+	if _detect_profile() != "demo":
+		frappe.throw("audit_travel_com_capacity_pipeline is for travel.com demo data only.")
+
+	company = DEMO_COMPANY
+	filters = frappe._dict({"company": company, **KITCHEN_LOCAL_EXPECTED["filters"]})
+	default_bom = get_default_bom(company)
+	demo_bom = DEMO_KITCHEN_BOM
+
+	project_stats = frappe.db.sql(
+		"""
+		SELECT
+			COUNT(*) AS active_projects,
+			SUM(fk_effective_bom IS NOT NULL) AS with_fk_bom,
+			SUM(kitchen_bom IS NOT NULL) AS with_kitchen_bom
+		FROM `tabProject`
+		WHERE
+			company = %(company)s
+			AND docstatus < 2
+			AND status NOT IN ('Cancelled', 'Completed')
+		""",
+		{"company": company},
+		as_dict=True,
+	)[0]
+
+	demo_projects = []
+	for project_id in DEMO_DELIVERY_SCHEDULE:
+		if not frappe.db.exists("Project", project_id):
+			continue
+		proj = frappe.get_doc("Project", project_id)
+		unit_count = frappe.db.count("Development Unit", {"project": project_id})
+		demo_projects.append(
+			{
+				"project": project_id,
+				"project_name": proj.project_name,
+				"fk_effective_bom": proj.get("fk_effective_bom"),
+				"kitchen_bom": proj.get("kitchen_bom"),
+				"effective_bom": _project_kitchen_bom(proj),
+				"development_units": unit_count,
+				"scheduled_units": len(DEMO_DELIVERY_SCHEDULE[project_id]),
+			}
+		)
+
+	report_filters = frappe._dict({**filters, "bom": demo_bom})
+	_cols, data = execute(report_filters)
+	cap = next((r for r in data if r.get("row_type") == "capacity"), {})
+	dem = next((r for r in data if r.get("row_type") == "demand"), {})
+	project_rows = [r for r in data if r.get("row_type") == "project"]
+
+	issues = []
+	if default_bom != demo_bom:
+		issues.append(
+			f"Default BOM is {default_bom!r} but demo data uses {demo_bom!r} — "
+			"select the demo BOM or re-run insert_capacity_pipeline_test_data."
+		)
+	for row in demo_projects:
+		if row["development_units"] < row["scheduled_units"]:
+			issues.append(
+				f"{row['project']} has {row['development_units']} units but "
+				f"schedule expects {row['scheduled_units']} — re-run demo seed."
+			)
+		if not row["effective_bom"]:
+			issues.append(f"{row['project']} has no effective BOM assigned.")
+
+	return {
+		"company": company,
+		"default_bom": default_bom,
+		"demo_bom": demo_bom,
+		"default_matches_demo": default_bom == demo_bom,
+		"project_stats": project_stats,
+		"demo_projects": demo_projects,
+		"report_project_count": len(project_rows),
+		"report_projects": [r.get("project") for r in project_rows],
+		"summary_jun_26": {
+			"capacity": cap.get("m_2026_06"),
+			"demand": dem.get("m_2026_06"),
+			"utilisation_pct": dem.get("m_2026_06_pct"),
+		},
+		"pipeline_kpi": get_pipeline_totals(filters),
+		"issues": issues,
+		"healthy": not issues,
+	}
