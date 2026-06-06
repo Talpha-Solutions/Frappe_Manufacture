@@ -5,12 +5,16 @@ from __future__ import annotations
 
 import frappe
 from frappe.utils import flt
-from pypika.terms import ExistsCriterion
 
 from erpnext.manufacturing.doctype.work_order.work_order import get_item_details
 
 
 def get_projects_for_production_plan(production_plan) -> list[dict]:
+	"""Return projects for the Production Plan Projects table.
+
+	Only Company and Customer (optional) are applied here so Get Projects returns
+	the full project list. Item/date/project filters belong to Sales Order flow.
+	"""
 	project = frappe.qb.DocType("Project")
 	query = (
 		frappe.qb.from_(project)
@@ -22,38 +26,11 @@ def get_projects_for_production_plan(production_plan) -> list[dict]:
 			project.status,
 		)
 		.where(project.company == production_plan.company)
+		.orderby(project.name)
 	)
 
 	if production_plan.get("customer"):
 		query = query.where(project.customer == production_plan.customer)
-
-	if production_plan.get("project"):
-		query = query.where(project.name == production_plan.project)
-
-	if production_plan.get("from_date"):
-		query = query.where(
-			(project.expected_start_date >= production_plan.from_date)
-			| (project.expected_start_date.isnull())
-		)
-
-	if production_plan.get("to_date"):
-		query = query.where(
-			(project.expected_start_date <= production_plan.to_date)
-			| (project.expected_start_date.isnull())
-		)
-
-	if production_plan.get("item_code") and frappe.db.exists("Item", production_plan.item_code):
-		manifest_item = frappe.qb.DocType("Manifest Item")
-		query = query.where(
-			ExistsCriterion(
-				frappe.qb.from_(manifest_item)
-				.select(manifest_item.name)
-				.where(
-					(manifest_item.parent == project.fk_effective_manifest)
-					& (manifest_item.item_code == production_plan.item_code)
-				)
-			)
-		)
 
 	return query.run(as_dict=True)
 

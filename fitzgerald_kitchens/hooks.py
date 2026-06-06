@@ -189,6 +189,7 @@ doc_events = {
 # Specify custom mixins to extend the standard doctype controller.
 extend_doctype_class = {
 	"Production Plan": "fitzgerald_kitchens.custom.production_plan.FKProductionPlan",
+	"Project": "fitzgerald_kitchens.custom.project.FKProject",
 }
 
 # Overriding Methods
