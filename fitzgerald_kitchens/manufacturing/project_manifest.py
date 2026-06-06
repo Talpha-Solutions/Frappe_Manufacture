@@ -22,7 +22,9 @@ def get_projects_for_production_plan(production_plan) -> list[dict]:
 			project.fk_effective_manifest.as_("effective_manifest"),
 			project.status,
 		)
-		.where((project.company == production_plan.company) & (project.project_type != SITE_PROJECT_TYPE))
+		.where(project.company == production_plan.company)
+		# SQL NULL != 'Site' is unknown — explicitly include NULL project_type rows.
+		.where((project.project_type != SITE_PROJECT_TYPE) | (project.project_type.isnull()))
 	)
 
 	if production_plan.get("customer"):
@@ -32,10 +34,16 @@ def get_projects_for_production_plan(production_plan) -> list[dict]:
 		query = query.where(project.name == production_plan.project)
 
 	if production_plan.get("from_date"):
-		query = query.where(project.expected_start_date >= production_plan.from_date)
+		query = query.where(
+			(project.expected_start_date >= production_plan.from_date)
+			| (project.expected_start_date.isnull())
+		)
 
 	if production_plan.get("to_date"):
-		query = query.where(project.expected_start_date <= production_plan.to_date)
+		query = query.where(
+			(project.expected_start_date <= production_plan.to_date)
+			| (project.expected_start_date.isnull())
+		)
 
 	if production_plan.get("item_code") and frappe.db.exists("Item", production_plan.item_code):
 		manifest_item = frappe.qb.DocType("Manifest Item")

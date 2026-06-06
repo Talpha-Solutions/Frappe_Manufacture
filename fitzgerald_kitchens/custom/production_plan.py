@@ -31,7 +31,23 @@ class FKProductionPlan(ProductionPlan):
 					},
 				)
 		else:
-			frappe.msgprint(_("Projects are not available for production"))
+			active_filters = []
+			if self.get("customer"):
+				active_filters.append(_("Customer: {0}").format(self.customer))
+			if self.get("item_code"):
+				active_filters.append(_("Item Code: {0}").format(self.item_code))
+			if self.get("from_date"):
+				active_filters.append(_("From Date: {0}").format(self.from_date))
+			if self.get("to_date"):
+				active_filters.append(_("To Date: {0}").format(self.to_date))
+
+			message = _("No projects found for company {0}.").format(self.company)
+			if active_filters:
+				message += " " + _("Check Filters — {0}.").format(", ".join(active_filters))
+			else:
+				message += " " + _("Ensure unit projects exist for this company (Site projects are excluded).")
+
+			frappe.msgprint(message, indicator="orange", title=_("No Projects Found"))
 
 	@frappe.whitelist()
 	def get_items(self):
