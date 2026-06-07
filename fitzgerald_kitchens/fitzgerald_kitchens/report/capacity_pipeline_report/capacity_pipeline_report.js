@@ -970,11 +970,49 @@ function cpr_palette_slot(color_index) {
 	return CPR_PALETTE[(color_index || 0) % CPR_PALETTE.length];
 }
 
+function cpr_chart_label(row) {
+	return row.chart_label || row.project || "";
+}
+
+function cpr_rollup_rows_by_chart_label(rows) {
+	const merged = {};
+	const period_keys = cpr_get_period_columns().map((col) => col.key);
+
+	(rows || []).forEach((row) => {
+		const label = cpr_chart_label(row);
+		if (!label) {
+			return;
+		}
+
+		if (!merged[label]) {
+			merged[label] = {
+				...row,
+				project: label,
+				chart_label: label,
+			};
+			return;
+		}
+
+		const target = merged[label];
+		period_keys.forEach((key) => {
+			target[key] = cint(target[key]) + cint(row[key]);
+			target[`${key}_kitchen`] = cint(target[`${key}_kitchen`]) + cint(row[`${key}_kitchen`]);
+			target[`${key}_wardrobe`] =
+				cint(target[`${key}_wardrobe`]) + cint(row[`${key}_wardrobe`]);
+		});
+	});
+
+	return Object.values(merged);
+}
+
 function cpr_get_chart_project_rows(rows) {
-	/** Site rows are rollups of children — exclude from stacked bars to avoid double height. */
-	const project_rows = rows.filter((r) => r.row_type === "project");
+	/** Roll child unit demand up to Site names for chart legend and stacked bars. */
+	const project_rows = (rows || []).filter((r) => r.row_type === "project");
 	const detail_rows = project_rows.filter((r) => r.project_type !== "Site");
-	return detail_rows.length ? detail_rows : project_rows;
+	const source = detail_rows.length
+		? detail_rows
+		: project_rows.filter((r) => r.project_type === "Site");
+	return cpr_rollup_rows_by_chart_label(source);
 }
 
 function cpr_collect_dashboard_data() {
@@ -993,7 +1031,7 @@ function cpr_collect_dashboard_data() {
 		const free = cint(free_row[key]);
 		const projects = chart_project_rows
 			.map((p) => ({
-				name: p.project,
+				name: cpr_chart_label(p),
 				id: p.project_id,
 				subtitle: p.subtitle || "",
 				color_index: p.color_index || 0,
@@ -1273,14 +1311,10 @@ function cpr_render_kpi_cards($dash, data) {
 		: `${__("all")} ${over_period} ${__("within capacity")}`;
 
 	const pipeline_totals = data.pipeline_totals || cpr_last_pipeline_totals;
-	const pipeline_total = pipeline_totals?.total_demand;
-	const pipeline_projects = pipeline_totals?.project_count;
+	const pipeline_total =
+		pipeline_totals?.total_kitchens ?? pipeline_totals?.total_demand;
 	const pipeline_value =
 		pipeline_total === undefined || pipeline_total === null ? "—" : pipeline_total;
-	const pipeline_project_label =
-		pipeline_projects === undefined || pipeline_projects === null
-			? "—"
-			: pipeline_projects;
 
 	const cards = [
 		{
@@ -1288,9 +1322,7 @@ function cpr_render_kpi_cards($dash, data) {
 			label: __("Total kitchens in pipeline"),
 			value: pipeline_value,
 			value_cls: "",
-			foot: `${__("across")} ${pipeline_project_label} ${__("projects · next")} ${cpr_horizon_months} ${__(
-				"months"
-			)}`,
+			foot: __("kitchen units in pipeline"),
 		},
 		{
 			cls: "cpr-kpi-card--green",
@@ -1336,7 +1368,7 @@ function cpr_render_legend($dash, data) {
 			return `
 			<span class="cpr-legend-item">
 				<span class="cpr-legend-swatch" style="background:${palette.chart}"></span>
-				<span style="color:${palette.text}">${frappe.utils.escape_html(proj.project || "")}</span>
+				<span style="color:${palette.text}">${frappe.utils.escape_html(cpr_chart_label(proj))}</span>
 			</span>`;
 		})
 		.join("");

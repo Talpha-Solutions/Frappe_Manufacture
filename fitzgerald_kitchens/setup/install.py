@@ -7,7 +7,21 @@ from fitzgerald_kitchens.setup.development_stages import (
 )
 
 
+def ensure_capacity_pipeline_report_module():
+	"""Script reports must use the app module so Python resolves correctly."""
+	if not frappe.db.exists("Report", "Capacity Pipeline Report"):
+		return
+	frappe.db.set_value(
+		"Report",
+		"Capacity Pipeline Report",
+		"module",
+		"fitzgerald_kitchens",
+		update_modified=False,
+	)
+
+
 def after_install():
+	ensure_capacity_pipeline_report_module()
 	from fitzgerald_kitchens.setup.project_bom_fields import remove_project_bom_fields
 	from fitzgerald_kitchens.setup.project_unit_fields import ensure_project_unit_fields
 	from fitzgerald_kitchens.setup.project_bom_fields import ensure_project_bom_fields

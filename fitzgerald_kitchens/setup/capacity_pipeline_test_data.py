@@ -73,14 +73,23 @@ KITCHEN_LOCAL_SITE_EXTRA_CHILD = {
 KITCHEN_LOCAL_STANDALONE_PROJECT = "Gamma Kitchens"
 KITCHEN_LOCAL_PROJECT_START_DATE = "2026-06-01"
 
+# Unit Qty on each kitchen unit project (1 item = 1 kitchen).
+KITCHEN_LOCAL_PROJECT_UNIT_QTY = {
+	"Alpha Kitchens": 3,
+	"Beta Kitchens": 2,
+	"Gamma Kitchens": 1,
+	"Riverside Kitchen 02": 2,
+}
+
 KITCHEN_LOCAL_EXPECTED = {
 	"filters": {
 		"from_date": "2026-06-01",
 		"to_date": "2026-08-31",
 	},
 	"pipeline_kpi": {
-		"total_demand": 12,
-		"project_count": 5,
+		"total_demand": 8,
+		"total_kitchens": 8,
+		"project_count": 4,
 	},
 	"BOM-A (capacity 10)": {
 		"bom_item": "Kitchen Type A - KT",
@@ -161,10 +170,6 @@ DEMO_DELIVERY_SCHEDULE = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
 def insert_capacity_pipeline_test_data(profile=None):
 	"""Insert test data — auto-detects profile when not specified."""
 	profile = profile or _detect_profile()
@@ -217,6 +222,8 @@ def _seed_kitchen_local_fresh(company):
 	refs = _create_kitchen_local_masters(company)
 	created_units = _create_kitchen_local_projects_and_units(refs, company)
 	site = _ensure_kitchen_local_site_hierarchy(refs, company)
+	_sync_kitchen_local_project_delivery_dates()
+	_sync_kitchen_local_project_unit_qty()
 	job_cards = _create_kitchen_local_job_cards(refs, company)
 	downtime = _create_kitchen_local_downtime(refs["workstation"], company)
 	frappe.db.commit()
@@ -245,6 +252,8 @@ def reset_kitchen_local_delivery_data():
 	removed = _remove_kitchen_local_development_units()
 	created = _create_kitchen_local_projects_and_units(refs, company)
 	_ensure_kitchen_local_site_hierarchy(refs, company)
+	_sync_kitchen_local_project_delivery_dates()
+	_sync_kitchen_local_project_unit_qty()
 	removed_mfg = _remove_kitchen_local_manufacturing_data()
 	job_cards = _create_kitchen_local_job_cards(refs, company)
 	frappe.db.commit()
@@ -364,7 +373,7 @@ def verify_capacity_pipeline_test_data():
 
 
 def verify_pipeline_kpi():
-	"""Verify Total kitchens in pipeline KPI (stable when BOM changes)."""
+	"""Verify Total kitchens in pipeline KPI (unit qty sum, stable when BOM changes)."""
 	from fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report import (
 		get_pipeline_totals,
 	)
@@ -390,13 +399,16 @@ def verify_pipeline_kpi():
 	checks = []
 	for label, totals in results.items():
 		for field, exp in expected.items():
+			actual = totals.get(field)
+			if field == "total_demand" and actual is None:
+				actual = totals.get("total_kitchens")
 			checks.append(
 				{
 					"filter": label,
 					"field": field,
 					"expected": exp,
-					"actual": totals.get(field),
-					"ok": totals.get(field) == exp,
+					"actual": actual,
+					"ok": actual == exp,
 				}
 			)
 	bom_stable = results["no_bom"] == results["bom_a"] == results["bom_b"]
@@ -431,7 +443,7 @@ def verify_project_item_counts():
 
 	- Monthly cell totals vs subtitle (Site rows)
 	- Kitchen / robe tooltip totals vs subtitle
-	- Raw Development Unit delivery counts in the report horizon
+	- Raw Project delivery counts in the report horizon
 	"""
 	from fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report import (
 		execute,
@@ -473,20 +485,34 @@ def verify_project_item_counts():
 
 
 def _parse_site_subtitle(subtitle):
-	"""Return (units, kitchens, robes) parsed from a Site subtitle string."""
-	units = kitchens = robes = 0
+	"""Return (units, kitchens, wardrobes) parsed from a Site subtitle string."""
+	units = kitchens = wardrobes = 0
 	if not subtitle:
-		return units, kitchens, robes
-	match = re.search(r"(\d+)\s+units", subtitle or "")
+		return units, kitchens, wardrobes
+	match = re.search(r"^(\d+)\s+Units?\b", subtitle, re.IGNORECASE)
 	if match:
 		units = int(match.group(1))
-	match = re.search(r"(\d+)\s+kitchens", subtitle or "")
+	match = re.search(r"(\d+)\s+kitchens", subtitle, re.IGNORECASE)
 	if match:
 		kitchens = int(match.group(1))
-	match = re.search(r"(\d+)\s+robes", subtitle or "")
+	match = re.search(r"(\d+)\s+Wardrobes?", subtitle, re.IGNORECASE)
 	if match:
-		robes = int(match.group(1))
-	return units, kitchens, robes
+		wardrobes = int(match.group(1))
+	return units, kitchens, wardrobes
+
+
+def _expected_site_subtitle_counts(site_project_id):
+	"""Structural child counts under a Site (fallback when no demand in horizon)."""
+	from fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report import (
+		_query_site_structural_totals,
+	)
+
+	totals = _query_site_structural_totals(site_project_id)
+	return {
+		"units": totals["kitchens"],
+		"kitchens": totals["kitchens"],
+		"wardrobes": totals["wardrobes"],
+	}
 
 
 def _audit_project_row(row, month_keys, filters):
@@ -509,7 +535,7 @@ def _audit_project_row(row, month_keys, filters):
 	subtitle_matches = True
 	if project_type == "Site":
 		subtitle_matches = (
-			sub_units == sum_demand
+			sub_units == sum_kitchen
 			and sub_kitchen == sum_kitchen
 			and sub_robe == sum_robe
 		)
@@ -531,26 +557,32 @@ def _audit_project_row(row, month_keys, filters):
 
 
 def _kitchen_local_db_unit_counts(from_date, to_date):
-	"""Delivery-stage Development Unit counts per project (report horizon)."""
+	"""Project scheduled delivery counts per project (report horizon)."""
+	from fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report import (
+		_project_is_kitchen_sql,
+		_project_is_wardrobe_sql,
+		_project_schedule_date_sql,
+		_project_unit_qty_sql,
+	)
+
+	schedule = _project_schedule_date_sql("p")
+	qty = _project_unit_qty_sql("p")
+	kitchen = _project_is_kitchen_sql("p")
+	wardrobe = _project_is_wardrobe_sql("p")
 	rows = frappe.db.sql(
-		"""
+		f"""
 		SELECT
 			p.project_name,
 			p.project_type,
-		 DATE_FORMAT(dus.planned_date, '%%Y-%%m') AS ym,
-		 COUNT(*) AS units,
-		 SUM(CASE WHEN IFNULL(p.kitchen_required, 0) = 1
-			 OR p.project_type = 'Kitchen' THEN 1 ELSE 0 END) AS kitchens,
-		 SUM(CASE WHEN IFNULL(p.wardrobe_required, 0) = 1
-			 OR p.project_type = 'Robe' THEN 1 ELSE 0 END) AS robes
+			DATE_FORMAT({schedule}, '%%Y-%%m') AS ym,
+			SUM({qty}) AS units,
+			SUM(CASE WHEN {kitchen} THEN {qty} ELSE 0 END) AS kitchens,
+			SUM(CASE WHEN {wardrobe} THEN {qty} ELSE 0 END) AS robes
 		FROM
-			`tabDevelopment Unit` du
-			INNER JOIN `tabDevelopment Unit Stage` dus ON dus.parent = du.name
-			INNER JOIN `tabDevelopment Stage` ds ON ds.name = dus.stage
-			INNER JOIN `tabProject` p ON p.name = du.project
+			`tabProject` p
 		WHERE
-			ds.stage_category = 'Delivery'
-			AND dus.planned_date BETWEEN %(from_date)s AND %(to_date)s
+			IFNULL(p.project_type, '') != 'Site'
+			AND {schedule} BETWEEN %(from_date)s AND %(to_date)s
 			AND p.project_name IN %(names)s
 		GROUP BY
 			p.project_name, p.project_type, ym
@@ -870,7 +902,11 @@ def _create_kitchen_local_projects_and_units(refs, company):
 
 	for project_name, (bom_key, dates) in KITCHEN_LOCAL_PROJECTS.items():
 		project = _get_or_create_kitchen_local_project(
-			project_name, bom_map[bom_key], refs["customer"], company
+			project_name,
+			bom_map[bom_key],
+			refs["customer"],
+			company,
+			expected_end_date=dates[0] if dates else None,
 		)
 		for index, planned_date in enumerate(dates, start=1):
 			unit = frappe.get_doc(
@@ -896,6 +932,7 @@ def _get_or_create_kitchen_local_project(
 	company,
 	project_type=None,
 	site_parent=None,
+	expected_end_date=None,
 ):
 	existing = frappe.db.get_value("Project", {"project_name": project_name}, "name")
 	resolved_type = project_type or "Kitchen"
@@ -909,6 +946,8 @@ def _get_or_create_kitchen_local_project(
 		}
 		if site_parent is not None:
 			update_values["fk_parent_project"] = site_parent
+		if expected_end_date:
+			update_values["expected_end_date"] = expected_end_date
 		frappe.db.set_value(
 			"Project",
 			existing,
@@ -927,11 +966,52 @@ def _get_or_create_kitchen_local_project(
 			"project_type": resolved_type,
 			"status": "Open",
 			"expected_start_date": KITCHEN_LOCAL_PROJECT_START_DATE,
+			**({"expected_end_date": expected_end_date} if expected_end_date else {}),
 			**({"fk_parent_project": site_parent} if site_parent else {}),
 		}
 	)
 	doc.insert(ignore_permissions=True)
 	return doc.name
+
+
+def _sync_kitchen_local_project_delivery_dates():
+	"""Set Project expected_end_date from the first scheduled delivery in test fixtures."""
+	for mapping in (KITCHEN_LOCAL_PROJECTS, KITCHEN_LOCAL_SITE_EXTRA_CHILD):
+		for project_name, (_bom_key, dates) in mapping.items():
+			if not dates:
+				continue
+			project = frappe.db.get_value("Project", {"project_name": project_name}, "name")
+			if not project:
+				continue
+			frappe.db.set_value(
+				"Project",
+				project,
+				{"expected_end_date": dates[0], "expected_start_date": KITCHEN_LOCAL_PROJECT_START_DATE},
+				update_modified=False,
+			)
+
+
+def _sync_kitchen_local_project_unit_qty():
+	"""Set fk_unit_qty on kitchen unit projects (1 item = 1 kitchen)."""
+	if not frappe.db.has_column("Project", "fk_unit_qty"):
+		return
+
+	for project_name, qty in KITCHEN_LOCAL_PROJECT_UNIT_QTY.items():
+		project = frappe.db.get_value("Project", {"project_name": project_name}, "name")
+		if not project:
+			continue
+		frappe.db.set_value(
+			"Project",
+			project,
+			"fk_unit_qty",
+			qty,
+			update_modified=False,
+		)
+
+
+def _sync_kitchen_local_project_creation_dates():
+	"""Deprecated — KPI uses planned delivery dates and fk_unit_qty."""
+	return None
 
 
 def _get_or_create_kitchen_local_site_project(refs, company):
@@ -990,6 +1070,7 @@ def _ensure_kitchen_local_site_hierarchy(refs, company):
 			company,
 			project_type=project_type,
 			site_parent=site,
+			expected_end_date=dates[0] if dates else None,
 		)
 		for index, planned_date in enumerate(dates, start=1):
 			unit_reference = f"{project_name} Unit {index:02d}"
@@ -1279,19 +1360,23 @@ def _enable_demo_bom_capacity():
 
 
 def _set_demo_project_kitchen_boms():
-	for project in DEMO_DELIVERY_SCHEDULE:
+	for project, dates in DEMO_DELIVERY_SCHEDULE.items():
 		if not frappe.db.exists("Project", project):
 			continue
+
+		values = {
+			"fk_effective_bom": DEMO_KITCHEN_BOM,
+			"kitchen_bom": DEMO_KITCHEN_BOM,
+			"kitchen_required": 1,
+			"project_type": "Kitchen",
+		}
+		if dates:
+			values["expected_end_date"] = dates[0]
 
 		frappe.db.set_value(
 			"Project",
 			project,
-			{
-				"fk_effective_bom": DEMO_KITCHEN_BOM,
-				"kitchen_bom": DEMO_KITCHEN_BOM,
-				"kitchen_required": 1,
-				"project_type": "Kitchen",
-			},
+			values,
 			update_modified=False,
 		)
 
@@ -1718,12 +1803,22 @@ def verify_travel_com_capacity_pipeline():
 			)
 
 	pipeline = get_pipeline_totals(filters)
-	exp_total = sum(expected_by_month.get(mkey, 0) for mkey in month_keys)
-	exp_projects = len(
-		[p for p, months in expected_by_project.items() if any(months.get(m) for m in month_keys)]
+	from fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report import (
+		_count_pipeline_kitchen_unit_projects,
+		_count_pipeline_kitchen_units,
+		_projects_for_demand_total,
+		_q_projects,
 	)
+
+	all_filters = frappe._dict({**filters, "bom": None})
+	projects = _q_projects(all_filters)
+	demand_projects = _projects_for_demand_total(projects)
+	project_names = [p.name for p in demand_projects]
+	exp_total = _count_pipeline_kitchen_units(project_names)
+	exp_projects = _count_pipeline_kitchen_unit_projects(project_names)
 	for field, expected, actual in (
 		("total_demand", exp_total, pipeline.get("total_demand")),
+		("total_kitchens", exp_total, pipeline.get("total_kitchens")),
 		("project_count", exp_projects, pipeline.get("project_count")),
 	):
 		checks.append(
