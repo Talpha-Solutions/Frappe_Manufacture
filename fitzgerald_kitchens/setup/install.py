@@ -37,6 +37,7 @@ def after_install():
 	)
 
 	ensure_development_stage_settings()
+	from fitzgerald_kitchens.setup.projects_settings_fields import ensure_projects_settings_fields
 	from fitzgerald_kitchens.setup.project_form_layout import reset_project_form_layout
 
 	reset_project_form_layout()
@@ -48,6 +49,7 @@ def after_install():
 	ensure_project_naming_series_options()
 	ensure_unit_series_counters()
 	ensure_project_types()
+	ensure_projects_settings_fields()
 	ensure_project_bom_fields()
 	ensure_production_plan_fields()
 	ensure_projects_sidebar()

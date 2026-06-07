@@ -106,7 +106,7 @@ frappe.query_reports[CPR_REPORT_NAME] = {
 			fieldname: "bom",
 			fieldtype: "Link",
 			options: "BOM",
-			default: frappe.boot?.capacity_pipeline_default_bom || "",
+			default: "",
 			get_query: () => {
 				const company = cpr_get_company();
 				return {
@@ -278,10 +278,10 @@ function cint(v) {
 }
 
 function cpr_ensure_workspace_sidebar() {
-	if (!frappe.app?.sidebar || !frappe.boot.workspace_sidebar_item?.manufacturing) {
+	if (!frappe.app?.sidebar || !frappe.boot.workspace_sidebar_item?.projects) {
 		return;
 	}
-	frappe.app.sidebar.setup("Manufacturing");
+	frappe.app.sidebar.setup("Projects");
 	setTimeout(() => frappe.app.sidebar.set_active_workspace_item?.(), 0);
 }
 
@@ -506,34 +506,42 @@ function cpr_get_default_bom_for_company(company) {
 
 function cpr_prepare_filters_before_refresh(report) {
 	const query_report = report || frappe.query_report;
-	return cpr_sync_bom_filter_from_boot(query_report, true).then(async () => {
+	return cpr_sync_default_bom_filter(query_report, { force: true }).then(async () => {
 		cpr_detect_horizon_from_filters(query_report);
 		await cpr_apply_horizon(cpr_horizon_months, false);
 	});
 }
 
-function cpr_sync_bom_filter_from_boot(report, allow_fetch) {
-	const query_report = report || frappe.query_report;
-	if (query_report.get_filter_value("bom")) {
-		return Promise.resolve();
+function cpr_fetch_default_bom(company) {
+	if (!company) {
+		return Promise.resolve("");
 	}
-
-	const company = cpr_get_company(query_report);
-	const boot_bom = cpr_get_default_bom_for_company(company);
-	if (boot_bom) {
-		return cpr_set_bom_filter_value(query_report, boot_bom);
-	}
-
-	if (!allow_fetch || !company) {
-		return Promise.resolve();
-	}
-
 	return frappe
 		.xcall(
 			"fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report.get_default_bom",
 			{ company }
 		)
-		.then((bom) => cpr_set_bom_filter_value(query_report, bom));
+		.then((bom) => bom || "");
+}
+
+function cpr_sync_default_bom_filter(report, { force = false } = {}) {
+	const query_report = report || frappe.query_report;
+	if (!force && query_report.get_filter_value("bom")) {
+		return Promise.resolve();
+	}
+
+	const company = cpr_get_company(query_report);
+	if (!company) {
+		return Promise.resolve();
+	}
+
+	return cpr_fetch_default_bom(company).then((bom) =>
+		cpr_set_bom_filter_value(query_report, bom)
+	);
+}
+
+function cpr_sync_bom_filter_from_boot(report, allow_fetch) {
+	return cpr_sync_default_bom_filter(report, { force: allow_fetch });
 }
 
 async function cpr_set_bom_filter_value(report, bom) {
@@ -548,14 +556,7 @@ async function cpr_set_bom_filter_value(report, bom) {
 
 function cpr_set_default_bom(refresh) {
 	const report = frappe.query_report;
-	const company = cpr_get_company(report);
-	const boot_bom = cpr_get_default_bom_for_company(company);
-
-	const apply = boot_bom
-		? cpr_set_bom_filter_value(report, boot_bom)
-		: cpr_sync_bom_filter_from_boot(report, true);
-
-	return apply.then(() => {
+	return cpr_sync_default_bom_filter(report, { force: true }).then(() => {
 		if (refresh) {
 			report.refresh();
 		}

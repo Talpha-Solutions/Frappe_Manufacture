@@ -118,6 +118,7 @@ BOM_COST_CALCULATOR_ITEM = {
 }
 
 PROJECT_REPORT_SIDEBAR_ITEMS = [
+	CAPACITY_PIPELINE_REPORT_ITEM,
 	PROJECT_PRODUCTION_TIME_SUMMARY_ITEM,
 	MANUFACTURING_COST_SUMMARY_ITEM,
 ]
@@ -129,9 +130,6 @@ def ensure_projects_sidebar():
 
 	sidebar = frappe.get_doc("Workspace Sidebar", PROJECTS_SIDEBAR)
 	changed = False
-
-	if _remove_sidebar_link(sidebar, CAPACITY_PIPELINE_REPORT_ITEM["link_to"]):
-		changed = True
 
 	if _ensure_main_sidebar_item(sidebar):
 		changed = True

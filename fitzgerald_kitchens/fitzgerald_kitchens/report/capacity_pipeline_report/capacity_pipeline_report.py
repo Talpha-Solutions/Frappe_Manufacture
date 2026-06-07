@@ -54,14 +54,18 @@ def execute(filters=None):
 @frappe.whitelist()
 def get_default_bom(company=None):
     """
-    Return the best default BOM for the Capacity Pipeline filter.
+    Return the default BOM for the Capacity Pipeline filter.
 
-    Prefer the BOM assigned to the most active projects (fk_effective_bom or
-    kitchen_bom), then fall back to the most recently created active BOM.
+    Uses Projects Settings when configured, otherwise the BOM assigned to the
+    most active projects, then the most recently created active BOM.
     """
     company = company or frappe.defaults.get_user_default("Company")
     if not company:
         return None
+
+    settings_bom = _get_settings_default_bom(company)
+    if settings_bom:
+        return settings_bom
 
     has_fk_bom = frappe.db.has_column("Project", "fk_effective_bom")
     fk_select = "p.fk_effective_bom" if has_fk_bom else "NULL"
@@ -95,6 +99,28 @@ def get_default_bom(company=None):
         "name",
         order_by="creation desc",
     )
+
+
+def _get_settings_default_bom(company):
+    """Return configured default BOM from Projects Settings for the company."""
+    if not company or not frappe.db.exists("DocType", "Capacity Pipeline Default BOM"):
+        return None
+
+    rows = frappe.get_all(
+        "Capacity Pipeline Default BOM",
+        filters={"parent": "Projects Settings", "parenttype": "Projects Settings", "company": company},
+        fields=["default_bom"],
+        limit=1,
+    )
+    if not rows:
+        return None
+
+    bom = rows[0].default_bom
+    if bom and frappe.db.exists(
+        "BOM", {"name": bom, "company": company, "docstatus": 1, "is_active": 1}
+    ):
+        return bom
+    return None
 
 
 def _normalize_report_filters(filters):
