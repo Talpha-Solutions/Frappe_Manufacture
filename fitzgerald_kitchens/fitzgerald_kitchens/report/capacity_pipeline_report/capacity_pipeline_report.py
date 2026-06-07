@@ -920,73 +920,17 @@ def _merge_product_breakdown_maps(project_breakdown, job_card_breakdown):
     return merged
 
 
-def _q_demand(project_names, from_date, to_date, bom_list, bottleneck):
-    """Job Card actual time when available; else Project planned delivery dates."""
+def _q_demand(project_names, from_date, to_date, bom_list=None, bottleneck=None):
+    """Job Card actual/scheduled time when available; else Project planned delivery dates."""
     if not project_names:
         return {}
 
     project_demand = _q_project_demand(project_names, from_date, to_date)
-    if not (
-        bom_list
-        and bottleneck
-        and _has_job_card_activity(project_names, bom_list, from_date, to_date)
-    ):
+    if not _has_job_card_activity_any(project_names, from_date, to_date):
         return project_demand
 
-    job_card_demand = _q_job_card_demand(
-        project_names, from_date, to_date, bom_list, bottleneck
-    )
+    job_card_demand = _q_job_card_demand(project_names, from_date, to_date)
     return _merge_period_demand_maps(project_demand, job_card_demand)
-
-
-def _has_job_card_activity(project_names, bom_list, from_date, to_date):
-    """Return True when job cards exist for the filtered projects in the report period."""
-    return bool(
-        frappe.db.sql(
-            """
-            SELECT 1
-            FROM `tabJob Card` jc
-            WHERE
-                jc.docstatus < 2
-                AND jc.project IN %(project_names)s
-                AND jc.bom_no IN %(bom_list)s
-                AND (
-                    (
-                        jc.status = 'Completed'
-                        AND (
-                            EXISTS (
-                                SELECT 1
-                                FROM `tabJob Card Time Log` jctl
-                                WHERE
-                                    jctl.parent = jc.name
-                                    AND jctl.from_time >= %(from_datetime)s
-                                    AND jctl.from_time <= %(to_datetime)s
-                            )
-                            OR (
-                                COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
-                                AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
-                                AND IFNULL(jc.total_time_in_mins, 0) > 0
-                            )
-                        )
-                    )
-                    OR (
-                        jc.status NOT IN ('Completed', 'Cancelled')
-                        AND COALESCE(jc.expected_start_date, jc.posting_date) >= %(from_date)s
-                        AND COALESCE(jc.expected_start_date, jc.posting_date) <= %(to_date)s
-                    )
-                )
-            LIMIT 1
-            """,
-            {
-                "project_names": project_names,
-                "bom_list": bom_list,
-                "from_datetime": f"{from_date} 00:00:00",
-                "to_datetime": f"{to_date} 23:59:59",
-                "from_date": from_date,
-                "to_date": to_date,
-            },
-        )
-    )
 
 
 def _q_project_demand(project_names, from_date, to_date):
@@ -1052,6 +996,7 @@ def _q_monthly_product_breakdown(projects, project_names, from_date, to_date):
 
 
 def _has_job_card_activity_any(project_names, from_date, to_date):
+    """Return True when any project job cards exist in the report period."""
     return bool(
         frappe.db.sql(
             """
@@ -1063,8 +1008,21 @@ def _has_job_card_activity_any(project_names, from_date, to_date):
                 AND (
                     (
                         jc.status = 'Completed'
-                        AND COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
-                        AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
+                        AND (
+                            EXISTS (
+                                SELECT 1
+                                FROM `tabJob Card Time Log` jctl
+                                WHERE
+                                    jctl.parent = jc.name
+                                    AND jctl.from_time >= %(from_datetime)s
+                                    AND jctl.from_time <= %(to_datetime)s
+                            )
+                            OR (
+                                COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
+                                AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
+                                AND IFNULL(jc.total_time_in_mins, 0) > 0
+                            )
+                        )
                     )
                     OR (
                         jc.status NOT IN ('Completed', 'Cancelled')
@@ -1085,6 +1043,17 @@ def _has_job_card_activity_any(project_names, from_date, to_date):
     )
 
 
+def _get_bottleneck_times_for_boms(bom_names):
+    times = {}
+    for bom in bom_names:
+        if not bom:
+            continue
+        bottleneck = _get_bottleneck_operation(_q_bom_operations([bom]))
+        if bottleneck and flt(bottleneck.time_in_mins) > 0:
+            times[bom] = flt(bottleneck.time_in_mins)
+    return times
+
+
 def _get_bottleneck_times_for_projects(projects):
     bom_names = {
         bom
@@ -1092,12 +1061,23 @@ def _get_bottleneck_times_for_projects(projects):
         for bom in (_project_kitchen_bom(proj), proj.wardrobe_bom)
         if bom
     }
-    times = {}
-    for bom in bom_names:
-        bottleneck = _get_bottleneck_operation(_q_bom_operations([bom]))
-        if bottleneck and flt(bottleneck.time_in_mins) > 0:
-            times[bom] = flt(bottleneck.time_in_mins)
-    return times
+    return _get_bottleneck_times_for_boms(bom_names)
+
+
+def _job_card_scheduled_mins_sql():
+    return """
+        CASE
+            WHEN IFNULL(jc.time_required, 0) > 0 THEN jc.time_required
+            ELSE IFNULL(jc.for_quantity, 0) * IFNULL(
+                (
+                    SELECT MAX(bo.time_in_mins)
+                    FROM `tabBOM Operation` bo
+                    WHERE bo.parent = jc.bom_no AND bo.time_in_mins > 0
+                ),
+                0
+            )
+        END
+    """
 
 
 def _classify_project_bom(proj, bom_no):
@@ -1278,49 +1258,33 @@ def _get_bottleneck_operation(operations):
     return max(valid, key=lambda op: flt(op.time_in_mins))
 
 
-def _q_job_card_demand(project_names, from_date, to_date, bom_list, bottleneck):
+def _q_job_card_demand(project_names, from_date, to_date):
     """
-    Derive monthly demand (kitchen units) from Job Cards on the bottleneck operation.
+    Derive monthly demand from all Job Cards on each project (no BOM filter).
 
     Per job card:
     - **Completed** → actual minutes (time logs by month, or total_time_in_mins)
     - **Not completed** → scheduled minutes (time_required) in the planned month
 
-    Minutes are divided by the bottleneck operation time to estimate units produced.
+    Minutes are divided by each job card BOM bottleneck operation time.
     """
-    if not project_names or not bom_list or not bottleneck:
+    if not project_names:
         return {}
 
-    bottleneck_time = flt(bottleneck.time_in_mins)
-    if bottleneck_time <= 0:
-        return {}
-
-    ws_cond = ""
     params = {
         "project_names": project_names,
-        "bom_list": bom_list,
         "from_datetime": f"{from_date} 00:00:00",
         "to_datetime": f"{to_date} 23:59:59",
         "from_date": from_date,
         "to_date": to_date,
     }
+    scheduled_mins = _job_card_scheduled_mins_sql()
 
-    if bottleneck.workstation:
-        ws_cond = "AND jc.workstation = %(workstation)s"
-        params["workstation"] = bottleneck.workstation
-    elif bottleneck.workstation_type:
-        ws_cond = "AND jc.workstation_type = %(workstation_type)s"
-        params["workstation_type"] = bottleneck.workstation_type
-
-    if bottleneck.operation:
-        ws_cond += " AND jc.operation = %(operation)s"
-        params["operation"] = bottleneck.operation
-
-    # Completed job cards — actual time from time logs, grouped by log month.
     completed_log_rows = frappe.db.sql(
-        f"""
+        """
         SELECT
             jc.project,
+            jc.bom_no,
             DATE_FORMAT(jctl.from_time, '%%Y-%%m') AS ym,
             SUM(jctl.time_in_mins) AS mins
         FROM
@@ -1330,22 +1294,20 @@ def _q_job_card_demand(project_names, from_date, to_date, bom_list, bottleneck):
             jc.docstatus < 2
             AND jc.status = 'Completed'
             AND jc.project IN %(project_names)s
-            AND jc.bom_no IN %(bom_list)s
             AND jctl.from_time >= %(from_datetime)s
             AND jctl.from_time <= %(to_datetime)s
-            {ws_cond}
         GROUP BY
-            jc.project, ym
+            jc.project, jc.bom_no, ym
         """,
         params,
         as_dict=True,
     )
 
-    # Completed job cards without time logs — actual total on completion month.
     completed_total_rows = frappe.db.sql(
-        f"""
+        """
         SELECT
             jc.project,
+            jc.bom_no,
             DATE_FORMAT(COALESCE(jc.actual_end_date, jc.posting_date), '%%Y-%%m') AS ym,
             SUM(jc.total_time_in_mins) AS mins
         FROM
@@ -1354,7 +1316,6 @@ def _q_job_card_demand(project_names, from_date, to_date, bom_list, bottleneck):
             jc.docstatus < 2
             AND jc.status = 'Completed'
             AND jc.project IN %(project_names)s
-            AND jc.bom_no IN %(bom_list)s
             AND COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
             AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
             AND IFNULL(jc.total_time_in_mins, 0) > 0
@@ -1363,54 +1324,55 @@ def _q_job_card_demand(project_names, from_date, to_date, bom_list, bottleneck):
                 FROM `tabJob Card Time Log` jctl
                 WHERE jctl.parent = jc.name
             )
-            {ws_cond}
         GROUP BY
-            jc.project, ym
+            jc.project, jc.bom_no, ym
         """,
         params,
         as_dict=True,
     )
 
-    # Open / in-progress job cards — scheduled time in the planned month.
     scheduled_rows = frappe.db.sql(
         f"""
         SELECT
             jc.project,
+            jc.bom_no,
             DATE_FORMAT(COALESCE(jc.expected_start_date, jc.posting_date), '%%Y-%%m') AS ym,
-            SUM(
-                CASE
-                    WHEN IFNULL(jc.time_required, 0) > 0 THEN jc.time_required
-                    ELSE IFNULL(jc.for_quantity, 0) * %(bottleneck_time)s
-                END
-            ) AS mins
+            SUM({scheduled_mins}) AS mins
         FROM
             `tabJob Card` jc
         WHERE
             jc.docstatus < 2
             AND jc.status NOT IN ('Completed', 'Cancelled')
             AND jc.project IN %(project_names)s
-            AND jc.bom_no IN %(bom_list)s
             AND COALESCE(jc.expected_start_date, jc.posting_date) >= %(from_date)s
             AND COALESCE(jc.expected_start_date, jc.posting_date) <= %(to_date)s
-            {ws_cond}
         GROUP BY
-            jc.project, ym
+            jc.project, jc.bom_no, ym
         """,
-        {**params, "bottleneck_time": bottleneck_time},
+        params,
         as_dict=True,
     )
 
     mins_map = defaultdict(lambda: defaultdict(float))
+    bom_names = set()
     for row in completed_log_rows + completed_total_rows + scheduled_rows:
-        if not row.project or not row.ym:
+        if not row.project or not row.ym or not row.bom_no:
             continue
         mkey = "m_" + row.ym.replace("-", "_")
-        mins_map[row.project][mkey] += flt(row.mins)
+        mins_map[row.project][(row.bom_no, mkey)] += flt(row.mins)
+        bom_names.add(row.bom_no)
+
+    bottleneck_times = _get_bottleneck_times_for_boms(bom_names)
 
     demand_map = defaultdict(dict)
-    for project, month_mins in mins_map.items():
-        for mkey, mins in month_mins.items():
-            demand_map[project][mkey] = int(mins / bottleneck_time)
+    for project, bom_month_mins in mins_map.items():
+        for (bom_no, mkey), mins in bom_month_mins.items():
+            bottleneck_time = bottleneck_times.get(bom_no)
+            if not bottleneck_time:
+                continue
+            demand_map[project][mkey] = demand_map[project].get(mkey, 0) + int(
+                mins / bottleneck_time
+            )
 
     return demand_map
 
@@ -1469,21 +1431,15 @@ def _count_weekday_holidays_in_range(holiday_dates, start, end):
     )
 
 
-def _q_demand_weekly(project_names, from_date, to_date, bom_list, bottleneck):
+def _q_demand_weekly(project_names, from_date, to_date, bom_list=None, bottleneck=None):
     if not project_names:
         return {}
 
     project_demand = _q_project_demand_weekly(project_names, from_date, to_date)
-    if not (
-        bom_list
-        and bottleneck
-        and _has_job_card_activity(project_names, bom_list, from_date, to_date)
-    ):
+    if not _has_job_card_activity_any(project_names, from_date, to_date):
         return project_demand
 
-    job_card_demand = _q_job_card_demand_weekly(
-        project_names, from_date, to_date, bom_list, bottleneck
-    )
+    job_card_demand = _q_job_card_demand_weekly(project_names, from_date, to_date)
     return _merge_period_demand_maps(project_demand, job_card_demand)
 
 
@@ -1526,40 +1482,26 @@ def _q_project_demand_weekly(project_names, from_date, to_date):
     return demand_map
 
 
-def _q_job_card_demand_weekly(project_names, from_date, to_date, bom_list, bottleneck):
-    if not project_names or not bom_list or not bottleneck:
+def _q_job_card_demand_weekly(project_names, from_date, to_date):
+    """Weekly demand from all project job cards (see _q_job_card_demand)."""
+    if not project_names:
         return {}
 
-    bottleneck_time = flt(bottleneck.time_in_mins)
-    if bottleneck_time <= 0:
-        return {}
-
-    ws_cond = ""
     params = {
         "project_names": project_names,
-        "bom_list": bom_list,
         "from_datetime": f"{from_date} 00:00:00",
         "to_datetime": f"{to_date} 23:59:59",
         "from_date": from_date,
         "to_date": to_date,
     }
-
-    if bottleneck.workstation:
-        ws_cond = "AND jc.workstation = %(workstation)s"
-        params["workstation"] = bottleneck.workstation
-    elif bottleneck.workstation_type:
-        ws_cond = "AND jc.workstation_type = %(workstation_type)s"
-        params["workstation_type"] = bottleneck.workstation_type
-
-    if bottleneck.operation:
-        ws_cond += " AND jc.operation = %(operation)s"
-        params["operation"] = bottleneck.operation
+    scheduled_mins = _job_card_scheduled_mins_sql()
 
     log_week = _week_start_sql("jctl.from_time")
     completed_log_rows = frappe.db.sql(
         f"""
         SELECT
             jc.project,
+            jc.bom_no,
             {log_week} AS week_start,
             SUM(jctl.time_in_mins) AS mins
         FROM
@@ -1569,12 +1511,10 @@ def _q_job_card_demand_weekly(project_names, from_date, to_date, bom_list, bottl
             jc.docstatus < 2
             AND jc.status = 'Completed'
             AND jc.project IN %(project_names)s
-            AND jc.bom_no IN %(bom_list)s
             AND jctl.from_time >= %(from_datetime)s
             AND jctl.from_time <= %(to_datetime)s
-            {ws_cond}
         GROUP BY
-            jc.project, week_start
+            jc.project, jc.bom_no, week_start
         """,
         params,
         as_dict=True,
@@ -1585,6 +1525,7 @@ def _q_job_card_demand_weekly(project_names, from_date, to_date, bom_list, bottl
         f"""
         SELECT
             jc.project,
+            jc.bom_no,
             {actual_week} AS week_start,
             SUM(jc.total_time_in_mins) AS mins
         FROM
@@ -1593,7 +1534,6 @@ def _q_job_card_demand_weekly(project_names, from_date, to_date, bom_list, bottl
             jc.docstatus < 2
             AND jc.status = 'Completed'
             AND jc.project IN %(project_names)s
-            AND jc.bom_no IN %(bom_list)s
             AND COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
             AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
             AND IFNULL(jc.total_time_in_mins, 0) > 0
@@ -1602,9 +1542,8 @@ def _q_job_card_demand_weekly(project_names, from_date, to_date, bom_list, bottl
                 FROM `tabJob Card Time Log` jctl
                 WHERE jctl.parent = jc.name
             )
-            {ws_cond}
         GROUP BY
-            jc.project, week_start
+            jc.project, jc.bom_no, week_start
         """,
         params,
         as_dict=True,
@@ -1615,41 +1554,44 @@ def _q_job_card_demand_weekly(project_names, from_date, to_date, bom_list, bottl
         f"""
         SELECT
             jc.project,
+            jc.bom_no,
             {scheduled_week} AS week_start,
-            SUM(
-                CASE
-                    WHEN IFNULL(jc.time_required, 0) > 0 THEN jc.time_required
-                    ELSE IFNULL(jc.for_quantity, 0) * %(bottleneck_time)s
-                END
-            ) AS mins
+            SUM({scheduled_mins}) AS mins
         FROM
             `tabJob Card` jc
         WHERE
             jc.docstatus < 2
             AND jc.status NOT IN ('Completed', 'Cancelled')
             AND jc.project IN %(project_names)s
-            AND jc.bom_no IN %(bom_list)s
             AND COALESCE(jc.expected_start_date, jc.posting_date) >= %(from_date)s
             AND COALESCE(jc.expected_start_date, jc.posting_date) <= %(to_date)s
-            {ws_cond}
         GROUP BY
-            jc.project, week_start
+            jc.project, jc.bom_no, week_start
         """,
-        {**params, "bottleneck_time": bottleneck_time},
+        params,
         as_dict=True,
     )
 
     mins_map = defaultdict(lambda: defaultdict(float))
+    bom_names = set()
     for row in completed_log_rows + completed_total_rows + scheduled_rows:
-        if not row.project or not row.week_start:
+        if not row.project or not row.week_start or not row.bom_no:
             continue
         wkey = _week_key_from_date(row.week_start)
-        mins_map[row.project][wkey] += flt(row.mins)
+        mins_map[row.project][(row.bom_no, wkey)] += flt(row.mins)
+        bom_names.add(row.bom_no)
+
+    bottleneck_times = _get_bottleneck_times_for_boms(bom_names)
 
     demand_map = defaultdict(dict)
-    for project, week_mins in mins_map.items():
-        for wkey, mins in week_mins.items():
-            demand_map[project][wkey] = int(mins / bottleneck_time)
+    for project, bom_week_mins in mins_map.items():
+        for (bom_no, wkey), mins in bom_week_mins.items():
+            bottleneck_time = bottleneck_times.get(bom_no)
+            if not bottleneck_time:
+                continue
+            demand_map[project][wkey] = demand_map[project].get(wkey, 0) + int(
+                mins / bottleneck_time
+            )
 
     return demand_map
 
