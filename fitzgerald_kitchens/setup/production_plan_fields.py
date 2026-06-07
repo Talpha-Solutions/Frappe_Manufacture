@@ -6,12 +6,22 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 PROJECT_SECTION_DEPENDS_ON = 'eval: doc.get_items_from == "Project"'
 CUSTOMER_FILTER_DEPENDS_ON = "eval:['Sales Order','Project'].includes(doc.get_items_from)"
+PROJECT_SITE_FILTER_DEPENDS_ON = 'eval: doc.get_items_from == "Project"'
 OBSOLETE_PRODUCTION_PLAN_FIELDS = ("fk_customer", "fk_project_filter_col_break")
 
 
 def get_production_plan_custom_fields() -> dict:
 	return {
 		"Production Plan": [
+			{
+				"fieldname": "fk_project_site",
+				"fieldtype": "Link",
+				"label": "Project Site",
+				"options": "Project",
+				"depends_on": PROJECT_SITE_FILTER_DEPENDS_ON,
+				"insert_after": "customer",
+				"link_filters": '[["Project","project_type","=","Site"]]',
+			},
 			{
 				"fieldname": "fk_projects_detail",
 				"fieldtype": "Section Break",
@@ -56,9 +66,24 @@ def ensure_production_plan_fields() -> None:
 	_remove_project_filter_property_setter()
 	_remove_obsolete_production_plan_fields()
 	create_custom_fields(get_production_plan_custom_fields(), update=True)
+	_sync_project_filter_custom_fields()
 	_sync_project_section_custom_fields()
 	frappe.clear_cache(doctype="Production Plan")
 	frappe.clear_cache(doctype="Production Plan Item")
+
+
+def _sync_project_filter_custom_fields() -> None:
+	if frappe.db.exists("Custom Field", "Production Plan-fk_project_site"):
+		frappe.db.set_value(
+			"Custom Field",
+			"Production Plan-fk_project_site",
+			{
+				"depends_on": PROJECT_SITE_FILTER_DEPENDS_ON,
+				"insert_after": "customer",
+				"link_filters": '[["Project","project_type","=","Site"]]',
+			},
+			update_modified=False,
+		)
 
 
 def _sync_project_section_custom_fields() -> None:

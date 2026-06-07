@@ -8,6 +8,28 @@ from frappe.utils import flt
 
 from erpnext.manufacturing.doctype.work_order.work_order import get_item_details
 
+from fitzgerald_kitchens.workbook_import.manifest_resolver import resolve_effective_manifest
+
+
+def resolve_project_effective_manifest(project: str) -> str | None:
+	"""Return Effective Manifest for a project, falling back to PUC + project type."""
+	project_details = frappe.db.get_value(
+		"Project",
+		project,
+		["fk_effective_manifest", "fk_unit_configuration", "project_type"],
+		as_dict=True,
+	)
+	if not project_details:
+		return None
+
+	if project_details.fk_effective_manifest:
+		return project_details.fk_effective_manifest
+
+	return resolve_effective_manifest(
+		project_details.fk_unit_configuration,
+		project_details.project_type,
+	)
+
 
 def get_projects_for_production_plan(production_plan) -> list[dict]:
 	"""Return projects for the Production Plan Projects table.
@@ -33,6 +55,9 @@ def get_projects_for_production_plan(production_plan) -> list[dict]:
 	if production_plan.get("customer"):
 		query = query.where(project.customer == production_plan.customer)
 
+	if production_plan.get("fk_project_site"):
+		query = query.where(project.fk_parent_project == production_plan.fk_project_site)
+
 	return query.run(as_dict=True)
 
 
@@ -55,7 +80,7 @@ def get_active_bom_no(item_code: str, linked_bom: str | None = None, project: st
 
 
 def get_manifest_items_for_project(project: str, effective_manifest: str | None = None) -> list[dict]:
-	manifest_name = effective_manifest or frappe.db.get_value("Project", project, "fk_effective_manifest")
+	manifest_name = effective_manifest or resolve_project_effective_manifest(project)
 	if not manifest_name:
 		return []
 
@@ -68,21 +93,19 @@ def get_manifest_items_for_project(project: str, effective_manifest: str | None 
 
 	items: list[dict] = []
 	for row in rows:
-		bom_no = get_active_bom_no(row.item_code, row.linked_bom, project=project)
-		if not bom_no:
+		if not row.item_code:
 			continue
 
-		item_details = get_item_details(row.item_code, project=project, skip_bom_info=True, throw=False)
+		bom_no = get_active_bom_no(row.item_code, row.linked_bom, project=project) or ""
+		item_details = get_item_details(row.item_code, project=project, skip_bom_info=True, throw=False) or {}
 		qty = flt(row.qty)
-		if qty <= 0:
-			continue
 
 		items.append(
 			{
 				"project": project,
 				"item_code": row.item_code,
-				"description": row.description or (item_details or {}).get("description"),
-				"stock_uom": (item_details or {}).get("stock_uom"),
+				"description": row.description or item_details.get("description"),
+				"stock_uom": item_details.get("stock_uom") or row.uom,
 				"bom_no": bom_no,
 				"qty": qty,
 			}

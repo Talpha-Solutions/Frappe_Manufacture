@@ -9,6 +9,7 @@ from erpnext.manufacturing.doctype.production_plan.production_plan import Produc
 from fitzgerald_kitchens.manufacturing.project_manifest import (
 	get_manifest_items_for_project,
 	get_projects_for_production_plan,
+	resolve_project_effective_manifest,
 )
 
 
@@ -35,6 +36,9 @@ class FKProductionPlan(ProductionPlan):
 			active_filters = []
 			if self.get("customer"):
 				active_filters.append(_("Customer: {0}").format(self.customer))
+			if self.get("fk_project_site"):
+				site_name = frappe.db.get_value("Project", self.fk_project_site, "project_name") or self.fk_project_site
+				active_filters.append(_("Project Site: {0}").format(site_name))
 
 			message = _("No projects found for company {0}.").format(self.company)
 			if active_filters:
@@ -69,7 +73,7 @@ class FKProductionPlan(ProductionPlan):
 
 		skipped_projects: list[str] = []
 		for project in project_list:
-			effective_manifest = frappe.db.get_value("Project", project, "fk_effective_manifest")
+			effective_manifest = resolve_project_effective_manifest(project)
 			if not effective_manifest:
 				skipped_projects.append(project)
 				continue
@@ -97,7 +101,7 @@ class FKProductionPlan(ProductionPlan):
 
 		if skipped_projects:
 			frappe.msgprint(
-				_("Skipped projects without Effective Manifest or manufacturable items: {0}").format(
+				_("Skipped projects without Effective Manifest or manifest items: {0}").format(
 					", ".join(skipped_projects)
 				),
 				indicator="orange",
@@ -106,7 +110,7 @@ class FKProductionPlan(ProductionPlan):
 
 		if not self.get("po_items"):
 			frappe.throw(
-				_("No manufacturable items found for the selected projects"),
+				_("No items found in the Effective Manifest for the selected projects"),
 				title=_("Items Required"),
 			)
 
