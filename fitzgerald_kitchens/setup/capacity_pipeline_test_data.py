@@ -509,7 +509,7 @@ def _expected_site_subtitle_counts(site_project_id):
 
 	totals = _query_site_structural_totals(site_project_id)
 	return {
-		"units": totals["kitchens"],
+		"units": totals["houses"],
 		"kitchens": totals["kitchens"],
 		"wardrobes": totals["wardrobes"],
 	}
@@ -533,11 +533,12 @@ def _audit_project_row(row, month_keys, filters):
 	sub_units, sub_kitchen, sub_robe = _parse_site_subtitle(row.get("subtitle") or "")
 
 	subtitle_matches = True
-	if project_type == "Site":
+	if project_type == "Site" and project_id:
+		expected = _expected_site_subtitle_counts(project_id)
 		subtitle_matches = (
-			sub_units == sum_kitchen
-			and sub_kitchen == sum_kitchen
-			and sub_robe == sum_robe
+			sub_units == expected["units"]
+			and sub_kitchen == expected["kitchens"]
+			and sub_robe == expected["wardrobes"]
 		)
 
 	return {

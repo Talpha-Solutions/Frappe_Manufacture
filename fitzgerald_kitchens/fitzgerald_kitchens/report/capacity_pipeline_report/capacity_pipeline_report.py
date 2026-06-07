@@ -299,8 +299,17 @@ def _get_data(filters, periods, granularity="Monthly"):
             else {}
         )
 
-    _rollup_site_demand(projects, demand_map, product_breakdown, periods)
-    _set_site_subtitle_totals(projects, product_breakdown, periods)
+    _apply_site_breakdown_all_children(
+        projects,
+        demand_map,
+        product_breakdown,
+        periods,
+        from_date,
+        to_date,
+        granularity,
+        filters,
+    )
+    _set_site_subtitle_totals(projects)
 
     workstation_names = list({op.workstation for op in operations if op.workstation})
     workstation_types = list(
@@ -537,6 +546,185 @@ def _append_site_parent_projects(projects, filters):
     return list(projects) + parents
 
 
+def _q_all_site_projects(filters):
+    """All active Site (parent) projects for the report company — not BOM-filtered."""
+    if not frappe.db.has_column("Project", SITE_PARENT_FIELD):
+        return []
+
+    company_cond = "AND p.company = %(company)s" if filters.get("company") else ""
+    project_cond = "AND p.name = %(project)s" if filters.get("project") else ""
+
+    return frappe.db.sql(
+        f"""
+        SELECT
+            p.name,
+            p.project_name,
+            p.customer,
+            p.fk_effective_bom,
+            p.project_type,
+            p.kitchen_bom,
+            p.kitchen_required,
+            p.wardrobe_bom,
+            p.wardrobe_required,
+            p.{SITE_PARENT_FIELD}
+        FROM
+            `tabProject` p
+        WHERE
+            p.project_type = 'Site'
+            AND p.docstatus < 2
+            AND p.status NOT IN ('Cancelled', 'Completed')
+            {company_cond}
+            {project_cond}
+        ORDER BY
+            p.project_name
+        """,
+        {
+            "company": filters.get("company"),
+            "project": filters.get("project"),
+        },
+        as_dict=True,
+    )
+
+
+def _q_site_child_names(site_name):
+    """All active unit project names linked to a Site parent."""
+    if not frappe.db.has_column("Project", SITE_PARENT_FIELD):
+        return []
+
+    return frappe.db.sql_list(
+        f"""
+        SELECT
+            p.name
+        FROM
+            `tabProject` p
+        WHERE
+            p.{SITE_PARENT_FIELD} = %(site)s
+            AND IFNULL(p.project_type, '') != 'Site'
+            AND p.docstatus < 2
+            AND p.status NOT IN ('Cancelled', 'Completed')
+        ORDER BY
+            p.project_name
+        """,
+        {"site": site_name},
+    )
+
+
+def _q_projects_by_names(project_names):
+    """Load project rows for a list of names (used for Site child rollups)."""
+    if not project_names:
+        return []
+
+    has_parent = frappe.db.has_column("Project", SITE_PARENT_FIELD)
+    parent_select = f", p.{SITE_PARENT_FIELD}" if has_parent else ""
+
+    return frappe.db.sql(
+        f"""
+        SELECT
+            p.name,
+            p.project_name,
+            p.customer,
+            p.fk_effective_bom,
+            p.project_type,
+            p.kitchen_bom,
+            p.kitchen_required,
+            p.wardrobe_bom,
+            p.wardrobe_required{parent_select}
+        FROM
+            `tabProject` p
+        WHERE
+            p.name IN %(project_names)s
+        ORDER BY
+            p.project_name
+        """,
+        {"project_names": project_names},
+        as_dict=True,
+    )
+
+
+def _merge_site_projects(projects, all_sites):
+    """Ensure every Site parent appears in the project list for breakdown rows."""
+    have = {p.name for p in projects}
+    for site in all_sites:
+        if site.name not in have:
+            projects.append(site)
+            have.add(site.name)
+    return projects
+
+
+def _apply_site_breakdown_all_children(
+    projects,
+    demand_map,
+    product_breakdown,
+    periods,
+    from_date,
+    to_date,
+    granularity,
+    filters,
+):
+    """
+    Detailed monthly breakdown: every Site row shows demand from all child unit
+    projects (kitchen + wardrobe), regardless of the selected BOM filter.
+    """
+    all_sites = _q_all_site_projects(filters)
+    if not all_sites:
+        return
+
+    _merge_site_projects(projects, all_sites)
+
+    for site in all_sites:
+        site_demand = demand_map.setdefault(site.name, {})
+        site_breakdown = product_breakdown.setdefault(site.name, {})
+        child_names = _q_site_child_names(site.name)
+        if not child_names:
+            for period in periods:
+                pkey = period[0]
+                site_demand[pkey] = 0
+                site_breakdown[pkey] = {"kitchen": 0, "wardrobe": 0}
+            continue
+
+        child_projects = _q_projects_by_names(child_names)
+        child_demand = _aggregate_demand_all_projects(
+            child_projects, from_date, to_date, granularity
+        )
+        if granularity == "Weekly":
+            child_breakdown = _q_weekly_product_breakdown(
+                child_projects, child_names, from_date, to_date
+            )
+        else:
+            child_breakdown = _q_monthly_product_breakdown(
+                child_projects, child_names, from_date, to_date
+            )
+
+        for period in periods:
+            pkey = period[0]
+            site_demand[pkey] = sum(
+                int(child_demand.get(child, {}).get(pkey, 0) or 0)
+                for child in child_names
+            )
+            month_kitchen = sum(
+                int(
+                    child_breakdown.get(child, {})
+                    .get(pkey, {})
+                    .get("kitchen", 0)
+                    or 0
+                )
+                for child in child_names
+            )
+            month_robe = sum(
+                int(
+                    child_breakdown.get(child, {})
+                    .get(pkey, {})
+                    .get("wardrobe", 0)
+                    or 0
+                )
+                for child in child_names
+            )
+            site_breakdown[pkey] = {
+                "kitchen": month_kitchen,
+                "wardrobe": month_robe,
+            }
+
+
 def _rollup_site_demand(projects, demand_map, product_breakdown, periods):
     """Site rows: monthly cells = sum of child projects included in the report."""
     if not frappe.db.has_column("Project", SITE_PARENT_FIELD):
@@ -627,12 +815,10 @@ def _query_site_structural_totals(site_name):
     }
 
 
-def _set_site_subtitle_totals(projects, product_breakdown, periods):
+def _set_site_subtitle_totals(projects):
     """
-    Site subtitle counts = totals of the monthly kitchen / wardrobe cells in the report.
-
-    Keeps the Detailed monthly breakdown subtitle aligned with the numbers shown in
-    the table for the selected horizon and BOM filter.
+    Site subtitle: distinct units (houses) outside brackets; kitchen / wardrobe
+    quantities inside — from all active child projects under the Site.
     """
     site_projects = [
         p for p in projects if getattr(p, "project_type", None) == "Site"
@@ -641,23 +827,11 @@ def _set_site_subtitle_totals(projects, product_breakdown, periods):
         return
 
     for site in site_projects:
-        total_kitchen = 0
-        total_wardrobe = 0
-        for period in periods:
-            pkey = period[0]
-            split = product_breakdown.get(site.name, {}).get(pkey, {}) or {}
-            total_kitchen += int(split.get("kitchen", 0) or 0)
-            total_wardrobe += int(split.get("wardrobe", 0) or 0)
-
-        if not total_kitchen and not total_wardrobe:
-            structural = _query_site_structural_totals(site.name)
-            total_kitchen = structural["kitchens"]
-            total_wardrobe = structural["wardrobes"]
-
-        site.site_kitchen_count = total_kitchen
-        site.site_robe_count = total_wardrobe
-        site.site_unit_count = total_kitchen
-        site.site_house_count = total_kitchen
+        structural = _query_site_structural_totals(site.name)
+        site.site_house_count = structural["houses"]
+        site.site_unit_count = structural["houses"]
+        site.site_kitchen_count = structural["kitchens"]
+        site.site_robe_count = structural["wardrobes"]
 
 
 def _filter_projects_by_bom(projects, bom):
@@ -2174,12 +2348,14 @@ def _chart_label_for_project(proj, site_name_by_id):
 
 
 def _project_subtitle(proj):
-    """Site: e.g. 4 Units (4 kitchens, 1 Wardrobe); other types: (Project Type)."""
+    """Site: e.g. 2 Units (2 kitchens, 1 Wardrobe); other types: (Project Type)."""
     project_type = getattr(proj, "project_type", None)
 
     if project_type == "Site":
+        unit_count = int(getattr(proj, "site_house_count", 0) or 0)
+        if not unit_count:
+            unit_count = int(getattr(proj, "site_unit_count", 0) or 0)
         kitchen_count = int(getattr(proj, "site_kitchen_count", 0) or 0)
-        unit_count = int(getattr(proj, "site_unit_count", 0) or 0) or kitchen_count
         robe_count = int(getattr(proj, "site_robe_count", 0) or 0)
 
         detail_parts = []
