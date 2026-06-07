@@ -59,4 +59,46 @@ frappe.query_reports["Manufacturing Cost Summary"] = {
 			options: ["", "Not Started", "In Process", "Completed", "Stopped", "Closed"],
 		},
 	],
+
+	formatter(value, row, column, data, default_formatter) {
+		const extra_cost_fields = ["extra_cost", "task_extra_cost"];
+		if (!extra_cost_fields.includes(column.fieldname)) {
+			return default_formatter(value, row, column, data);
+		}
+
+		const amount = flt(data?.[column.fieldname] ?? value);
+		if (!amount) {
+			return default_formatter(value, row, column, data);
+		}
+
+		const currency = column.options;
+		const is_negative = amount < 0;
+		const color = is_negative ? "green" : "red";
+		const display_value = is_negative
+			? mcs_format_negative_extra_cost(Math.abs(amount), currency)
+			: format_currency(Math.abs(amount), currency);
+
+		return `<div style="color:${color}!important;font-weight:400;text-align:right;">${display_value}</div>`;
+	},
 };
+
+function mcs_format_negative_extra_cost(amount, currency) {
+	const symbol = get_currency_symbol(currency);
+	const number_part = format_number(
+		amount,
+		get_number_format(currency),
+		frappe.boot.sysdefaults.currency_precision || 2
+	);
+	const show_symbol_on_right =
+		frappe.model.get_value(":Currency", currency, "symbol_on_right") ?? false;
+
+	if (!symbol) {
+		return `(${number_part})`;
+	}
+
+	if (show_symbol_on_right) {
+		return `(${number_part}) ${__(symbol)}`;
+	}
+
+	return `${__(symbol)} (${number_part})`;
+}
