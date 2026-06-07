@@ -5,11 +5,11 @@
 
 Shows monthly kitchen production demand per project alongside calculated
 workstation capacity (derived from BOM operations + Workstation working hours /
-holiday lists).  Demand uses Job Cards when present: completed cards use
-actual total time (time logs by month, or total_time_in_mins); open cards use
-scheduled time (time_required). Otherwise uses Project expected delivery /
-start dates and unit quantity (fk_unit_qty).
-Displays demand utilisation % and free capacity.
+holiday lists).  Demand uses Job Cards when present on a project: completed cards use
+Total Time in Mins (actual); open cards use Expected Time Required (scheduled).
+Job-card minutes convert to units via each job card BOM bottleneck — not the
+report BOM filter. Demand · utilisation totals all company unit projects;
+capacity remains driven by the selected BOM filter.
 
 Query budget: 7 SQL statements — no per-row or per-project round-trips.
 """
@@ -257,45 +257,37 @@ def _get_data(filters, periods, granularity="Monthly"):
     from_date = _period_start(periods[0])
     to_date = _period_end(periods[-1])
 
+    all_unit_projects = _q_all_unit_projects(filters)
+    all_unit_names = [p.name for p in all_unit_projects]
     projects = _q_projects(filters)
-    project_names = [p.name for p in projects]
     bom_list = _get_capacity_bom_list(filters, projects)
 
     operations = _q_bom_operations(bom_list) if bom_list else []
-    bottleneck = _get_bottleneck_operation(operations)
 
     if granularity == "Weekly":
         demand_map = (
-            _q_demand_weekly(
-                project_names,
-                from_date,
-                to_date,
-                bom_list,
-                bottleneck,
-            )
-            if project_names
+            _q_demand_weekly(all_unit_names, from_date, to_date)
+            if all_unit_names
             else {}
         )
         product_breakdown = (
-            _q_weekly_product_breakdown(projects, project_names, from_date, to_date)
-            if project_names
+            _q_weekly_product_breakdown(
+                all_unit_projects, all_unit_names, from_date, to_date
+            )
+            if all_unit_names
             else {}
         )
     else:
         demand_map = (
-            _q_demand(
-                project_names,
-                from_date,
-                to_date,
-                bom_list,
-                bottleneck,
-            )
-            if project_names
+            _q_demand(all_unit_names, from_date, to_date)
+            if all_unit_names
             else {}
         )
         product_breakdown = (
-            _q_monthly_product_breakdown(projects, project_names, from_date, to_date)
-            if project_names
+            _q_monthly_product_breakdown(
+                all_unit_projects, all_unit_names, from_date, to_date
+            )
+            if all_unit_names
             else {}
         )
 
@@ -383,7 +375,12 @@ def _get_data(filters, periods, granularity="Monthly"):
 
     data.extend(
         _build_summary_rows(
-            periods, demand_map, projects, capacity_result, filters, granularity
+            periods,
+            demand_map,
+            all_unit_projects,
+            capacity_result,
+            filters,
+            granularity,
         )
     )
     return data
@@ -405,11 +402,13 @@ def _projects_for_demand_total(projects):
     return [p for p in projects if getattr(p, "project_type", None) != "Site"]
 
 
-def _build_summary_rows(periods, demand_map, projects, capacity_result, filters=None, granularity="Monthly"):
+def _build_summary_rows(
+    periods, demand_map, demand_projects, capacity_result, filters=None, granularity="Monthly"
+):
     """Append separator + downtime + capacity / demand / free capacity summary rows."""
     rows = []
     period_keys = [period[0] for period in periods]
-    demand_projects = _projects_for_demand_total(projects)
+    demand_projects = _projects_for_demand_total(demand_projects)
 
     sep = {"project": " ", "row_type": "separator"}
     for pkey in period_keys:
@@ -498,6 +497,44 @@ def _q_projects(filters):
 
     filtered = _filter_projects_by_bom(rows, filters.get("bom"))
     return _append_site_parent_projects(filtered, filters)
+
+
+def _q_all_unit_projects(filters):
+    """All active non-Site projects for demand (company filter only, no BOM filter)."""
+    company_cond = "AND p.company = %(company)s" if filters.get("company") else ""
+    project_cond = "AND p.name = %(project)s" if filters.get("project") else ""
+    has_parent = frappe.db.has_column("Project", SITE_PARENT_FIELD)
+    parent_select = f", p.{SITE_PARENT_FIELD}" if has_parent else ""
+
+    return frappe.db.sql(
+        f"""
+        SELECT
+            p.name,
+            p.project_name,
+            p.customer,
+            p.fk_effective_bom,
+            p.project_type,
+            p.kitchen_bom,
+            p.kitchen_required,
+            p.wardrobe_bom,
+            p.wardrobe_required{parent_select}
+        FROM
+            `tabProject` p
+        WHERE
+            p.docstatus < 2
+            AND p.status NOT IN ('Cancelled', 'Completed')
+            AND IFNULL(p.project_type, '') != 'Site'
+            {company_cond}
+            {project_cond}
+        ORDER BY
+            p.project_name
+        """,
+        {
+            "company": filters.get("company"),
+            "project": filters.get("project"),
+        },
+        as_dict=True,
+    )
 
 
 def _append_site_parent_projects(projects, filters):
@@ -841,50 +878,13 @@ def _filter_projects_by_bom(projects, bom):
 
 
 def _aggregate_demand_all_projects(projects, from_date, to_date, granularity="Monthly"):
-    """Sum demand per project using each project's kitchen BOM (BOM filter not applied)."""
-    demand_map = defaultdict(dict)
-    if not projects:
-        return demand_map
-
-    by_bom = defaultdict(list)
-    no_bom_names = []
-
-    for proj in projects:
-        kitchen_bom = _project_kitchen_bom(proj)
-        if kitchen_bom:
-            by_bom[kitchen_bom].append(proj.name)
-        else:
-            no_bom_names.append(proj.name)
-
-    for bom, project_names in by_bom.items():
-        if not project_names:
-            continue
-        operations = _q_bom_operations([bom])
-        bottleneck = _get_bottleneck_operation(operations)
-        if granularity == "Weekly":
-            group_demand = _q_demand_weekly(
-                project_names, from_date, to_date, [bom], bottleneck
-            )
-        else:
-            group_demand = _q_demand(
-                project_names, from_date, to_date, [bom], bottleneck
-            )
-        for project_name, period_vals in group_demand.items():
-            demand_map[project_name].update(period_vals)
-
-    if no_bom_names:
-        if granularity == "Weekly":
-            delivery_demand = _q_project_demand_weekly(
-                no_bom_names, from_date, to_date
-            )
-        else:
-            delivery_demand = _q_project_demand(
-                no_bom_names, from_date, to_date
-            )
-        for project_name, period_vals in delivery_demand.items():
-            demand_map[project_name].update(period_vals)
-
-    return demand_map
+    """Demand per project for all given unit projects (no report BOM filter)."""
+    project_names = [p.name for p in projects]
+    if not project_names:
+        return {}
+    if granularity == "Weekly":
+        return _q_demand_weekly(project_names, from_date, to_date)
+    return _q_demand(project_names, from_date, to_date)
 
 
 # ---------------------------------------------------------------------------
@@ -920,17 +920,28 @@ def _merge_product_breakdown_maps(project_breakdown, job_card_breakdown):
     return merged
 
 
-def _q_demand(project_names, from_date, to_date, bom_list=None, bottleneck=None):
-    """Job Card actual/scheduled time when available; else Project planned delivery dates."""
+def _q_demand(project_names, from_date, to_date):
+    """Job Card actual/scheduled minutes when present; else Project planned dates."""
     if not project_names:
         return {}
 
-    project_demand = _q_project_demand(project_names, from_date, to_date)
-    if not _has_job_card_activity_any(project_names, from_date, to_date):
-        return project_demand
+    jc_projects = _projects_with_job_cards(project_names)
+    planned_projects = [p for p in project_names if p not in jc_projects]
+    demand_map = defaultdict(dict)
 
-    job_card_demand = _q_job_card_demand(project_names, from_date, to_date)
-    return _merge_period_demand_maps(project_demand, job_card_demand)
+    if planned_projects:
+        for project, period_vals in _q_project_demand(
+            planned_projects, from_date, to_date
+        ).items():
+            demand_map[project].update(period_vals)
+
+    if jc_projects:
+        for project, period_vals in _q_job_card_demand(
+            list(jc_projects), from_date, to_date
+        ).items():
+            demand_map[project] = period_vals
+
+    return demand_map
 
 
 def _q_project_demand(project_names, from_date, to_date):
@@ -982,24 +993,36 @@ def _q_monthly_product_breakdown(projects, project_names, from_date, to_date):
     if not project_names:
         return {}
 
-    project_breakdown = _q_project_product_breakdown(
-        project_names, from_date, to_date
-    )
+    jc_projects = _projects_with_job_cards(project_names)
+    planned_projects = [p for p in project_names if p not in jc_projects]
     proj_map = {p.name: p for p in projects}
-    if not _has_job_card_activity_any(project_names, from_date, to_date):
-        return project_breakdown
 
-    job_card_breakdown = _q_job_card_product_breakdown(
-        project_names, from_date, to_date, proj_map
-    )
-    return _merge_product_breakdown_maps(project_breakdown, job_card_breakdown)
+    breakdown = defaultdict(dict)
+    if planned_projects:
+        for project, period_vals in _q_project_product_breakdown(
+            planned_projects, from_date, to_date
+        ).items():
+            breakdown[project].update(period_vals)
+
+    if jc_projects:
+        jc_breakdown = _q_job_card_product_breakdown(
+            list(jc_projects), from_date, to_date, proj_map
+        )
+        for project, period_vals in jc_breakdown.items():
+            breakdown[project] = period_vals
+
+    return breakdown
 
 
 def _has_job_card_activity_any(project_names, from_date, to_date):
-    """Return True when any project job cards exist in the report period."""
+    """Return True when project job cards fall in the report period."""
+    if not project_names:
+        return False
+    actual_mins = _job_card_actual_mins_sql()
+    scheduled_mins = _job_card_scheduled_mins_sql()
     return bool(
         frappe.db.sql(
-            """
+            f"""
             SELECT 1
             FROM `tabJob Card` jc
             WHERE
@@ -1008,26 +1031,15 @@ def _has_job_card_activity_any(project_names, from_date, to_date):
                 AND (
                     (
                         jc.status = 'Completed'
-                        AND (
-                            EXISTS (
-                                SELECT 1
-                                FROM `tabJob Card Time Log` jctl
-                                WHERE
-                                    jctl.parent = jc.name
-                                    AND jctl.from_time >= %(from_datetime)s
-                                    AND jctl.from_time <= %(to_datetime)s
-                            )
-                            OR (
-                                COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
-                                AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
-                                AND IFNULL(jc.total_time_in_mins, 0) > 0
-                            )
-                        )
+                        AND COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
+                        AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
+                        AND ({actual_mins}) > 0
                     )
                     OR (
                         jc.status NOT IN ('Completed', 'Cancelled')
                         AND COALESCE(jc.expected_start_date, jc.posting_date) >= %(from_date)s
                         AND COALESCE(jc.expected_start_date, jc.posting_date) <= %(to_date)s
+                        AND ({scheduled_mins}) > 0
                     )
                 )
             LIMIT 1
@@ -1064,20 +1076,65 @@ def _get_bottleneck_times_for_projects(projects):
     return _get_bottleneck_times_for_boms(bom_names)
 
 
-def _job_card_scheduled_mins_sql():
+def _projects_with_job_cards(project_names):
+    """Projects that have at least one non-cancelled Job Card."""
+    if not project_names:
+        return set()
+    return {
+        row[0]
+        for row in frappe.db.sql(
+            """
+            SELECT DISTINCT jc.project
+            FROM `tabJob Card` jc
+            WHERE
+                jc.docstatus < 2
+                AND jc.status != 'Cancelled'
+                AND jc.project IN %(project_names)s
+            """,
+            {"project_names": project_names},
+        )
+    }
+
+
+def _job_card_actual_mins_sql():
+    """Completed Job Card actual minutes — field first, then time-log total."""
     return """
         CASE
-            WHEN IFNULL(jc.time_required, 0) > 0 THEN jc.time_required
-            ELSE IFNULL(jc.for_quantity, 0) * IFNULL(
+            WHEN IFNULL(jc.total_time_in_mins, 0) > 0 THEN jc.total_time_in_mins
+            ELSE IFNULL(
                 (
-                    SELECT MAX(bo.time_in_mins)
-                    FROM `tabBOM Operation` bo
-                    WHERE bo.parent = jc.bom_no AND bo.time_in_mins > 0
+                    SELECT SUM(jctl.time_in_mins)
+                    FROM `tabJob Card Time Log` jctl
+                    WHERE jctl.parent = jc.name
                 ),
                 0
             )
         END
     """
+
+
+def _job_card_scheduled_mins_sql():
+    """Open Job Card scheduled minutes — time_required first, then scheduled logs."""
+    return """
+        CASE
+            WHEN IFNULL(jc.time_required, 0) > 0 THEN jc.time_required
+            ELSE IFNULL(
+                (
+                    SELECT SUM(st.time_in_mins)
+                    FROM `tabJob Card Scheduled Time` st
+                    WHERE st.parent = jc.name
+                ),
+                0
+            )
+        END
+    """
+
+
+def _job_card_mins_to_units(total_mins, bottleneck):
+    bottleneck_time = flt(getattr(bottleneck, "time_in_mins", None)) if bottleneck else 0
+    if bottleneck_time <= 0 or total_mins <= 0:
+        return 0
+    return int(flt(total_mins) / bottleneck_time)
 
 
 def _classify_project_bom(proj, bom_no):
@@ -1098,37 +1155,16 @@ def _q_job_card_product_breakdown(project_names, from_date, to_date, proj_map):
         "from_date": from_date,
         "to_date": to_date,
     }
+    actual_mins = _job_card_actual_mins_sql()
+    scheduled_mins = _job_card_scheduled_mins_sql()
 
-    completed_log_rows = frappe.db.sql(
-        """
-        SELECT
-            jc.project,
-            jc.bom_no,
-            DATE_FORMAT(jctl.from_time, '%%Y-%%m') AS ym,
-            SUM(jctl.time_in_mins) AS mins
-        FROM
-            `tabJob Card` jc
-            INNER JOIN `tabJob Card Time Log` jctl ON jctl.parent = jc.name
-        WHERE
-            jc.docstatus < 2
-            AND jc.status = 'Completed'
-            AND jc.project IN %(project_names)s
-            AND jctl.from_time >= %(from_datetime)s
-            AND jctl.from_time <= %(to_datetime)s
-        GROUP BY
-            jc.project, jc.bom_no, ym
-        """,
-        params,
-        as_dict=True,
-    )
-
-    completed_total_rows = frappe.db.sql(
-        """
+    completed_rows = frappe.db.sql(
+        f"""
         SELECT
             jc.project,
             jc.bom_no,
             DATE_FORMAT(COALESCE(jc.actual_end_date, jc.posting_date), '%%Y-%%m') AS ym,
-            SUM(jc.total_time_in_mins) AS mins
+            SUM({actual_mins}) AS mins
         FROM
             `tabJob Card` jc
         WHERE
@@ -1137,12 +1173,7 @@ def _q_job_card_product_breakdown(project_names, from_date, to_date, proj_map):
             AND jc.project IN %(project_names)s
             AND COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
             AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
-            AND IFNULL(jc.total_time_in_mins, 0) > 0
-            AND NOT EXISTS (
-                SELECT 1
-                FROM `tabJob Card Time Log` jctl
-                WHERE jctl.parent = jc.name
-            )
+            AND ({actual_mins}) > 0
         GROUP BY
             jc.project, jc.bom_no, ym
         """,
@@ -1151,24 +1182,12 @@ def _q_job_card_product_breakdown(project_names, from_date, to_date, proj_map):
     )
 
     scheduled_rows = frappe.db.sql(
-        """
+        f"""
         SELECT
             jc.project,
             jc.bom_no,
             DATE_FORMAT(COALESCE(jc.expected_start_date, jc.posting_date), '%%Y-%%m') AS ym,
-            SUM(
-                CASE
-                    WHEN IFNULL(jc.time_required, 0) > 0 THEN jc.time_required
-                    ELSE IFNULL(jc.for_quantity, 0) * IFNULL(
-                        (
-                            SELECT MAX(bo.time_in_mins)
-                            FROM `tabBOM Operation` bo
-                            WHERE bo.parent = jc.bom_no AND bo.time_in_mins > 0
-                        ),
-                        0
-                    )
-                END
-            ) AS mins
+            SUM({scheduled_mins}) AS mins
         FROM
             `tabJob Card` jc
         WHERE
@@ -1177,6 +1196,7 @@ def _q_job_card_product_breakdown(project_names, from_date, to_date, proj_map):
             AND jc.project IN %(project_names)s
             AND COALESCE(jc.expected_start_date, jc.posting_date) >= %(from_date)s
             AND COALESCE(jc.expected_start_date, jc.posting_date) <= %(to_date)s
+            AND ({scheduled_mins}) > 0
         GROUP BY
             jc.project, jc.bom_no, ym
         """,
@@ -1185,7 +1205,7 @@ def _q_job_card_product_breakdown(project_names, from_date, to_date, proj_map):
     )
 
     mins_map = defaultdict(lambda: defaultdict(float))
-    for row in completed_log_rows + completed_total_rows + scheduled_rows:
+    for row in completed_rows + scheduled_rows:
         if not row.project or not row.ym or not row.bom_no:
             continue
         mkey = "m_" + row.ym.replace("-", "_")
@@ -1260,13 +1280,13 @@ def _get_bottleneck_operation(operations):
 
 def _q_job_card_demand(project_names, from_date, to_date):
     """
-    Derive monthly demand from all Job Cards on each project (no BOM filter).
+    Monthly demand from all Job Cards on each project.
 
     Per job card:
-    - **Completed** → actual minutes (time logs by month, or total_time_in_mins)
-    - **Not completed** → scheduled minutes (time_required) in the planned month
+    - **Completed** → Total Time in Mins (actual), month = actual end date
+    - **Not completed** → Expected Time Required (scheduled), month = expected start
 
-    Minutes are divided by each job card BOM bottleneck operation time.
+    Minutes convert to units using each job card BOM bottleneck (not report BOM).
     """
     if not project_names:
         return {}
@@ -1278,38 +1298,16 @@ def _q_job_card_demand(project_names, from_date, to_date):
         "from_date": from_date,
         "to_date": to_date,
     }
+    actual_mins = _job_card_actual_mins_sql()
     scheduled_mins = _job_card_scheduled_mins_sql()
 
-    completed_log_rows = frappe.db.sql(
-        """
-        SELECT
-            jc.project,
-            jc.bom_no,
-            DATE_FORMAT(jctl.from_time, '%%Y-%%m') AS ym,
-            SUM(jctl.time_in_mins) AS mins
-        FROM
-            `tabJob Card` jc
-            INNER JOIN `tabJob Card Time Log` jctl ON jctl.parent = jc.name
-        WHERE
-            jc.docstatus < 2
-            AND jc.status = 'Completed'
-            AND jc.project IN %(project_names)s
-            AND jctl.from_time >= %(from_datetime)s
-            AND jctl.from_time <= %(to_datetime)s
-        GROUP BY
-            jc.project, jc.bom_no, ym
-        """,
-        params,
-        as_dict=True,
-    )
-
-    completed_total_rows = frappe.db.sql(
-        """
+    completed_rows = frappe.db.sql(
+        f"""
         SELECT
             jc.project,
             jc.bom_no,
             DATE_FORMAT(COALESCE(jc.actual_end_date, jc.posting_date), '%%Y-%%m') AS ym,
-            SUM(jc.total_time_in_mins) AS mins
+            SUM({actual_mins}) AS mins
         FROM
             `tabJob Card` jc
         WHERE
@@ -1318,12 +1316,7 @@ def _q_job_card_demand(project_names, from_date, to_date):
             AND jc.project IN %(project_names)s
             AND COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
             AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
-            AND IFNULL(jc.total_time_in_mins, 0) > 0
-            AND NOT EXISTS (
-                SELECT 1
-                FROM `tabJob Card Time Log` jctl
-                WHERE jctl.parent = jc.name
-            )
+            AND ({actual_mins}) > 0
         GROUP BY
             jc.project, jc.bom_no, ym
         """,
@@ -1346,6 +1339,7 @@ def _q_job_card_demand(project_names, from_date, to_date):
             AND jc.project IN %(project_names)s
             AND COALESCE(jc.expected_start_date, jc.posting_date) >= %(from_date)s
             AND COALESCE(jc.expected_start_date, jc.posting_date) <= %(to_date)s
+            AND ({scheduled_mins}) > 0
         GROUP BY
             jc.project, jc.bom_no, ym
         """,
@@ -1355,7 +1349,7 @@ def _q_job_card_demand(project_names, from_date, to_date):
 
     mins_map = defaultdict(lambda: defaultdict(float))
     bom_names = set()
-    for row in completed_log_rows + completed_total_rows + scheduled_rows:
+    for row in completed_rows + scheduled_rows:
         if not row.project or not row.ym or not row.bom_no:
             continue
         mkey = "m_" + row.ym.replace("-", "_")
@@ -1431,16 +1425,27 @@ def _count_weekday_holidays_in_range(holiday_dates, start, end):
     )
 
 
-def _q_demand_weekly(project_names, from_date, to_date, bom_list=None, bottleneck=None):
+def _q_demand_weekly(project_names, from_date, to_date):
     if not project_names:
         return {}
 
-    project_demand = _q_project_demand_weekly(project_names, from_date, to_date)
-    if not _has_job_card_activity_any(project_names, from_date, to_date):
-        return project_demand
+    jc_projects = _projects_with_job_cards(project_names)
+    planned_projects = [p for p in project_names if p not in jc_projects]
+    demand_map = defaultdict(dict)
 
-    job_card_demand = _q_job_card_demand_weekly(project_names, from_date, to_date)
-    return _merge_period_demand_maps(project_demand, job_card_demand)
+    if planned_projects:
+        for project, period_vals in _q_project_demand_weekly(
+            planned_projects, from_date, to_date
+        ).items():
+            demand_map[project].update(period_vals)
+
+    if jc_projects:
+        for project, period_vals in _q_job_card_demand_weekly(
+            list(jc_projects), from_date, to_date
+        ).items():
+            demand_map[project] = period_vals
+
+    return demand_map
 
 
 def _q_project_demand_weekly(project_names, from_date, to_date):
@@ -1483,7 +1488,7 @@ def _q_project_demand_weekly(project_names, from_date, to_date):
 
 
 def _q_job_card_demand_weekly(project_names, from_date, to_date):
-    """Weekly demand from all project job cards (see _q_job_card_demand)."""
+    """Weekly demand from project job cards (see _q_job_card_demand)."""
     if not project_names:
         return {}
 
@@ -1494,40 +1499,17 @@ def _q_job_card_demand_weekly(project_names, from_date, to_date):
         "from_date": from_date,
         "to_date": to_date,
     }
+    actual_mins = _job_card_actual_mins_sql()
     scheduled_mins = _job_card_scheduled_mins_sql()
 
-    log_week = _week_start_sql("jctl.from_time")
-    completed_log_rows = frappe.db.sql(
-        f"""
-        SELECT
-            jc.project,
-            jc.bom_no,
-            {log_week} AS week_start,
-            SUM(jctl.time_in_mins) AS mins
-        FROM
-            `tabJob Card` jc
-            INNER JOIN `tabJob Card Time Log` jctl ON jctl.parent = jc.name
-        WHERE
-            jc.docstatus < 2
-            AND jc.status = 'Completed'
-            AND jc.project IN %(project_names)s
-            AND jctl.from_time >= %(from_datetime)s
-            AND jctl.from_time <= %(to_datetime)s
-        GROUP BY
-            jc.project, jc.bom_no, week_start
-        """,
-        params,
-        as_dict=True,
-    )
-
     actual_week = _week_start_sql("COALESCE(jc.actual_end_date, jc.posting_date)")
-    completed_total_rows = frappe.db.sql(
+    completed_rows = frappe.db.sql(
         f"""
         SELECT
             jc.project,
             jc.bom_no,
             {actual_week} AS week_start,
-            SUM(jc.total_time_in_mins) AS mins
+            SUM({actual_mins}) AS mins
         FROM
             `tabJob Card` jc
         WHERE
@@ -1536,12 +1518,7 @@ def _q_job_card_demand_weekly(project_names, from_date, to_date):
             AND jc.project IN %(project_names)s
             AND COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
             AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
-            AND IFNULL(jc.total_time_in_mins, 0) > 0
-            AND NOT EXISTS (
-                SELECT 1
-                FROM `tabJob Card Time Log` jctl
-                WHERE jctl.parent = jc.name
-            )
+            AND ({actual_mins}) > 0
         GROUP BY
             jc.project, jc.bom_no, week_start
         """,
@@ -1565,6 +1542,7 @@ def _q_job_card_demand_weekly(project_names, from_date, to_date):
             AND jc.project IN %(project_names)s
             AND COALESCE(jc.expected_start_date, jc.posting_date) >= %(from_date)s
             AND COALESCE(jc.expected_start_date, jc.posting_date) <= %(to_date)s
+            AND ({scheduled_mins}) > 0
         GROUP BY
             jc.project, jc.bom_no, week_start
         """,
@@ -1574,7 +1552,7 @@ def _q_job_card_demand_weekly(project_names, from_date, to_date):
 
     mins_map = defaultdict(lambda: defaultdict(float))
     bom_names = set()
-    for row in completed_log_rows + completed_total_rows + scheduled_rows:
+    for row in completed_rows + scheduled_rows:
         if not row.project or not row.week_start or not row.bom_no:
             continue
         wkey = _week_key_from_date(row.week_start)
@@ -1600,17 +1578,25 @@ def _q_weekly_product_breakdown(projects, project_names, from_date, to_date):
     if not project_names:
         return {}
 
-    project_breakdown = _q_project_product_breakdown_weekly(
-        project_names, from_date, to_date
-    )
+    jc_projects = _projects_with_job_cards(project_names)
+    planned_projects = [p for p in project_names if p not in jc_projects]
     proj_map = {p.name: p for p in projects}
-    if not _has_job_card_activity_any(project_names, from_date, to_date):
-        return project_breakdown
 
-    job_card_breakdown = _q_job_card_product_breakdown_weekly(
-        project_names, from_date, to_date, proj_map
-    )
-    return _merge_product_breakdown_maps(project_breakdown, job_card_breakdown)
+    breakdown = defaultdict(dict)
+    if planned_projects:
+        for project, period_vals in _q_project_product_breakdown_weekly(
+            planned_projects, from_date, to_date
+        ).items():
+            breakdown[project].update(period_vals)
+
+    if jc_projects:
+        jc_breakdown = _q_job_card_product_breakdown_weekly(
+            list(jc_projects), from_date, to_date, proj_map
+        )
+        for project, period_vals in jc_breakdown.items():
+            breakdown[project] = period_vals
+
+    return breakdown
 
 
 def _q_job_card_product_breakdown_weekly(project_names, from_date, to_date, proj_map):
@@ -1623,39 +1609,17 @@ def _q_job_card_product_breakdown_weekly(project_names, from_date, to_date, proj
         "from_date": from_date,
         "to_date": to_date,
     }
-
-    log_week = _week_start_sql("jctl.from_time")
-    completed_log_rows = frappe.db.sql(
-        f"""
-        SELECT
-            jc.project,
-            jc.bom_no,
-            {log_week} AS week_start,
-            SUM(jctl.time_in_mins) AS mins
-        FROM
-            `tabJob Card` jc
-            INNER JOIN `tabJob Card Time Log` jctl ON jctl.parent = jc.name
-        WHERE
-            jc.docstatus < 2
-            AND jc.status = 'Completed'
-            AND jc.project IN %(project_names)s
-            AND jctl.from_time >= %(from_datetime)s
-            AND jctl.from_time <= %(to_datetime)s
-        GROUP BY
-            jc.project, jc.bom_no, week_start
-        """,
-        params,
-        as_dict=True,
-    )
+    actual_mins = _job_card_actual_mins_sql()
+    scheduled_mins = _job_card_scheduled_mins_sql()
 
     actual_week = _week_start_sql("COALESCE(jc.actual_end_date, jc.posting_date)")
-    completed_total_rows = frappe.db.sql(
+    completed_rows = frappe.db.sql(
         f"""
         SELECT
             jc.project,
             jc.bom_no,
             {actual_week} AS week_start,
-            SUM(jc.total_time_in_mins) AS mins
+            SUM({actual_mins}) AS mins
         FROM
             `tabJob Card` jc
         WHERE
@@ -1664,12 +1628,7 @@ def _q_job_card_product_breakdown_weekly(project_names, from_date, to_date, proj
             AND jc.project IN %(project_names)s
             AND COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
             AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
-            AND IFNULL(jc.total_time_in_mins, 0) > 0
-            AND NOT EXISTS (
-                SELECT 1
-                FROM `tabJob Card Time Log` jctl
-                WHERE jctl.parent = jc.name
-            )
+            AND ({actual_mins}) > 0
         GROUP BY
             jc.project, jc.bom_no, week_start
         """,
@@ -1684,19 +1643,7 @@ def _q_job_card_product_breakdown_weekly(project_names, from_date, to_date, proj
             jc.project,
             jc.bom_no,
             {scheduled_week} AS week_start,
-            SUM(
-                CASE
-                    WHEN IFNULL(jc.time_required, 0) > 0 THEN jc.time_required
-                    ELSE IFNULL(jc.for_quantity, 0) * IFNULL(
-                        (
-                            SELECT MAX(bo.time_in_mins)
-                            FROM `tabBOM Operation` bo
-                            WHERE bo.parent = jc.bom_no AND bo.time_in_mins > 0
-                        ),
-                        0
-                    )
-                END
-            ) AS mins
+            SUM({scheduled_mins}) AS mins
         FROM
             `tabJob Card` jc
         WHERE
@@ -1705,6 +1652,7 @@ def _q_job_card_product_breakdown_weekly(project_names, from_date, to_date, proj
             AND jc.project IN %(project_names)s
             AND COALESCE(jc.expected_start_date, jc.posting_date) >= %(from_date)s
             AND COALESCE(jc.expected_start_date, jc.posting_date) <= %(to_date)s
+            AND ({scheduled_mins}) > 0
         GROUP BY
             jc.project, jc.bom_no, week_start
         """,
@@ -1713,7 +1661,7 @@ def _q_job_card_product_breakdown_weekly(project_names, from_date, to_date, proj
     )
 
     mins_map = defaultdict(lambda: defaultdict(float))
-    for row in completed_log_rows + completed_total_rows + scheduled_rows:
+    for row in completed_rows + scheduled_rows:
         if not row.project or not row.week_start or not row.bom_no:
             continue
         wkey = _week_key_from_date(row.week_start)
