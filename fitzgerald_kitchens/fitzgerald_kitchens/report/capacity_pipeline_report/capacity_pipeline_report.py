@@ -9,7 +9,8 @@ holiday lists).  Demand uses Job Cards when present on a project: completed card
 Total Time in Mins (actual); open cards use Expected Time Required (scheduled).
 Job-card minutes convert to units via each job card BOM bottleneck — not the
 report BOM filter. Demand · utilisation totals all company unit projects;
-capacity remains driven by the selected BOM filter.
+capacity remains driven by the selected BOM filter. Downtime (mins) totals all
+Downtime Entry records in the period — not limited to the selected BOM workstations.
 
 Query budget: 7 SQL statements — no per-row or per-project round-trips.
 """
@@ -335,6 +336,7 @@ def _get_data(filters, periods, granularity="Monthly"):
             downtime_map,
             periods,
         )
+        capacity_result["downtime_display"] = _q_downtime_all_weekly(from_date, to_date)
     else:
         downtime_map = _q_downtime(list(ws_map.keys()), from_date, to_date) if ws_map else {}
         capacity_result = _calc_capacity_per_month(
@@ -345,6 +347,7 @@ def _get_data(filters, periods, granularity="Monthly"):
             downtime_map,
             periods,
         )
+        capacity_result["downtime_display"] = _q_downtime_all_monthly(from_date, to_date)
 
     data = []
     site_name_by_id = {
@@ -421,8 +424,12 @@ def _build_summary_rows(
     }
 
     downtime_row = {"project": _("Downtime (mins)"), "row_type": "downtime", "bold": 1}
+    downtime_display = capacity_result.get("downtime_display")
     for pkey in period_keys:
-        downtime_row[pkey] = capacity_result["downtime_total"].get(pkey, 0)
+        if downtime_display is not None:
+            downtime_row[pkey] = downtime_display.get(pkey, 0)
+        else:
+            downtime_row[pkey] = capacity_result["downtime_total"].get(pkey, 0)
     rows.append(downtime_row)
 
     cap_label = _("Capacity / week") if granularity == "Weekly" else _("Capacity per month")
@@ -2003,6 +2010,7 @@ def _q_downtime(workstation_names, from_date, to_date):
     """
     Sum Downtime Entry minutes by workstation and calendar month.
 
+    Used for capacity actual (selected BOM workstations only).
     Returns: {(workstation_name, month_key): downtime_mins}
     """
     if not workstation_names:
@@ -2014,7 +2022,8 @@ def _q_downtime(workstation_names, from_date, to_date):
             workstation,
             DATE_FORMAT(from_time, '%%Y-%%m') AS ym,
             SUM(downtime) AS total_mins
-        FROM `tabDowntime Entry`
+        FROM
+            `tabDowntime Entry`
         WHERE
             workstation IN %(workstations)s
             AND from_time >= %(from_date)s
@@ -2036,6 +2045,57 @@ def _q_downtime(workstation_names, from_date, to_date):
         result[(row.workstation, mkey)] = flt(row.total_mins)
 
     return result
+
+
+def _q_downtime_all_monthly(from_date, to_date):
+    """Total downtime minutes per month — all workstations (no BOM filter)."""
+    rows = frappe.db.sql(
+        """
+        SELECT
+            DATE_FORMAT(from_time, '%%Y-%%m') AS ym,
+            SUM(downtime) AS total_mins
+        FROM
+            `tabDowntime Entry`
+        WHERE
+            from_time >= %(from_date)s
+            AND from_time <= %(to_date)s
+        GROUP BY
+            ym
+        """,
+        {"from_date": from_date, "to_date": to_date},
+        as_dict=True,
+    )
+    return {
+        "m_" + row.ym.replace("-", "_"): int(flt(row.total_mins))
+        for row in rows
+        if row.ym
+    }
+
+
+def _q_downtime_all_weekly(from_date, to_date):
+    """Total downtime minutes per week — all workstations (no BOM filter)."""
+    week_start = _week_start_sql("from_time")
+    rows = frappe.db.sql(
+        f"""
+        SELECT
+            {week_start} AS week_start,
+            SUM(downtime) AS total_mins
+        FROM
+            `tabDowntime Entry`
+        WHERE
+            from_time >= %(from_date)s
+            AND from_time <= %(to_date)s
+        GROUP BY
+            week_start
+        """,
+        {"from_date": from_date, "to_date": to_date},
+        as_dict=True,
+    )
+    return {
+        _week_key_from_date(row.week_start): int(flt(row.total_mins))
+        for row in rows
+        if row.week_start
+    }
 
 
 # ---------------------------------------------------------------------------
