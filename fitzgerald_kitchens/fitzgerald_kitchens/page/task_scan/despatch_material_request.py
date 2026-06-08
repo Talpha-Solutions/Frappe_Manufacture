@@ -13,8 +13,7 @@ from fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.label_scan import (
 )
 
 DESPATCH_TASK_TYPE = "Despatch"
-DESPATCH_NEW_MR_WAREHOUSE = "Finished Goods - FKD"
-DESPATCH_SOURCE_WAREHOUSE = "Stores - FKD"
+DESPATCH_MR_WAREHOUSE = "Finished Goods - FKD"
 DESPATCH_NEW_MR_TYPE = "Material Issue"
 AUTO_ISSUE_FLAG = "from_despatch_auto_issue"
 
@@ -67,23 +66,19 @@ def _resolve_warehouse(name: str, company: str | None, *, warehouse_name: str | 
 	frappe.throw(_("Warehouse {0} was not found.").format(name))
 
 
-def _get_despatch_target_warehouse(company: str | None) -> str:
+def _get_despatch_warehouse(company: str | None) -> str:
 	return _resolve_warehouse(
-		DESPATCH_NEW_MR_WAREHOUSE,
+		DESPATCH_MR_WAREHOUSE,
 		company,
 		warehouse_name="Finished Goods",
 	)
 
 
-def _get_despatch_source_warehouse(mr_doc=None, company: str | None = None) -> str:
-	if mr_doc:
-		from_wh = getattr(mr_doc, "set_from_warehouse", None)
-		if from_wh:
-			return from_wh
-		for row in mr_doc.items:
-			if row.warehouse:
-				return row.warehouse
-	return _resolve_warehouse(DESPATCH_SOURCE_WAREHOUSE, company, warehouse_name="Stores")
+def _apply_despatch_warehouses(mr_doc, warehouse: str) -> None:
+	mr_doc.set_warehouse = warehouse
+	mr_doc.set_from_warehouse = warehouse
+	for row in mr_doc.items:
+		row.warehouse = warehouse
 
 
 def _get_project_company(project: str) -> str | None:
@@ -180,9 +175,11 @@ def _mr_item_qty_map(mr_doc) -> dict[str, float]:
 	return qty_map
 
 
-def _submit_draft_mr(mr_doc) -> str:
+def _submit_draft_mr(mr_doc, warehouse: str) -> str:
 	mr_doc.flags.ignore_permissions = True
 	if mr_doc.docstatus == 0:
+		_apply_despatch_warehouses(mr_doc, warehouse)
+		mr_doc.save(ignore_permissions=True)
 		mr_doc.submit()
 	return mr_doc.name
 
@@ -192,8 +189,7 @@ def _create_material_request(
 	item_qty_map: dict[str, float],
 	company: str,
 	*,
-	target_warehouse: str,
-	source_warehouse: str,
+	warehouse: str,
 ) -> frappe.model.document.Document:
 	mr = frappe.new_doc("Material Request")
 	mr.material_request_type = DESPATCH_NEW_MR_TYPE
@@ -201,8 +197,6 @@ def _create_material_request(
 	mr.project = project
 	mr.transaction_date = today()
 	mr.schedule_date = today()
-	mr.set_warehouse = target_warehouse
-	mr.set_from_warehouse = source_warehouse
 
 	for item_code, qty in sorted(item_qty_map.items()):
 		mr.append(
@@ -212,9 +206,11 @@ def _create_material_request(
 				"qty": flt(qty),
 				"schedule_date": today(),
 				"project": project,
-				"warehouse": source_warehouse,
+				"warehouse": warehouse,
 			},
 		)
+
+	_apply_despatch_warehouses(mr, warehouse)
 
 	mr.flags.ignore_permissions = True
 	mr.insert(ignore_permissions=True)
@@ -326,10 +322,9 @@ def submit_despatch_material_request(task_name: str) -> dict | None:
 	if not company:
 		frappe.throw(_("Set a Company on project {0} before completing Despatch.").format(task.project))
 
-	target_warehouse = _get_despatch_target_warehouse(company)
+	warehouse = _get_despatch_warehouse(company)
 	existing_mr_name = _find_existing_material_request(task.project)
 	mr_doc = frappe.get_doc("Material Request", existing_mr_name) if existing_mr_name else None
-	source_warehouse = _get_despatch_source_warehouse(mr_doc, company)
 
 	submitted_existing_mr = None
 	new_mr_name = None
@@ -342,7 +337,7 @@ def submit_despatch_material_request(task_name: str) -> dict | None:
 		new_mr_items = _scanned_items_not_on_mr(mr_doc, scanned_qty)
 		if mr_doc.docstatus == 0:
 			try:
-				submitted_existing_mr = _submit_draft_mr(mr_doc)
+				submitted_existing_mr = _submit_draft_mr(mr_doc, warehouse)
 			except Exception as exc:
 				errors.append(_clean_error_message(exc))
 				frappe.log_error(
@@ -367,8 +362,7 @@ def submit_despatch_material_request(task_name: str) -> dict | None:
 				task.project,
 				new_mr_items,
 				company,
-				target_warehouse=target_warehouse,
-				source_warehouse=source_warehouse,
+				warehouse=warehouse,
 			)
 			new_mr_name = new_mr.name
 			_append_issue_result(
@@ -392,8 +386,7 @@ def submit_despatch_material_request(task_name: str) -> dict | None:
 		"existing_mr": existing_mr_name,
 		"submitted_existing_mr": submitted_existing_mr,
 		"new_mr": new_mr_name,
-		"target_warehouse": target_warehouse,
-		"source_warehouse": source_warehouse,
+		"warehouse": warehouse,
 		"new_mr_items": new_mr_items,
 		"stock_entries": stock_entries,
 		"issue_results": issue_results,
