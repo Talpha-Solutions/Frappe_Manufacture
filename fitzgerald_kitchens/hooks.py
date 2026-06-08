@@ -163,6 +163,9 @@ doc_events = {
 	"Projects Settings": {
 		"validate": "fitzgerald_kitchens.setup.projects_settings_fields.validate_projects_settings",
 	},
+	"Stock Entry": {
+		"before_submit": "fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.despatch_material_request.validate_despatch_stock_entry_before_submit",
+	},
 }
 
 # Scheduled Tasks

@@ -374,20 +374,40 @@ class MyTasksPage {
 					return;
 				}
 				if (method === "complete_task") {
+					const mrSubmit = r.message.material_request_submit || {};
+					const mr =
+						mrSubmit.new_mr ||
+						mrSubmit.submitted_existing_mr ||
+						mrSubmit.name;
+					const mrErrors = (mrSubmit.errors || []).filter(Boolean);
+					const stockEntry = (mrSubmit.stock_entries || [])[0];
 					let message = __("Task completed");
 					if (r.message.timesheet_submit?.submitted) {
 						message = __("Task completed and timesheet {0} submitted", [
 							r.message.timesheet_submit.timesheet,
 						]);
 					}
-					if (r.message.material_request_submit?.name) {
-						message = __("Task completed and Material Request {0} submitted", [
-							r.message.material_request_submit.name,
+					if (stockEntry && mr) {
+						message = __("Task completed, MR {0} submitted and Stock Entry {1} issued", [
+							mr,
+							stockEntry,
 						]);
+					} else if (mr) {
+						message = __("Task completed and Material Request {0} submitted", [mr]);
+					}
+					if (mrErrors.length) {
+						message = __("Task completed but material issue failed: {0}", [
+							mrErrors.join("; "),
+						]);
+						frappe.msgprint({
+							title: __("Material Issue Error"),
+							message: mrErrors.join("<br>"),
+							indicator: "orange",
+						});
 					}
 					frappe.show_alert({
 						message,
-						indicator: "green",
+						indicator: mrErrors.length ? "orange" : "green",
 					});
 					if (this.active_tab !== "completed") {
 						this.active_tab = "completed";

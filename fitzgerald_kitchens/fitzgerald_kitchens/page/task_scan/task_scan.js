@@ -644,15 +644,28 @@ class TaskScanPage {
 						mrSubmit.submitted_existing_mr ||
 						mrSubmit.name ||
 						msg.material_request;
-					const mrError =
-						msg.material_request_error ||
-						(msg.material_request_submit?.errors || []).join("; ");
+					const mrWarnings = [
+						...(msg.material_request_warnings || []),
+						...(mrSubmit.errors || []),
+					].filter(Boolean);
+					const mrError = msg.material_request_error || mrWarnings.join("; ");
 					const mrSkipped = msg.material_request_skipped;
-					let completeMessage = mr
-						? __("All labels scanned — task completed and Material Request {0} submitted", [mr])
-						: __("All labels scanned — timer stopped, timesheet submitted, task completed");
+					const stockEntry = (mrSubmit.stock_entries || [])[0];
+					let completeMessage = stockEntry
+						? __("All labels scanned — task completed, MR {0} submitted and Stock Entry {1} issued", [
+								mr,
+								stockEntry,
+							])
+						: mr
+							? __("All labels scanned — task completed and Material Request {0} submitted", [mr])
+							: __("All labels scanned — timer stopped, timesheet submitted, task completed");
 					if (mrError) {
-						completeMessage = __("Task completed but Material Request failed: {0}", [mrError]);
+						completeMessage = __("Task completed but material issue failed: {0}", [mrError]);
+						frappe.msgprint({
+							title: __("Material Issue Error"),
+							message: mrError,
+							indicator: "orange",
+						});
 					} else if (mrSkipped) {
 						completeMessage = __("Task completed (Material Request skipped: {0})", [mrSkipped]);
 					}
