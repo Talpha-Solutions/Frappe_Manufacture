@@ -110,7 +110,7 @@ class FKProductionPlan(ProductionPlan):
 
 		if not self.get("po_items"):
 			frappe.throw(
-				_("No items found in the Effective Manifest for the selected projects"),
+				_("No manufacturing items found in the Effective Manifest for the selected projects"),
 				title=_("Items Required"),
 			)
 
