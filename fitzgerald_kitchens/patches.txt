@@ -42,3 +42,4 @@ fitzgerald_kitchens.patches.v1_0.fix_project_form_layout_v4
 fitzgerald_kitchens.patches.v1_0.apply_project_details_tab_layout
 fitzgerald_kitchens.patches.v1_0.add_project_download_qr_tab
 fitzgerald_kitchens.patches.v1_0.backfill_project_effective_manifest
+fitzgerald_kitchens.patches.v1_0.add_task_label_scans_tab

@@ -3,6 +3,7 @@ const MAX_UPLOAD_COUNT = 25;
 frappe.ui.form.on('Task', {
 	refresh: function(frm) {
 		setup_uploader_tab(frm);
+		setup_label_scans_tab(frm);
 	}
 });
 
@@ -259,5 +260,115 @@ function render_current_thumbnails(frm) {
 				gallery.hide();
 			}
 		}
+	});
+}
+
+function is_label_scan_task_type(task_type) {
+	if (!task_type) {
+		return false;
+	}
+	const normalized = String(task_type).trim().toLowerCase();
+	if (normalized === "dispatch") {
+		return true;
+	}
+	return ["Assembly", "Despatch", "Dispatch", "Delivery"].includes(task_type);
+}
+
+function setup_label_scans_tab(frm) {
+	if (!frm.get_field('custom_label_scans_target')) {
+		return;
+	}
+
+	const wrapper = frm.get_field('custom_label_scans_target').$wrapper;
+	if (frm.doc.__islocal) {
+		wrapper.html(
+			`<div class="text-muted small">${__('Save the Task to view scanned QR labels.')}</div>`
+		);
+		return;
+	}
+
+	if (frm.doc.type && !is_label_scan_task_type(frm.doc.type)) {
+		wrapper.html(
+			`<div class="text-muted small">${__(
+				'Label scans are tracked for Assembly, Despatch, and Delivery tasks only.'
+			)}</div>`
+		);
+		return;
+	}
+
+	wrapper.html(`<div class="text-muted small">${__('Loading scanned labels...')}</div>`);
+
+	frappe.call({
+		method: 'fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.label_scan.get_task_label_scan_logs',
+		args: { task: frm.doc.name },
+		callback: (r) => {
+			const data = r.message || {};
+			const total = flt(data.total_labels) || 0;
+			const scanned = flt(data.scanned) || 0;
+			const progress = total ? Math.round((scanned / total) * 100) : 0;
+			const logs = data.logs || [];
+
+			let summary = `<div class="task-label-scan-summary" style="margin-bottom: 16px;">
+				<div style="font-size: 13px; color: #475569; margin-bottom: 8px;">
+					${total
+						? __('{0} of {1} labels scanned ({2}%)', [scanned, total, progress])
+						: __('No QR labels configured for this project yet.')}
+				</div>`;
+
+			if (total) {
+				summary += `<div style="height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden;">
+					<div style="height: 100%; width: ${progress}%; background: #1b66ec;"></div>
+				</div>`;
+			}
+			summary += `</div>`;
+
+			if (!logs.length) {
+				wrapper.html(
+					summary +
+						`<div class="text-muted small">${__('No QR labels scanned on this task yet.')}</div>`
+				);
+				return;
+			}
+
+			const rows = logs
+				.map((log) => {
+					const status_class = log.status === 'Scanned' ? 'text-success' : 'text-danger';
+					const when = log.scan_datetime
+						? frappe.datetime.str_to_user(log.scan_datetime)
+						: '';
+					const label = log.item_instance_code || log.qr_text || '';
+					const qr_cell = log.qr_base64
+						? `<img src="data:image/png;base64,${log.qr_base64}" alt="${frappe.utils.escape_html(label)}" style="width: 52px; height: 52px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 4px; background: #fff;">`
+						: `<span class="text-muted">—</span>`;
+					return `<tr>
+						<td class="text-center">${qr_cell}</td>
+						<td>${frappe.utils.escape_html(label)}</td>
+						<td>${frappe.utils.escape_html(log.item_name || log.item_code || '')}</td>
+						<td class="${status_class}">${frappe.utils.escape_html(log.status || '')}</td>
+						<td>${frappe.utils.escape_html(log.scanned_by || '')}</td>
+						<td>${frappe.utils.escape_html(when)}</td>
+					</tr>`;
+				})
+				.join('');
+
+			wrapper.html(
+				summary +
+					`<div class="table-responsive">
+						<table class="table table-bordered table-condensed">
+							<thead>
+								<tr>
+									<th>${__('QR Code')}</th>
+									<th>${__('Label')}</th>
+									<th>${__('Item')}</th>
+									<th>${__('Status')}</th>
+									<th>${__('Scanned By')}</th>
+									<th>${__('When')}</th>
+								</tr>
+							</thead>
+							<tbody>${rows}</tbody>
+						</table>
+					</div>`
+			);
+		},
 	});
 }

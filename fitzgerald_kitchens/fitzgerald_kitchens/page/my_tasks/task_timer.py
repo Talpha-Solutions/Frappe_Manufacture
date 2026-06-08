@@ -571,3 +571,49 @@ def complete_task(task: str):
 	payload["task_update"] = result
 	payload["timesheet_submit"] = timesheet_submit
 	return payload
+
+
+def ensure_task_timer_started_for_scan(task: str) -> dict | None:
+	"""Start the task timer when a label is scanned, if it is not already running."""
+	try:
+		_check_task_access(task)
+	except Exception:
+		return None
+
+	user = frappe.session.user
+	running = _get_running_time_log(user)
+	if running and running.task == task:
+		return _timer_payload(task, running)
+
+	try:
+		return start_task_timer(task)
+	except Exception:
+		frappe.log_error(
+			message=frappe.get_traceback(),
+			title=f"Scan timer auto-start failed for {task}",
+		)
+		return None
+
+
+@frappe.whitelist()
+def finalize_task_after_all_labels_scanned(task: str) -> dict:
+	"""Stop an active timer, submit the draft timesheet, and complete the task."""
+	_check_task_access(task)
+	user = frappe.session.user
+	_set_timer_paused(user, task, False)
+
+	stopped = None
+	running = _get_running_time_log(user, task)
+	if running:
+		timesheet = frappe.get_doc("Timesheet", running.timesheet_name)
+		stopped = _close_time_log_row(timesheet, running.detail_name, submit_after=False)
+
+	timesheet_submit = _submit_draft_timesheet_for_task(user, task)
+	task_update = _apply_task_update(task, complete=True)
+	payload = _timer_payload(task)
+	return {
+		"stopped": stopped,
+		"timesheet_submit": timesheet_submit,
+		"task_update": task_update,
+		**payload,
+	}

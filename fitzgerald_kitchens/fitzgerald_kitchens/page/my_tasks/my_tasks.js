@@ -24,6 +24,18 @@ frappe.pages["my-tasks"].on_page_hide = function () {
 };
 
 const COLLAPSE_STORAGE_KEY = "my_tasks_card_sections";
+const LABEL_SCAN_TASK_TYPES = new Set(["Assembly", "Despatch", "Dispatch", "Delivery"]);
+
+function is_label_scan_task_type(task_type) {
+	if (!task_type) {
+		return false;
+	}
+	const normalized = String(task_type).trim().toLowerCase();
+	if (normalized === "dispatch") {
+		return true;
+	}
+	return LABEL_SCAN_TASK_TYPES.has(task_type);
+}
 
 class MyTasksPage {
 	constructor(page) {
@@ -264,21 +276,13 @@ class MyTasksPage {
 			return "";
 		}
 		const progress = Math.round(flt(task.progress));
-		const status = task.status || "Open";
 		const timer_active = !!task.timer_running || !!task.timer_paused;
 		const complete_disabled = timer_active ? "disabled" : "";
 		const complete_title = timer_active
 			? frappe.utils.escape_html(__("Stop the timer before completing"))
 			: "";
-		const status_hint =
-			status === "Open"
-				? `<p class="my-tasks-status-hint text-muted small">${__(
-						"Start the task, stop the timer to save time, then Complete submits the timesheet and sets progress to 100%."
-					)}</p>`
-				: "";
 
 		return `<div class="my-tasks-task-controls">
-			${status_hint}
 			<div class="my-tasks-control-row">
 				<label class="my-tasks-control-label">${__("Progress")}</label>
 				<input type="number" class="form-control input-sm my-tasks-progress-input" min="0" max="100" value="${progress}">
@@ -341,7 +345,9 @@ class MyTasksPage {
 			} else {
 				actionButtons = `<button type="button" class="btn btn-primary btn-sm btn-task-start">${__("Start task")}</button>`;
 			}
-			actionButtons += `<button type="button" class="btn btn-default btn-sm btn-task-scan">${__("Scan")}</button>`;
+			if (is_label_scan_task_type(task.type)) {
+				actionButtons += `<button type="button" class="btn btn-default btn-sm btn-task-scan">${__("Scan")}</button>`;
+			}
 		}
 		actionButtons += `<button type="button" class="btn btn-default btn-sm btn-task-details">${__("Details")}</button>`;
 
@@ -501,8 +507,8 @@ class MyTasksPage {
 				<div class="my-tasks-card" data-task="${frappe.utils.escape_html(task.name)}">
 					<div class="my-tasks-card-top">
 						<div>
-							<div class="my-tasks-card-title">${frappe.utils.escape_html(task.subject)}</div>
-							<div class="my-tasks-card-sub">${frappe.utils.escape_html(task.unit_subtitle || task.project_label || "")}</div>
+							<div class="my-tasks-card-title">${frappe.utils.escape_html(task.project_label || task.unit_subtitle || task.project || "")}</div>
+							<div class="my-tasks-card-sub">${frappe.utils.escape_html(task.subject)}</div>
 						</div>
 						${task.due_label ? `<div class="my-tasks-due ${due_class}">${frappe.utils.escape_html(task.due_label)}</div>` : ""}
 					</div>

@@ -113,12 +113,15 @@ def _get_task_header(task_name: str) -> dict:
 
 	due_display, _due_css = _format_relative_due(task.exp_end_date)
 	due_badge_text, due_badge_class = _due_badge(task)
+	task_subject = task.subject or task.name
+	project_display = project_label or unit_subtitle or task.project or ""
 	return {
 		"task": task.name,
 		"project": task.project,
-		"title": task.subject or task.name,
-		"subtitle": unit_subtitle or project_label or "",
+		"title": project_display,
+		"subtitle": task_subject,
 		"project_label": project_label,
+		"task_subject": task_subject,
 		"task_type": task.type or "—",
 		"due_label": due_display,
 		"due_badge": due_badge_text,

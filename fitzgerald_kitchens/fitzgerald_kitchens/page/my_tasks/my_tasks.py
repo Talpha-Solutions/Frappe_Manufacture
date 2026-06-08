@@ -7,6 +7,7 @@ import frappe
 from frappe import _
 from frappe.utils import formatdate, getdate, today
 
+from fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer import WORKING_STATUS
 from fitzgerald_kitchens.fitzgerald_kitchens.website.project_card import (
 	enrich_tasks_with_schedule_status,
 	get_task_schedule_display,
@@ -24,6 +25,7 @@ MY_TASKS_ROLES = frozenset(
 
 COMPLETED_STATUS = "Completed"
 CANCELLED_STATUSES = ("Cancelled", "Template")
+ONGOING_TASK_STATUSES = frozenset({WORKING_STATUS, "Pending Review"})
 
 
 def _check_my_tasks_access():
@@ -231,6 +233,17 @@ def _task_start_date(task):
 	return None
 
 
+def _starts_today(task, today_date) -> bool:
+	start = _task_start_date(task)
+	return bool(start and start == today_date)
+
+
+def _is_ongoing_task(task) -> bool:
+	if task.status in ONGOING_TASK_STATUSES:
+		return True
+	return bool(getattr(task, "timer_running", False))
+
+
 def _due_label(task, schedule_label: str | None) -> str | None:
 	if task.status == COMPLETED_STATUS:
 		return _("Completed")
@@ -271,10 +284,10 @@ def _bucket_tasks(tasks: list[dict]) -> dict:
 		exp_end = getdate(task.exp_end_date) if task.exp_end_date else None
 		start = _task_start_date(task)
 
-		if exp_end and exp_end < today_date:
-			buckets["overdue"].append(task)
-		elif start and start == today_date:
+		if _is_ongoing_task(task) or _starts_today(task, today_date):
 			buckets["today"].append(task)
+		elif exp_end and exp_end < today_date:
+			buckets["overdue"].append(task)
 		elif start and start > today_date:
 			buckets["upcoming"].append(task)
 		else:
@@ -310,9 +323,16 @@ def _kpis(buckets: dict) -> dict:
 		1 for task in buckets["completed"] if _is_completed_today(task, today_date)
 	)
 
+	starts_today = sum(
+		1
+		for bucket_key in ("today", "upcoming", "overdue")
+		for task in buckets[bucket_key]
+		if _starts_today(task, today_date)
+	)
+
 	return {
 		"completed_today": completed_today,
-		"due_today": len(buckets["today"]),
+		"due_today": starts_today,
 		"overdue": len(buckets["overdue"]),
 	}
 
