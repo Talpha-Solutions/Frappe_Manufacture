@@ -12,6 +12,7 @@ import frappe
 from frappe import _
 from frappe.utils import formatdate, getdate, today
 
+from fitzgerald_kitchens.setup.project_hierarchy_fields import SITE_PARENT_FIELD
 from fitzgerald_kitchens.www.project_photos import (
 	_detect_category,
 	_get_project_type_label,
@@ -111,6 +112,8 @@ def get_tracker_context(focused_project: str | None = None) -> dict:
 			)
 		)
 
+	focus_is_site = bool(focused and focused.get("is_site"))
+
 	return {
 		"page_title": _("Production stage tracker"),
 		"today_label": getdate(today()).strftime("%a %d %b %Y"),
@@ -124,8 +127,9 @@ def get_tracker_context(focused_project: str | None = None) -> dict:
 		},
 		"projects": tracker_projects,
 		"no_result_message": _("No projects found."),
-		"focused_project": focused.get("name") if focused else None,
+		"focused_project": focused.get("name") if focused and not focus_is_site else None,
 		"initial_search": focused.get("initial_search", "") if focused else "",
+		"focus_is_site": focus_is_site,
 	}
 
 
@@ -145,12 +149,55 @@ def _resolve_focused_project(project_id: str | None) -> dict | None:
 
 	project_type = _get_project_type_label(project)
 	project_name = (project.project_name or project.name).strip()
+	is_site = project_type in EXCLUDED_PROJECT_TYPES
 
 	return {
 		"name": project.name,
 		"project_name": project_name,
-		"initial_search": project_name or project.name,
+		"initial_search": _site_focus_search_term(project_name) if is_site else (project_name or project.name),
+		"is_site": is_site,
 	}
+
+
+def _site_focus_search_term(site_name: str) -> str:
+	"""Search token for a Site row — use the full site name (e.g. Site 005)."""
+	return (site_name or "").strip()
+
+
+def _get_site_child_project_ids(site_id: str) -> set[str]:
+	if not site_id or not frappe.get_meta("Project").has_field(SITE_PARENT_FIELD):
+		return set()
+
+	return set(
+		frappe.get_all(
+			"Project",
+			filters={SITE_PARENT_FIELD: site_id, "docstatus": ("<", 2)},
+			pluck="name",
+		)
+	)
+
+
+def _filter_projects_to_site_units(projects, focused: dict):
+	"""Keep only unit projects that belong to the focused Site."""
+	site_id = focused.get("name")
+	site_name = (focused.get("project_name") or "").strip()
+	child_ids = _get_site_child_project_ids(site_id)
+
+	filtered = []
+	for project in projects:
+		project_type = _get_project_type_label(project)
+		if project_type in EXCLUDED_PROJECT_TYPES:
+			continue
+
+		if project.name in child_ids:
+			filtered.append(project)
+			continue
+
+		project_name = (project.get("project_name") or "").strip()
+		if site_name and site_name in project_name:
+			filtered.append(project)
+
+	return filtered
 
 
 def _project_list_fields() -> list[str]:
@@ -189,7 +236,7 @@ def _get_project_list_row(project_id: str):
 
 
 def _ensure_focused_project_in_list(projects, focused: dict | None):
-	if not focused:
+	if not focused or focused.get("is_site"):
 		return projects
 
 	project_names = {row.name for row in projects}

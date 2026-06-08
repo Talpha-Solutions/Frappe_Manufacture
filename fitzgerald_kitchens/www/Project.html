@@ -513,6 +513,7 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {
+    let siteFocusActive = {{ focus_is_site|tojson }};
     const trackerState = window.fkTrackerState;
     const pills = document.querySelectorAll(".fk-pill");
     const searchInput = document.getElementById("projectSearch");
@@ -544,6 +545,7 @@
 
       urlFocusedProject = null;
       focusedSearchBaseline = "";
+      siteFocusActive = false;
 
       if (resetSearch) {
         currentFilter = "all";
@@ -582,7 +584,7 @@
 
         let show = true;
 
-        if (urlFocusedProject) {
+        if (urlFocusedProject && !siteFocusActive) {
           show = projectId === urlFocusedProject;
         } else if (currentFilter === "attention") {
           show = needsAttention;
@@ -609,7 +611,7 @@
 
     function initializeTrackerState() {
       if (!trackerState) {
-        urlFocusedProject = {{ focused_project|tojson }};
+        urlFocusedProject = siteFocusActive ? null : {{ focused_project|tojson }};
         currentSearch = (searchInput && searchInput.value || "").toLowerCase().trim();
         if (urlFocusedProject && searchInput) {
           focusedSearchBaseline = searchInput.value || "";
@@ -623,9 +625,10 @@
         pills: pills,
         serverFocusedProject: {{ focused_project|tojson }},
         serverInitialSearch: {{ initial_search|tojson }},
+        serverFocusIsSite: siteFocusActive,
       });
 
-      urlFocusedProject = restored.focusedProject;
+      urlFocusedProject = siteFocusActive ? null : restored.focusedProject;
       currentSearch = (restored.searchValue || "").toLowerCase().trim();
       if (urlFocusedProject && searchInput) {
         focusedSearchBaseline = searchInput.value || "";

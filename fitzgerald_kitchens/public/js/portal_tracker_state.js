@@ -144,6 +144,22 @@
 			const pills = options.pills || [];
 			const urlParams = new URLSearchParams(window.location.search);
 			const urlProject = urlParams.get("project");
+
+			if (options.serverFocusIsSite) {
+				const searchValue = options.serverInitialSearch || "";
+				if (searchInput) {
+					searchInput.value = searchValue;
+				}
+				pills.forEach(function (pill) {
+					pill.classList.remove("active");
+				});
+				this.clearFocusedProject();
+				return {
+					focusedProject: null,
+					searchValue: searchValue,
+				};
+			}
+
 			let focusedProject = options.serverFocusedProject || urlProject || null;
 
 			if (urlProject) {
