@@ -122,6 +122,20 @@ class TestProductionPlanProjects(IntegrationTestCase):
 		self.assertEqual([row["item_code"] for row in items], [fg_code])
 		self.assertFalse(is_manufacturing_item(rm_code))
 
+	def test_make_production_plan_from_project(self):
+		item_code = self._create_item_with_bom("PP Test From Project Item")
+		manifest = self._create_manifest(item_code)
+		project = self._create_project("PP Test From Project Kitchen", manifest.name)
+
+		from fitzgerald_kitchens.setup.project_production_plan import make_production_plan_from_project
+
+		plan = make_production_plan_from_project(project.name)
+		self.assertEqual(plan["company"], self.company)
+		self.assertEqual(plan["get_items_from"], "Project")
+		self.assertEqual(len(plan["fk_projects"]), 1)
+		self.assertEqual(plan["fk_projects"][0]["project"], project.name)
+		self.assertEqual(plan["fk_projects"][0]["effective_manifest"], manifest.name)
+
 	def _create_item_with_bom(self, item_code: str) -> str:
 		rm_item_code = f"{item_code}-RM"
 		for code, is_fg in ((rm_item_code, False), (item_code, True)):
