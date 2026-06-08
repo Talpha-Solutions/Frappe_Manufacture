@@ -44,7 +44,7 @@
     "child": 0,
     "collapsible": 1,
     "display_depends_on": null,
-    "filters": null,
+    "filters": "[[\"Project\",\"project_type\",\"=\",\"Site\"]]",
     "icon": "projects",
     "indent": 0,
     "keep_closed": 0,
@@ -56,6 +56,23 @@
     "show_arrow": 0,
     "type": "Link",
     "url": null
+   },
+   {
+    "child": 0,
+    "collapsible": 1,
+    "display_depends_on": null,
+    "filters": null,
+    "icon": "organization",
+    "indent": 0,
+    "keep_closed": 0,
+    "label": "Unit",
+    "link_to": null,
+    "link_type": "URL",
+    "navigate_to_tab": null,
+    "route_options": null,
+    "show_arrow": 0,
+    "type": "Link",
+    "url": "/desk/project/view/list?project_type=%5B%22%21%3D%22%2C%22Site%22%5D"
    },
    {
     "child": 0,
@@ -653,7 +670,7 @@
     "url": null
    }
   ],
-  "modified": "2026-06-02 08:26:08.597976",
+  "modified": "2026-06-08 09:37:47.457474",
   "module": "Projects",
   "module_onboarding": "Projects Onboarding",
   "name": "Projects",
