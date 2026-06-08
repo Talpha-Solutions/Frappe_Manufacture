@@ -9,14 +9,27 @@ import frappe
 from frappe.utils import flt
 
 from fitzgerald_kitchens.workbook_import.import_log import ImportRunStats, WorkbookImportLogEntry
+from fitzgerald_kitchens.workbook_import.manifest_kinds import (
+	MANIFEST_KIND_KITCHEN,
+	MANIFEST_KIND_PANTRY,
+	MANIFEST_KIND_ROBE,
+	MANIFEST_KIND_VANITY,
+)
+from fitzgerald_kitchens.workbook_import.manifest_requirements import requirements_for_scope
 from fitzgerald_kitchens.workbook_import.naming import (
 	build_configuration_code,
 	build_configuration_display_name,
 	build_kitchen_manifest_code,
+	build_pantry_manifest_code,
 	build_robe_manifest_code,
+	build_vanity_manifest_code,
 )
-from fitzgerald_kitchens.workbook_import.scope import SiteTypeScope, mapping_by_type
-from fitzgerald_kitchens.workbook_import.type_mapping import TypeMappingRow
+from fitzgerald_kitchens.workbook_import.scope import SiteTypeScope
+from fitzgerald_kitchens.setup.manifest_line_labels import (
+	resolve_label_category,
+	resolve_manifest_linked_bom,
+)
+from fitzgerald_kitchens.workbook_import.type_mapping import TypeManifestSheets
 from fitzgerald_kitchens.workbook_import.workbook_reader import WorkbookReader
 
 
@@ -53,39 +66,68 @@ def import_manifests(
 	*,
 	reader: WorkbookReader,
 	scopes: list[SiteTypeScope],
-	type_mappings: list[TypeMappingRow],
+	quantity_rows: list[dict[str, Any]],
+	manifest_mappings: dict[str, TypeManifestSheets],
 	strict_item_validation: bool,
 	stats: ImportRunStats,
 ) -> None:
-	by_type = mapping_by_type(type_mappings)
-
 	for scope in scopes:
-		mapping = by_type.get(scope.unit_type)
-		if not mapping:
+		type_sheets = manifest_mappings.get(scope.unit_type)
+		if not type_sheets:
+			continue
+
+		required_kinds = requirements_for_scope(
+			quantity_rows, scope.site_name, scope.unit_type
+		)
+		if not required_kinds:
 			continue
 
 		config_code = build_configuration_code(scope.unit_type, scope.site_name)
-		kitchen_code = build_kitchen_manifest_code(scope.unit_type, scope.site_name)
-		robe_code = build_robe_manifest_code(scope.unit_type, scope.site_name)
+		mapping_row = type_sheets.as_mapping_row()
 
-		_import_manifest_sheet(
-			reader=reader,
-			sheet_name=mapping.kitchen_manifest_sheet,
-			manifest_code=kitchen_code,
-			configuration_code=config_code,
-			manifest_category="Kitchen",
-			strict_item_validation=strict_item_validation,
-			stats=stats,
-		)
-		_import_manifest_sheet(
-			reader=reader,
-			sheet_name=mapping.robe_manifest_sheet,
-			manifest_code=robe_code,
-			configuration_code=config_code,
-			manifest_category="Robe",
-			strict_item_validation=strict_item_validation,
-			stats=stats,
-		)
+		if MANIFEST_KIND_KITCHEN in required_kinds and mapping_row.kitchen_manifest_sheet:
+			_import_manifest_sheet(
+				reader=reader,
+				sheet_name=mapping_row.kitchen_manifest_sheet,
+				manifest_code=build_kitchen_manifest_code(scope.unit_type, scope.site_name),
+				configuration_code=config_code,
+				manifest_category="Kitchen",
+				strict_item_validation=strict_item_validation,
+				stats=stats,
+			)
+
+		if MANIFEST_KIND_ROBE in required_kinds and mapping_row.robe_manifest_sheet:
+			_import_manifest_sheet(
+				reader=reader,
+				sheet_name=mapping_row.robe_manifest_sheet,
+				manifest_code=build_robe_manifest_code(scope.unit_type, scope.site_name),
+				configuration_code=config_code,
+				manifest_category="Robe",
+				strict_item_validation=strict_item_validation,
+				stats=stats,
+			)
+
+		if MANIFEST_KIND_VANITY in required_kinds and mapping_row.vanity_manifest_sheet:
+			_import_manifest_sheet(
+				reader=reader,
+				sheet_name=mapping_row.vanity_manifest_sheet,
+				manifest_code=build_vanity_manifest_code(scope.unit_type, scope.site_name),
+				configuration_code=config_code,
+				manifest_category="Vanity",
+				strict_item_validation=strict_item_validation,
+				stats=stats,
+			)
+
+		if MANIFEST_KIND_PANTRY in required_kinds and mapping_row.pantry_manifest_sheet:
+			_import_manifest_sheet(
+				reader=reader,
+				sheet_name=mapping_row.pantry_manifest_sheet,
+				manifest_code=build_pantry_manifest_code(scope.unit_type, scope.site_name),
+				configuration_code=config_code,
+				manifest_category="Pantry",
+				strict_item_validation=strict_item_validation,
+				stats=stats,
+			)
 
 
 def _import_manifest_sheet(
@@ -189,6 +231,7 @@ def _build_manifest_items(
 			continue
 
 		qty = flt(_get_row_value(row, "Qty", "qty") or 1) or 1
+		linked_bom = resolve_manifest_linked_bom(item_code)
 		items.append(
 			{
 				"item_code": item_code,
@@ -198,6 +241,8 @@ def _build_manifest_items(
 				"height": _float_or_none(_get_row_value(row, "Height", "height")),
 				"depth": _float_or_none(_get_row_value(row, "Depth", "depth")),
 				"room": _get_row_value(row, "Room", "room") or None,
+				"linked_bom": linked_bom,
+				"label_category": resolve_label_category(item_code, linked_bom),
 			}
 		)
 

@@ -9,13 +9,17 @@ from typing import Any
 import frappe
 from frappe.utils import cint
 
+from fitzgerald_kitchens.setup.project_manifest_amend import project_has_unit_snapshot_manifest
 from fitzgerald_kitchens.setup.project_naming import get_naming_series_for_project_type
 from fitzgerald_kitchens.setup.project_unit_fields import KITCHEN_PROJECT_TYPE, SITE_PROJECT_TYPE
-from fitzgerald_kitchens.workbook_import.constants import QTY_COLUMNS
+from fitzgerald_kitchens.workbook_import.constants import (
+	SUB_UNIT_PROJECT_QTY_COLUMNS,
+	kitchen_qty,
+)
 from fitzgerald_kitchens.workbook_import.import_log import ImportRunStats, WorkbookImportLogEntry
 from fitzgerald_kitchens.workbook_import.manifest_resolver import resolve_effective_manifest
 from fitzgerald_kitchens.workbook_import.naming import build_unit_project_name
-from fitzgerald_kitchens.workbook_import.validator import parse_row_qtys
+from fitzgerald_kitchens.workbook_import.qty_rows import parse_row_qtys
 
 
 @dataclass
@@ -80,26 +84,26 @@ class WorkbookProjectFactory:
 		site = self._ensure_site(developer, site_name, customer, row_number)
 		kitchen_project = None
 
-		for qty_col, project_type in QTY_COLUMNS:
+		kitchen_qty_value = kitchen_qty(qtys)
+		if kitchen_qty_value > 0:
+			kitchen_project = self._upsert_unit_project(
+				row_number=row_number,
+				developer=developer,
+				customer=customer,
+				site_name=site_name,
+				site=site,
+				house_number=house_number,
+				project_type=KITCHEN_PROJECT_TYPE,
+				qty=kitchen_qty_value,
+				bedrooms=bedrooms,
+				config_code=config_code,
+				parent_unit=None,
+			)
+			self._kitchen_cache[(site, house_number)] = kitchen_project
+
+		for qty_col, project_type in SUB_UNIT_PROJECT_QTY_COLUMNS:
 			qty = qtys.get(qty_col, 0)
 			if qty <= 0:
-				continue
-
-			if project_type == KITCHEN_PROJECT_TYPE:
-				kitchen_project = self._upsert_unit_project(
-					row_number=row_number,
-					developer=developer,
-					customer=customer,
-					site_name=site_name,
-					site=site,
-					house_number=house_number,
-					project_type=project_type,
-					qty=qty,
-					bedrooms=bedrooms,
-					config_code=config_code,
-					parent_unit=None,
-				)
-				self._kitchen_cache[(site, house_number)] = kitchen_project
 				continue
 
 			if not kitchen_project:
@@ -263,7 +267,9 @@ class WorkbookProjectFactory:
 		}
 
 		effective_manifest = resolve_effective_manifest(config_code, project_type)
-		if effective_manifest:
+		if effective_manifest and not (
+			existing and project_has_unit_snapshot_manifest(existing)
+		):
 			values["fk_effective_manifest"] = effective_manifest
 
 		if existing:

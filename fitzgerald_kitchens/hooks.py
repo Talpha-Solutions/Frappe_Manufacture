@@ -150,6 +150,10 @@ after_migrate = [
 # ---------------
 # Hook on document methods and events
 
+override_doctype_class = {
+	"Project": "fitzgerald_kitchens.overrides.project.Project",
+}
+
 doc_events = {
 	"Project": {
 		"before_insert": "fitzgerald_kitchens.setup.project_naming.apply_project_naming_series",
@@ -186,9 +190,9 @@ doc_events = {
 # ------------------------------
 #
 # Specify custom mixins to extend the standard doctype controller.
-# extend_doctype_class = {
-# 	"Task": "fitzgerald_kitchens.custom.task.CustomTaskMixin"
-# }
+extend_doctype_class = {
+	"Project": "fitzgerald_kitchens.fitzgerald_kitchens.custom.project.CustomProject",
+}
 
 # Overriding Methods
 # ------------------------------

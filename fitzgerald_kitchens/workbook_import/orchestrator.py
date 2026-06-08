@@ -14,13 +14,20 @@ from fitzgerald_kitchens.workbook_import.naming import apply_site_scoped_configu
 from fitzgerald_kitchens.workbook_import.parser import WorkbookParseError, parse_workbook_file
 from fitzgerald_kitchens.workbook_import.project_factory import WorkbookProjectFactory
 from fitzgerald_kitchens.workbook_import.quantity_sheet import parse_quantity_sheet
+from fitzgerald_kitchens.workbook_import.manifest_requirements import (
+	count_planned_manifests,
+	requirements_by_type,
+)
 from fitzgerald_kitchens.workbook_import.scope import (
 	collect_site_type_scopes,
 	count_unique_sites,
-	mapping_by_type,
+	unique_unit_types,
 )
 from fitzgerald_kitchens.workbook_import.spec_importer import import_spec_configurations
-from fitzgerald_kitchens.workbook_import.type_mapping import parse_type_mapping
+from fitzgerald_kitchens.workbook_import.type_mapping import (
+	discover_manifest_sheet_mappings,
+	validation_errors_for_manifest_sheets,
+)
 from fitzgerald_kitchens.workbook_import.validator import validate_workbook_rows
 from fitzgerald_kitchens.workbook_import.workbook_reader import WorkbookReader
 
@@ -34,28 +41,14 @@ def validate_full_workbook(doc) -> tuple[list[str], dict[str, Any]]:
 		reader = WorkbookReader(doc.import_file)
 		reader.load()
 
-		type_mappings = parse_type_mapping(reader)
-		type_by_name = mapping_by_type(type_mappings)
-
-		for mapping in type_mappings:
-			if not reader.has_sheet(mapping.kitchen_manifest_sheet):
-				errors.append(
-					f"Missing kitchen manifest sheet: {mapping.kitchen_manifest_sheet}"
-				)
-			if not reader.has_sheet(mapping.robe_manifest_sheet):
-				errors.append(f"Missing robe manifest sheet: {mapping.robe_manifest_sheet}")
-
 		if not reader.has_sheet("Spec Sheet"):
 			errors.append("Missing sheet: Spec Sheet")
 
 		quantity_rows = parse_quantity_sheet(reader)
 		scopes = collect_site_type_scopes(quantity_rows)
-
-		for scope in scopes:
-			if scope.unit_type not in type_by_name:
-				errors.append(
-					f"Type '{scope.unit_type}' at site '{scope.site_name}' has no Type Mapping row."
-				)
+		manifest_mappings = discover_manifest_sheet_mappings(reader)
+		required_by_type = requirements_by_type(quantity_rows)
+		errors.extend(validation_errors_for_manifest_sheets(manifest_mappings, required_by_type))
 
 		qty_errors, qty_preview = validate_workbook_rows(
 			quantity_rows,
@@ -66,8 +59,8 @@ def validate_full_workbook(doc) -> tuple[list[str], dict[str, Any]]:
 
 		preview = {
 			"site_type_scopes": len(scopes),
-			"type_count": len(type_mappings),
-			"manifest_count": len(scopes) * 2,
+			"type_count": len(unique_unit_types(scopes)),
+			"manifest_count": count_planned_manifests(quantity_rows, scopes),
 			"configuration_count": len(scopes),
 			"plot_count": qty_preview.get("plot_count", 0),
 			"site_count": count_unique_sites(quantity_rows),
@@ -86,23 +79,25 @@ def run_full_workbook_import(doc) -> ImportRunStats:
 	reader = WorkbookReader(doc.import_file)
 	reader.load()
 
-	type_mappings = parse_type_mapping(reader)
 	quantity_rows = parse_quantity_sheet(reader)
 	scopes = collect_site_type_scopes(quantity_rows)
+	manifest_mappings = discover_manifest_sheet_mappings(reader)
 	stats = ImportRunStats()
 
 	ensure_configuration_stubs(scopes, stats)
 	import_manifests(
 		reader=reader,
 		scopes=scopes,
-		type_mappings=type_mappings,
+		quantity_rows=quantity_rows,
+		manifest_mappings=manifest_mappings,
 		strict_item_validation=bool(doc.strict_item_validation),
 		stats=stats,
 	)
 	import_spec_configurations(
 		reader=reader,
 		scopes=scopes,
-		type_mappings=type_mappings,
+		quantity_rows=quantity_rows,
+		unit_types=unique_unit_types(scopes),
 		stats=stats,
 	)
 

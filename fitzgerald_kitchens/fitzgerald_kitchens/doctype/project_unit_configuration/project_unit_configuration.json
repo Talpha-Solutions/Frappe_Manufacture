@@ -18,6 +18,8 @@
   "templates_section",
   "kitchen_utility_manifest",
   "wardrobe_manifest",
+  "vanity_unit_manifest",
+  "pantry_manifest",
   "col_break_after_wardrobe",
   "default_planning_bom",
   "process_template",
@@ -129,6 +131,18 @@
    "fieldname": "wardrobe_manifest",
    "fieldtype": "Link",
    "label": "Wardrobe Manifest",
+   "options": "Manifest"
+  },
+  {
+   "fieldname": "vanity_unit_manifest",
+   "fieldtype": "Link",
+   "label": "Vanity Unit Manifest",
+   "options": "Manifest"
+  },
+  {
+   "fieldname": "pantry_manifest",
+   "fieldtype": "Link",
+   "label": "Pantry Manifest",
    "options": "Manifest"
   },
   {

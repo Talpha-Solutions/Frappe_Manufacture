@@ -21,6 +21,9 @@ frappe.ui.form.on("Project", {
 		toggle_parent_unit(frm);
 		setup_parent_project_query(frm);
 		setup_download_qr_actions(frm);
+		setup_installation_manifest_actions(frm);
+		setup_material_request_actions(frm);
+		setup_amend_manifest_actions(frm);
 		render_download_qr_html(frm);
 	},
 	project_type(frm) {
@@ -77,12 +80,7 @@ function setup_parent_project_query(frm) {
 	}));
 }
 
-const KITCHEN_UTILITY_MANIFEST_TYPES = new Set([
-	KITCHEN_PROJECT_TYPE,
-	"Utility",
-	"Vanity Unit",
-	"Pantry",
-]);
+const KITCHEN_UTILITY_MANIFEST_TYPES = new Set([KITCHEN_PROJECT_TYPE, "Utility"]);
 
 function sync_effective_manifest_from_configuration(frm) {
 	if (is_site_project(frm) || !frm.doc.fk_unit_configuration || !frm.doc.project_type) {
@@ -93,7 +91,12 @@ function sync_effective_manifest_from_configuration(frm) {
 		.get_value(
 			"Project Unit Configuration",
 			frm.doc.fk_unit_configuration,
-			["kitchen_utility_manifest", "wardrobe_manifest"]
+			[
+				"kitchen_utility_manifest",
+				"wardrobe_manifest",
+				"vanity_unit_manifest",
+				"pantry_manifest",
+			]
 		)
 		.then((r) => {
 			const puc = r.message || {};
@@ -101,12 +104,27 @@ function sync_effective_manifest_from_configuration(frm) {
 
 			if (frm.doc.project_type === "Robe") {
 				manifest = puc.wardrobe_manifest;
+			} else if (frm.doc.project_type === "Vanity Unit") {
+				manifest = puc.vanity_unit_manifest;
+			} else if (frm.doc.project_type === "Pantry") {
+				manifest = puc.pantry_manifest;
 			} else if (KITCHEN_UTILITY_MANIFEST_TYPES.has(frm.doc.project_type)) {
 				manifest = puc.kitchen_utility_manifest;
 			}
 
 			if (manifest && frm.doc.fk_effective_manifest !== manifest) {
-				frm.set_value("fk_effective_manifest", manifest);
+				const current_manifest = frm.doc.fk_effective_manifest;
+				if (!current_manifest) {
+					frm.set_value("fk_effective_manifest", manifest);
+					return;
+				}
+
+				frappe.db.get_value("Manifest", current_manifest, "scope").then((scope_r) => {
+					if (scope_r.message?.scope === "Unit Snapshot") {
+						return;
+					}
+					frm.set_value("fk_effective_manifest", manifest);
+				});
 			}
 		});
 }
@@ -127,6 +145,112 @@ function setup_download_qr_actions(frm) {
 	}
 
 	frm.add_custom_button(__("Download QR"), () => download_project_qr_zip(frm), __("Actions"));
+}
+
+function setup_installation_manifest_actions(frm) {
+	if (frm.is_new() || is_site_project(frm) || !frm.doc.fk_effective_manifest) {
+		return;
+	}
+
+	frm.add_custom_button(
+		__("Download Manifest"),
+		() => download_installation_manifest(frm),
+		__("Actions")
+	);
+}
+
+function setup_material_request_actions(frm) {
+	if (frm.is_new() || is_site_project(frm) || !frm.doc.fk_effective_manifest) {
+		return;
+	}
+	if (!frappe.model.can_create("Material Request")) {
+		return;
+	}
+
+	frm.add_custom_button(__("Material Request"), () => create_material_request_from_project(frm), __("Actions"));
+}
+
+function setup_amend_manifest_actions(frm) {
+	if (frm.is_new() || is_site_project(frm) || !frm.doc.fk_effective_manifest) {
+		return;
+	}
+	if (!frappe.model.can_create("Manifest")) {
+		return;
+	}
+
+	frm.add_custom_button(
+		__("Amend Effective Manifest"),
+		() => amend_effective_manifest(frm),
+		__("Actions")
+	);
+}
+
+function amend_effective_manifest(frm) {
+	if (!frm.doc.fk_effective_manifest) {
+		frappe.msgprint(__("Set Effective Manifest on the Unit tab first."));
+		return;
+	}
+
+	frappe.confirm(
+		__(
+			"Create an editable unit copy of the effective manifest? The project template manifest will not be changed."
+		),
+		() => {
+			frappe.call({
+				method: "fitzgerald_kitchens.setup.project_manifest_amend.amend_effective_manifest",
+				args: { project: frm.doc.name },
+				freeze: true,
+				freeze_message: __("Creating unit manifest..."),
+				callback(r) {
+					if (!r.message) {
+						return;
+					}
+					frm.set_value("fk_effective_manifest", r.message);
+					frappe.show_alert({
+						message: __("Unit manifest created. Template unchanged."),
+						indicator: "green",
+					});
+					frappe.set_route("Form", "Manifest", r.message);
+				},
+			});
+		}
+	);
+}
+
+function create_material_request_from_project(frm) {
+	if (!frm.doc.fk_effective_manifest) {
+		frappe.msgprint(__("Set Effective Manifest on the Unit tab first."));
+		return;
+	}
+
+	frappe.call({
+		method: "fitzgerald_kitchens.setup.project_material_request.make_material_request_from_project",
+		args: { project: frm.doc.name },
+		freeze: true,
+		freeze_message: __("Creating Material Request..."),
+		callback(r) {
+			if (!r.message) {
+				return;
+			}
+			frappe.model.sync(r.message);
+			frappe.set_route("Form", "Material Request", r.message.name);
+		},
+	});
+}
+
+function download_installation_manifest(frm) {
+	if (!frm.doc.name || !frm.doc.fk_effective_manifest) {
+		frappe.msgprint(__("Set Effective Manifest on the Unit tab first."));
+		return;
+	}
+
+	const format = encodeURIComponent("Installation Manifest");
+	const url = frappe.urllib.get_full_url(
+		`/api/method/frappe.utils.print_format.download_pdf?doctype=Project&name=${encodeURIComponent(
+			frm.doc.name
+		)}&format=${format}&no_letterhead=1`
+	);
+	window.open(url);
 }
 
 function bind_download_qr_panel_events(frm, field) {

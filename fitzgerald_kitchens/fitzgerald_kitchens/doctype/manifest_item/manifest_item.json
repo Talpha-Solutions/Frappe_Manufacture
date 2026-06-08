@@ -80,7 +80,8 @@
    "fieldname": "label_category",
    "fieldtype": "Select",
    "label": "Label Category",
-   "options": "Cabinet Line\nFitting Kit\nAdditional\nNo Label"
+   "options": "Assembly\nFitting Kit\nExtra",
+   "read_only": 1
   },
   {
    "default": "1",
@@ -95,6 +96,8 @@
    "label": "Group for Label"
   },
   {
+   "fetch_from": "item_code.default_bom",
+   "fetch_if_empty": 1,
    "fieldname": "linked_bom",
    "fieldtype": "Link",
    "label": "Linked BOM",
