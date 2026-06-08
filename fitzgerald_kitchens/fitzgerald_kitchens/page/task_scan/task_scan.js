@@ -638,12 +638,27 @@ class TaskScanPage {
 				}
 				this.render();
 				if (msg.task_completed) {
-					const mr = msg.material_request_submit?.name || msg.material_request;
+					const mrSubmit = msg.material_request_submit || {};
+					const mr =
+						mrSubmit.new_mr ||
+						mrSubmit.submitted_existing_mr ||
+						mrSubmit.name ||
+						msg.material_request;
+					const mrError =
+						msg.material_request_error ||
+						(msg.material_request_submit?.errors || []).join("; ");
+					const mrSkipped = msg.material_request_skipped;
+					let completeMessage = mr
+						? __("All labels scanned — task completed and Material Request {0} submitted", [mr])
+						: __("All labels scanned — timer stopped, timesheet submitted, task completed");
+					if (mrError) {
+						completeMessage = __("Task completed but Material Request failed: {0}", [mrError]);
+					} else if (mrSkipped) {
+						completeMessage = __("Task completed (Material Request skipped: {0})", [mrSkipped]);
+					}
 					frappe.show_alert({
-						message: mr
-							? __("All labels scanned — task completed and Material Request {0} submitted", [mr])
-							: __("All labels scanned — timer stopped, timesheet submitted, task completed"),
-						indicator: "green",
+						message: completeMessage,
+						indicator: mrError ? "orange" : "green",
 					});
 				} else if (msg.ok) {
 					frappe.show_alert({

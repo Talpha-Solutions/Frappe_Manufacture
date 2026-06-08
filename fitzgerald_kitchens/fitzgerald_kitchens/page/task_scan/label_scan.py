@@ -291,13 +291,21 @@ def _sync_despatch_material_request_side_effects(
 			result = submit_despatch_material_request(task_name)
 		else:
 			result = sync_despatch_material_request(task_name)
-	except Exception:
-		frappe.log_error(title=f"Despatch material request failed for {task_name}")
+	except Exception as exc:
+		frappe.log_error(
+			message=frappe.get_traceback(),
+			title=f"Despatch material request failed for {task_name}",
+		)
+		side_effects["material_request_error"] = str(exc)
 		return None
 
 	if result:
-		side_effects["material_request"] = result.get("name")
+		side_effects["material_request"] = result.get("name") or result.get("new_mr")
 		side_effects["material_request_updated"] = bool(result.get("updated"))
+		if result.get("errors"):
+			side_effects["material_request_warnings"] = result.get("errors")
+		if result.get("skipped"):
+			side_effects["material_request_skipped"] = result.get("reason")
 	return result
 
 
