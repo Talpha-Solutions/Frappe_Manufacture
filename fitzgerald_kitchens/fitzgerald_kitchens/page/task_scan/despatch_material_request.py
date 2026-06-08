@@ -8,12 +8,15 @@ from frappe import _
 from frappe.utils import flt, today
 
 from fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.label_scan import (
+	get_task_label_scan_state,
 	normalize_label_scan_task_type,
 )
 
 DESPATCH_TASK_TYPE = "Despatch"
 DESPATCH_NEW_MR_WAREHOUSE = "Finished Goods - FKD"
+DESPATCH_SOURCE_WAREHOUSE = "Stores - FKD"
 DESPATCH_NEW_MR_TYPE = "Material Issue"
+AUTO_ISSUE_FLAG = "from_despatch_auto_issue"
 
 
 def _is_despatch_task(task_name: str) -> bool:
@@ -50,22 +53,37 @@ def _item_code_from_instance(item_instance_code: str, task_name: str) -> str | N
 	return None
 
 
-def _get_despatch_new_mr_warehouse(company: str | None) -> str:
-	if frappe.db.exists("Warehouse", DESPATCH_NEW_MR_WAREHOUSE):
-		return DESPATCH_NEW_MR_WAREHOUSE
-
-	filters = {"warehouse_name": "Finished Goods"}
+def _resolve_warehouse(name: str, company: str | None, *, warehouse_name: str | None = None) -> str:
+	if frappe.db.exists("Warehouse", name):
+		return name
+	filters = {}
+	if warehouse_name:
+		filters["warehouse_name"] = warehouse_name
 	if company:
 		filters["company"] = company
-	name = frappe.db.get_value("Warehouse", filters, "name")
-	if name:
-		return name
+	resolved = frappe.db.get_value("Warehouse", filters, "name") if filters else None
+	if resolved:
+		return resolved
+	frappe.throw(_("Warehouse {0} was not found.").format(name))
 
-	frappe.throw(
-		_("Warehouse {0} was not found. Create it before completing Despatch.").format(
-			DESPATCH_NEW_MR_WAREHOUSE
-		)
+
+def _get_despatch_target_warehouse(company: str | None) -> str:
+	return _resolve_warehouse(
+		DESPATCH_NEW_MR_WAREHOUSE,
+		company,
+		warehouse_name="Finished Goods",
 	)
+
+
+def _get_despatch_source_warehouse(mr_doc=None, company: str | None = None) -> str:
+	if mr_doc:
+		from_wh = getattr(mr_doc, "set_from_warehouse", None)
+		if from_wh:
+			return from_wh
+		for row in mr_doc.items:
+			if row.warehouse:
+				return row.warehouse
+	return _resolve_warehouse(DESPATCH_SOURCE_WAREHOUSE, company, warehouse_name="Stores")
 
 
 def _get_project_company(project: str) -> str | None:
@@ -103,6 +121,58 @@ def _find_existing_material_request(project: str) -> str | None:
 	return None
 
 
+def _get_despatch_task_for_project(project: str) -> str | None:
+	for task_type in (DESPATCH_TASK_TYPE, "Dispatch"):
+		name = frappe.db.get_value(
+			"Task",
+			{"project": project, "type": task_type, "status": ["!=", "Cancelled"]},
+			"name",
+			order_by="modified desc",
+		)
+		if name:
+			return name
+	return None
+
+
+def is_despatch_scan_complete_for_project(project: str) -> bool:
+	task_name = _get_despatch_task_for_project(project)
+	if not task_name:
+		return True
+	state = get_task_label_scan_state(task_name)
+	if not state.get("total_labels"):
+		return True
+	if state.get("outstanding"):
+		return False
+	return frappe.db.get_value("Task", task_name, "status") == "Completed"
+
+
+def validate_despatch_stock_entry_before_submit(doc, method=None):
+	if frappe.flags.get(AUTO_ISSUE_FLAG):
+		return
+
+	mr_names = {row.material_request for row in doc.items if row.material_request}
+	for mr_name in mr_names:
+		mr = frappe.db.get_value(
+			"Material Request",
+			mr_name,
+			["material_request_type", "project"],
+			as_dict=True,
+		)
+		if not mr or mr.material_request_type != DESPATCH_NEW_MR_TYPE or not mr.project:
+			continue
+		if not _get_despatch_task_for_project(mr.project):
+			continue
+		if is_despatch_scan_complete_for_project(mr.project):
+			continue
+		task_name = _get_despatch_task_for_project(mr.project)
+		frappe.throw(
+			_(
+				"Complete all Despatch QR scans on task {0} before issuing material for Material Request {1}."
+			).format(task_name, mr_name),
+			title=_("Despatch Scan Required"),
+		)
+
+
 def _mr_item_qty_map(mr_doc) -> dict[str, float]:
 	qty_map: dict[str, float] = {}
 	for row in mr_doc.items:
@@ -122,7 +192,8 @@ def _create_material_request(
 	item_qty_map: dict[str, float],
 	company: str,
 	*,
-	warehouse: str,
+	target_warehouse: str,
+	source_warehouse: str,
 ) -> frappe.model.document.Document:
 	mr = frappe.new_doc("Material Request")
 	mr.material_request_type = DESPATCH_NEW_MR_TYPE
@@ -130,7 +201,8 @@ def _create_material_request(
 	mr.project = project
 	mr.transaction_date = today()
 	mr.schedule_date = today()
-	mr.set_warehouse = warehouse
+	mr.set_warehouse = target_warehouse
+	mr.set_from_warehouse = source_warehouse
 
 	for item_code, qty in sorted(item_qty_map.items()):
 		mr.append(
@@ -140,7 +212,7 @@ def _create_material_request(
 				"qty": flt(qty),
 				"schedule_date": today(),
 				"project": project,
-				"warehouse": warehouse,
+				"warehouse": source_warehouse,
 			},
 		)
 
@@ -150,6 +222,35 @@ def _create_material_request(
 	return mr
 
 
+def _issue_material_from_mr(mr_name: str) -> dict:
+	from erpnext.stock.doctype.material_request.material_request import make_stock_entry
+
+	try:
+		frappe.flags[AUTO_ISSUE_FLAG] = True
+		stock_entry = frappe.get_doc(make_stock_entry(mr_name))
+		stock_entry.flags.ignore_permissions = True
+		stock_entry.save(ignore_permissions=True)
+		stock_entry.submit()
+		return {"ok": True, "stock_entry": stock_entry.name}
+	except Exception as exc:
+		frappe.log_error(
+			message=frappe.get_traceback(),
+			title=f"Despatch auto issue material failed for {mr_name}",
+		)
+		return {"ok": False, "error": _clean_error_message(exc), "material_request": mr_name}
+	finally:
+		frappe.flags[AUTO_ISSUE_FLAG] = False
+
+
+def _clean_error_message(exc: Exception) -> str:
+	message = str(exc)
+	if frappe.message_log:
+		last = frappe.message_log[-1]
+		if isinstance(last, dict) and last.get("message"):
+			message = last.get("message")
+	return message
+
+
 def _scanned_items_not_on_mr(mr_doc, scanned_qty: dict[str, float]) -> dict[str, float]:
 	mr_qty = _mr_item_qty_map(mr_doc)
 	return {
@@ -157,6 +258,40 @@ def _scanned_items_not_on_mr(mr_doc, scanned_qty: dict[str, float]) -> dict[str,
 		for item_code, qty in scanned_qty.items()
 		if item_code not in mr_qty
 	}
+
+
+def _mr_can_issue_material(mr_name: str) -> bool:
+	mr = frappe.db.get_value(
+		"Material Request",
+		mr_name,
+		["docstatus", "material_request_type", "status"],
+		as_dict=True,
+	)
+	if not mr or mr.docstatus != 1 or mr.material_request_type != DESPATCH_NEW_MR_TYPE:
+		return False
+	return mr.status in ("Pending", "Partially Ordered")
+
+
+def _append_issue_result(
+	mr_name: str,
+	*,
+	issue_results: list[dict],
+	stock_entries: list[str],
+	errors: list[str],
+) -> None:
+	if not _mr_can_issue_material(mr_name):
+		return
+	issue_result = _issue_material_from_mr(mr_name)
+	issue_results.append(issue_result)
+	if issue_result.get("ok"):
+		stock_entries.append(issue_result["stock_entry"])
+	else:
+		errors.append(
+			_("Material Request {0} submitted but Issue Material failed: {1}").format(
+				mr_name,
+				issue_result.get("error"),
+			)
+		)
 
 
 @frappe.whitelist()
@@ -191,14 +326,17 @@ def submit_despatch_material_request(task_name: str) -> dict | None:
 	if not company:
 		frappe.throw(_("Set a Company on project {0} before completing Despatch.").format(task.project))
 
-	new_mr_warehouse = _get_despatch_new_mr_warehouse(company)
+	target_warehouse = _get_despatch_target_warehouse(company)
 	existing_mr_name = _find_existing_material_request(task.project)
 	mr_doc = frappe.get_doc("Material Request", existing_mr_name) if existing_mr_name else None
+	source_warehouse = _get_despatch_source_warehouse(mr_doc, company)
 
 	submitted_existing_mr = None
 	new_mr_name = None
 	new_mr_items: dict[str, float] = dict(scanned_qty)
 	errors: list[str] = []
+	issue_results: list[dict] = []
+	stock_entries: list[str] = []
 
 	if mr_doc:
 		new_mr_items = _scanned_items_not_on_mr(mr_doc, scanned_qty)
@@ -206,11 +344,22 @@ def submit_despatch_material_request(task_name: str) -> dict | None:
 			try:
 				submitted_existing_mr = _submit_draft_mr(mr_doc)
 			except Exception as exc:
-				errors.append(str(exc))
+				errors.append(_clean_error_message(exc))
 				frappe.log_error(
 					message=frappe.get_traceback(),
 					title=f"Despatch draft MR submit failed for {task_name}",
 				)
+
+	issue_mr_name = submitted_existing_mr or (
+		existing_mr_name if mr_doc and mr_doc.docstatus == 1 else None
+	)
+	if issue_mr_name:
+		_append_issue_result(
+			issue_mr_name,
+			issue_results=issue_results,
+			stock_entries=stock_entries,
+			errors=errors,
+		)
 
 	if new_mr_items:
 		try:
@@ -218,11 +367,18 @@ def submit_despatch_material_request(task_name: str) -> dict | None:
 				task.project,
 				new_mr_items,
 				company,
-				warehouse=new_mr_warehouse,
+				target_warehouse=target_warehouse,
+				source_warehouse=source_warehouse,
 			)
 			new_mr_name = new_mr.name
+			_append_issue_result(
+				new_mr_name,
+				issue_results=issue_results,
+				stock_entries=stock_entries,
+				errors=errors,
+			)
 		except Exception as exc:
-			errors.append(str(exc))
+			errors.append(_clean_error_message(exc))
 			frappe.log_error(
 				message=frappe.get_traceback(),
 				title=f"Despatch new MR create failed for {task_name}",
@@ -232,11 +388,14 @@ def submit_despatch_material_request(task_name: str) -> dict | None:
 
 	return {
 		"name": new_mr_name or submitted_existing_mr or existing_mr_name,
-		"updated": bool(submitted_existing_mr or new_mr_name),
+		"updated": bool(submitted_existing_mr or new_mr_name or stock_entries),
 		"existing_mr": existing_mr_name,
 		"submitted_existing_mr": submitted_existing_mr,
 		"new_mr": new_mr_name,
-		"new_mr_warehouse": new_mr_warehouse,
+		"target_warehouse": target_warehouse,
+		"source_warehouse": source_warehouse,
 		"new_mr_items": new_mr_items,
+		"stock_entries": stock_entries,
+		"issue_results": issue_results,
 		"errors": errors,
 	}
