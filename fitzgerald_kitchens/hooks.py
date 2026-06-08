@@ -40,12 +40,12 @@ web_include_css = "/assets/fitzgerald_kitchens/css/portal_sidebar.css"
 # webform_include_css = {"doctype": "public/css/doctype.css"}
 
 # include js in page
-# page_js = {"page" : "public/js/file.js"}
+page_js = {"my-tasks": "public/js/task_camera.js"}
 
 # include js in doctype views
 doctype_js = {
 	"Project": "public/js/project.js",
-	"Task": "public/js/task.js",
+	"Task": ["public/js/task_camera.js", "public/js/task.js"],
 	"BOM Cost Calculator": "public/js/bom_cost_configurator.bundle.js",
 	"Production Plan": "public/js/production_plan.js",
 	"Projects Settings": "public/js/projects_settings.js",
@@ -299,7 +299,7 @@ fixtures = [
 	},
 	{
 		"dt": "Custom Field",
-		"filters": [["fieldname", "in", ["custom_file_upload", "custom_uploader_target"]]],
+		"filters": [["fieldname", "in", ["custom_file_upload", "custom_uploader_target", "custom_label_scans", "custom_label_scans_target"]]],
 	},
 	{
 		"dt": "Property Setter",

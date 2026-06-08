@@ -70,6 +70,7 @@ class TaskScanPage {
 		this.selected_label_ids = new Set();
 		this.task_name = resolve_task_scan_task_name();
 		this._realtime_task = null;
+		this.timer_state = null;
 		this._on_task_scan_update = (data) => {
 			if (!data || data.task !== this.task_name) {
 				return;
@@ -136,13 +137,93 @@ class TaskScanPage {
 					this.task_name = this.data.task;
 					sessionStorage.setItem(TASK_SCAN_TASK_STORAGE_KEY, this.data.task);
 				}
-				this.render();
+				this.load_timer_state();
 			},
 			error: () => {
 				this.data = this.get_fallback_data();
 				this.render();
 			},
 		});
+	}
+
+	load_timer_state() {
+		if (!this.task_name) {
+			this.timer_state = null;
+			this.render();
+			return;
+		}
+
+		frappe.call({
+			method: "fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer.get_task_timer_state",
+			args: { task: this.task_name },
+			callback: (r) => {
+				this.timer_state = r.message || null;
+				this.render();
+			},
+			error: () => {
+				this.timer_state = null;
+				this.render();
+			},
+		});
+	}
+
+	call_timer_action(method) {
+		if (!this.task_name) {
+			return;
+		}
+
+		frappe.call({
+			method: `fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer.${method}`,
+			args: { task: this.task_name },
+			freeze: true,
+			callback: (r) => {
+				if (!r.message) {
+					return;
+				}
+				this.timer_state = r.message;
+				this.render_timer_panel();
+				if (method === "stop_task_timer") {
+					frappe.show_alert({ message: __("Timer stopped"), indicator: "green" });
+				}
+			},
+		});
+	}
+
+	render_timer_panel() {
+		const timer = this.timer_state || {};
+		const running = !!timer.timer_running;
+		const paused = !!timer.timer_paused;
+		const completed = this.data?.status === "Completed";
+		const $status = this.$wrapper.find(".task-scan-timer-status");
+		const $actions = this.$wrapper.find(".task-scan-timer-actions").empty();
+
+		if (completed) {
+			$status.text(__("Task completed"));
+			return;
+		}
+
+		if (running) {
+			$status.addClass("is-running").text(__("Timer running"));
+			$actions.append(
+				`<button type="button" class="btn btn-warning btn-sm btn-task-scan-pause">${__("Pause")}</button>`
+			);
+			$actions.append(
+				`<button type="button" class="btn btn-danger btn-sm btn-task-scan-stop">${__("Stop")}</button>`
+			);
+		} else if (paused) {
+			$status.removeClass("is-running").text(__("Timer paused"));
+			$actions.append(
+				`<button type="button" class="btn btn-primary btn-sm btn-task-scan-resume">${__("Resume")}</button>`
+			);
+			$actions.append(
+				`<button type="button" class="btn btn-danger btn-sm btn-task-scan-stop">${__("Stop")}</button>`
+			);
+		} else {
+			$status.removeClass("is-running").text(__("Timer not started"));
+			$actions.append(
+				`<button type="button" class="btn btn-primary btn-sm btn-task-scan-start">${__("Start task")}</button>`
+			);
+		}
 	}
 
 	get_fallback_data() {
@@ -166,7 +247,9 @@ class TaskScanPage {
 
 	render() {
 		const d = this.data;
-		if (d.title && this.page) {
+		if (d.subtitle && this.page) {
+			this.page.set_title(d.subtitle);
+		} else if (d.title && this.page) {
 			this.page.set_title(d.title);
 		}
 		const total = flt(d.total_labels) || 0;
@@ -184,6 +267,8 @@ class TaskScanPage {
 		this.$wrapper.find(".task-scan-meta-due").text(d.due_label || "—");
 		this.$wrapper.find(".task-scan-meta-started").text(d.started_label || "—");
 		this.$wrapper.find(".task-scan-meta-assigned").text(d.assigned_to || __("Unassigned"));
+
+		this.render_timer_panel();
 
 		this.$wrapper
 			.find(".task-scan-scan-remaining")
@@ -354,6 +439,11 @@ class TaskScanPage {
 
 		this.$wrapper.find(".btn-task-scan-primary").on("click", () => this.open_scanner());
 
+		this.$wrapper.on("click", ".btn-task-scan-start", () => this.call_timer_action("start_task_timer"));
+		this.$wrapper.on("click", ".btn-task-scan-resume", () => this.call_timer_action("resume_task_timer"));
+		this.$wrapper.on("click", ".btn-task-scan-pause", () => this.call_timer_action("pause_task_timer"));
+		this.$wrapper.on("click", ".btn-task-scan-stop", () => this.call_timer_action("stop_task_timer"));
+
 		this.$hidden_scan.on("keydown", (e) => {
 			if (e.key !== "Enter") {
 				return;
@@ -419,64 +509,21 @@ class TaskScanPage {
 		link.remove();
 	}
 
-	download_all_qr_labels() {
+	download_qr_labels_for_codes(codes, zip_filename) {
 		const project = this.data?.project;
 		if (!project) {
 			frappe.msgprint(__("This task has no project linked."));
 			return;
 		}
-
-		const url = frappe.urllib.get_full_url(
-			"/api/method/fitzgerald_kitchens.setup.project_qr_labels.download_project_qr_zip?" +
-				"project=" +
-				encodeURIComponent(project)
-		);
-
-		frappe.run_serially([
-			() => frappe.dom.freeze(__("Preparing QR download...")),
-			() =>
-				fetch(url, { credentials: "include" }).then((response) => {
-					if (!response.ok) {
-						throw new Error(__("Could not download QR labels"));
-					}
-					return response.blob();
-				}),
-			(blob) => {
-				const object_url = window.URL.createObjectURL(blob);
-				const link = document.createElement("a");
-				link.href = object_url;
-				link.download = `${project}-qr-labels.zip`;
-				document.body.appendChild(link);
-				link.click();
-				link.remove();
-				window.URL.revokeObjectURL(object_url);
-			},
-		])
-			.catch(() => {
-				frappe.msgprint(__("Could not download QR labels"));
-			})
-			.finally(() => {
-				frappe.dom.unfreeze();
-			});
-	}
-
-	download_selected_qr_labels() {
-		const project = this.data?.project;
-		const selected = Array.from(this.selected_label_ids);
-
-		if (!project) {
-			frappe.msgprint(__("This task has no project linked."));
-			return;
-		}
-		if (!selected.length) {
-			frappe.msgprint(__("Select one or more labels from the list first."));
+		if (!codes.length) {
+			frappe.msgprint(__("No QR labels to download."));
 			return;
 		}
 
-		if (selected.length === 1) {
+		if (codes.length === 1) {
 			frappe.call({
 				method: "fitzgerald_kitchens.setup.project_qr_labels.get_qr_label_png_base64",
-				args: { project, item_instance_code: selected[0] },
+				args: { project, item_instance_code: codes[0] },
 				freeze: true,
 				callback: (r) => {
 					const msg = r.message;
@@ -497,7 +544,7 @@ class TaskScanPage {
 			"?project=" +
 			encodeURIComponent(project) +
 			"&item_instance_codes=" +
-			encodeURIComponent(JSON.stringify(selected));
+			encodeURIComponent(JSON.stringify(codes));
 
 		frappe.run_serially([
 			() => frappe.dom.freeze(__("Preparing QR download...")),
@@ -512,7 +559,7 @@ class TaskScanPage {
 				const object_url = window.URL.createObjectURL(blob);
 				const link = document.createElement("a");
 				link.href = object_url;
-				link.download = `${project}-qr-selected.zip`;
+				link.download = zip_filename;
 				document.body.appendChild(link);
 				link.click();
 				link.remove();
@@ -520,11 +567,39 @@ class TaskScanPage {
 			},
 		])
 			.catch(() => {
-				frappe.msgprint(__("Could not download selected QR labels"));
+				frappe.msgprint(__("Could not download QR labels"));
 			})
 			.finally(() => {
 				frappe.dom.unfreeze();
 			});
+	}
+
+	download_all_qr_labels() {
+		const project = this.data?.project;
+		const codes = (this.data?.labels || []).map((label) => label.id).filter(Boolean);
+
+		if (!project) {
+			frappe.msgprint(__("This task has no project linked."));
+			return;
+		}
+		if (!codes.length) {
+			frappe.msgprint(__("No QR labels for this task yet."));
+			return;
+		}
+
+		this.download_qr_labels_for_codes(codes, `${project}-qr-labels.zip`);
+	}
+
+	download_selected_qr_labels() {
+		const selected = Array.from(this.selected_label_ids);
+
+		if (!selected.length) {
+			frappe.msgprint(__("Select one or more labels from the list first."));
+			return;
+		}
+
+		const project = this.data?.project || "labels";
+		this.download_qr_labels_for_codes(selected, `${project}-qr-selected.zip`);
 	}
 
 	open_scanner() {
@@ -558,11 +633,32 @@ class TaskScanPage {
 					return;
 				}
 				this.data = { ...this.data, ...msg };
+				if (msg.timer) {
+					this.timer_state = msg.timer;
+				}
 				this.render();
-				frappe.show_alert({
-					message: msg.message || (msg.ok ? __("Label scanned") : __("Scan failed")),
-					indicator: msg.ok ? "green" : msg.result === "duplicate" ? "orange" : "red",
-				});
+				if (msg.task_completed) {
+					const mr = msg.material_request_submit?.name || msg.material_request;
+					frappe.show_alert({
+						message: mr
+							? __("All labels scanned — task completed and Material Request {0} submitted", [mr])
+							: __("All labels scanned — timer stopped, timesheet submitted, task completed"),
+						indicator: "green",
+					});
+				} else if (msg.ok) {
+					frappe.show_alert({
+						message: msg.timer_started
+							? __("Label scanned — timer started")
+							: msg.message || __("Label scanned"),
+						indicator: "green",
+					});
+				} else {
+					frappe.show_alert({
+						message: msg.message || __("Scan failed"),
+						indicator:
+							msg.result === "duplicate" || msg.result === "other_task" ? "orange" : "red",
+					});
+				}
 			},
 		});
 	}

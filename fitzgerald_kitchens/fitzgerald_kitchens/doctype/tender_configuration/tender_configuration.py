@@ -9,6 +9,7 @@ from frappe.model.document import Document
 from frappe.utils import flt
 
 CABINET_KEYS = ("base_units", "wall_units", "tall_units", "drawer_packs")
+STANDARD_SELLING_PRICE_LIST = "Standard Selling"
 
 
 class TenderConfiguration(Document):
@@ -291,9 +292,10 @@ def get_price_options(item_group: str):
 		inner join `tabItem` i on i.name = ip.item_code
 		where i.disabled = 0
 		  and i.item_group = %s
-		order by i.item_name asc, ip.price_list asc, ip.uom asc
+		  and ip.price_list = %s
+		order by i.item_name asc, ip.uom asc
 		""",
-		(item_group,),
+		(item_group, STANDARD_SELLING_PRICE_LIST),
 		as_dict=True,
 	)
 	return rows

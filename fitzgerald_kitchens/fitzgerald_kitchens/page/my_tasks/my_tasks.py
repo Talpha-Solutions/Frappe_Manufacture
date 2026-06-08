@@ -7,6 +7,11 @@ import frappe
 from frappe import _
 from frappe.utils import formatdate, getdate, today
 
+from fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer import WORKING_STATUS
+from fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.label_scan import (
+	get_task_label_scan_state,
+	is_label_scan_task_type,
+)
 from fitzgerald_kitchens.fitzgerald_kitchens.website.project_card import (
 	enrich_tasks_with_schedule_status,
 	get_task_schedule_display,
@@ -24,6 +29,7 @@ MY_TASKS_ROLES = frozenset(
 
 COMPLETED_STATUS = "Completed"
 CANCELLED_STATUSES = ("Cancelled", "Template")
+ONGOING_TASK_STATUSES = frozenset({WORKING_STATUS, "Pending Review"})
 
 
 def _check_my_tasks_access():
@@ -204,6 +210,14 @@ def _load_tasks(task_names: list[str]) -> list[dict]:
 		task.badge_type = task.type or _("Task")
 		task.image_count = _task_image_count(task.name)
 		task.scanned_label = None
+		if is_label_scan_task_type(task.type):
+			scan_state = get_task_label_scan_state(task.name)
+			scanned = scan_state.get("scanned") or 0
+			total = scan_state.get("total_labels") or 0
+			task.scan_scanned = scanned
+			task.scan_total = total
+			if total:
+				task.scanned_label = _("{0}/{1} scanned").format(scanned, total)
 
 	readable = []
 	for task in tasks:
@@ -229,6 +243,17 @@ def _task_start_date(task):
 	if task.exp_start_date:
 		return getdate(task.exp_start_date)
 	return None
+
+
+def _starts_today(task, today_date) -> bool:
+	start = _task_start_date(task)
+	return bool(start and start == today_date)
+
+
+def _is_ongoing_task(task) -> bool:
+	if task.status in ONGOING_TASK_STATUSES:
+		return True
+	return bool(getattr(task, "timer_running", False))
 
 
 def _due_label(task, schedule_label: str | None) -> str | None:
@@ -271,10 +296,10 @@ def _bucket_tasks(tasks: list[dict]) -> dict:
 		exp_end = getdate(task.exp_end_date) if task.exp_end_date else None
 		start = _task_start_date(task)
 
-		if exp_end and exp_end < today_date:
-			buckets["overdue"].append(task)
-		elif start and start == today_date:
+		if _is_ongoing_task(task) or _starts_today(task, today_date):
 			buckets["today"].append(task)
+		elif exp_end and exp_end < today_date:
+			buckets["overdue"].append(task)
 		elif start and start > today_date:
 			buckets["upcoming"].append(task)
 		else:
@@ -310,9 +335,16 @@ def _kpis(buckets: dict) -> dict:
 		1 for task in buckets["completed"] if _is_completed_today(task, today_date)
 	)
 
+	starts_today = sum(
+		1
+		for bucket_key in ("today", "upcoming", "overdue")
+		for task in buckets[bucket_key]
+		if _starts_today(task, today_date)
+	)
+
 	return {
 		"completed_today": completed_today,
-		"due_today": len(buckets["today"]),
+		"due_today": starts_today,
 		"overdue": len(buckets["overdue"]),
 	}
 
@@ -360,6 +392,8 @@ def get_my_tasks_dashboard():
 			"schedule_indicator": task.schedule_indicator,
 			"image_count": task.image_count,
 			"scanned_label": task.scanned_label,
+			"scan_scanned": getattr(task, "scan_scanned", 0),
+			"scan_total": getattr(task, "scan_total", 0),
 			"timer_running": bool(getattr(task, "timer_running", False)),
 			"timer_paused": bool(getattr(task, "timer_paused", False)),
 			"timer_started_at": getattr(task, "timer_started_at", None),
