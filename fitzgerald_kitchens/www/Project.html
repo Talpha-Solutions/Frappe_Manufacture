@@ -433,7 +433,7 @@
       {% for pill in filter_buttons %}
         <button
           type="button"
-          class="fk-pill{% if not focused_project and pill.key == 'all' %} active{% endif %}"
+          class="fk-pill{% if not focused_project and not focus_is_site and pill.key == 'all' %} active{% endif %}"
           data-filter="{{ pill.key }}"
         >
           {{ pill.label }}
@@ -450,6 +450,7 @@
           href="{{ project.detail_url }}"
           data-project-id="{{ project.name|e }}"
           data-project-label="{{ project.project_name|e }}"
+          data-project-type="{{ project.project_type|e }}"
           data-category="{{ project.category|e }}"
           data-search="{{ project.search_text|e }}"
           data-needs-attention="{{ 1 if project.needs_attention else 0 }}"
@@ -584,7 +585,9 @@
 
         let show = true;
 
-        if (urlFocusedProject && !siteFocusActive) {
+        if ((card.getAttribute("data-project-type") || "").toLowerCase() === "site") {
+          show = false;
+        } else if (urlFocusedProject && !siteFocusActive) {
           show = projectId === urlFocusedProject;
         } else if (currentFilter === "attention") {
           show = needsAttention;
