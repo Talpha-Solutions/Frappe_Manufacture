@@ -16,6 +16,12 @@ const PROJECT_NAMING_SERIES = {
 
 frappe.ui.form.on("Project", {
 	refresh(frm) {
+		toggle_bom_tab_fields(frm);
+		setup_work_order_create_menu(frm);
+		if (!frm.doc.__islocal) {
+			frm.web_link && frm.web_link.remove();
+			frm.add_web_link("/project?project=" + encodeURIComponent(frm.doc.name));
+		}
 		toggle_unit_tab(frm);
 		toggle_download_qr_tab(frm);
 		toggle_parent_unit(frm);
