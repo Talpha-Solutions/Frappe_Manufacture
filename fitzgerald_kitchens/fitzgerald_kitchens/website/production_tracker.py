@@ -74,6 +74,10 @@ def get_tracker_context(focused_project: str | None = None) -> dict:
 	global_metrics = _new_global_metrics()
 
 	for project in projects:
+		project_type = _get_project_type_label(project)
+		if project_type in EXCLUDED_PROJECT_TYPES:
+			continue
+
 		project_tasks = tasks_by_project.get(project.name, [])
 		stage_tasks = _map_stage_tasks(project_tasks)
 		stages = [_build_stage_cell(stage_name, stage_tasks.get(stage_name), user_map) for stage_name in PRODUCTION_STAGES]
@@ -83,7 +87,6 @@ def get_tracker_context(focused_project: str | None = None) -> dict:
 		completed_count = sum(1 for stage in stages if stage.get("status") == "Completed")
 		progress_percent = int(round((completed_count / STAGE_COUNT) * 100)) if STAGE_COUNT else 0
 
-		project_type = _get_project_type_label(project)
 		project_name = (project.get("project_name") or project.name).strip()
 
 		tracker_projects.append(
@@ -120,7 +123,7 @@ def get_tracker_context(focused_project: str | None = None) -> dict:
 		"legend_items": LEGEND_ITEMS,
 		"filter_buttons": FILTER_BUTTONS,
 		"kpi": {
-			"units_in_production": len(projects),
+			"units_in_production": len(tracker_projects),
 			"tasks_overdue": global_metrics["overdue"],
 			"due_today": global_metrics["due_today"],
 			"on_time_rate": on_time_rate,
