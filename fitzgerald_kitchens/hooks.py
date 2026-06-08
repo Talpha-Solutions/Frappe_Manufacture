@@ -47,6 +47,8 @@ doctype_js = {
 	"Project": "public/js/project.js",
 	"Task": "public/js/task.js",
 	"BOM Cost Calculator": "public/js/bom_cost_configurator.bundle.js",
+	"Production Plan": "public/js/production_plan.js",
+	"Projects Settings": "public/js/projects_settings.js",
 }
 doctype_list_js = {
 	"Development Stage": "fitzgerald_kitchens/doctype/development_stage/development_stage_list.js",
@@ -153,7 +155,10 @@ after_migrate = [
 doc_events = {
 	"Project": {
 		"before_insert": "fitzgerald_kitchens.setup.project_naming.apply_project_naming_series",
-	}
+	},
+	"Projects Settings": {
+		"validate": "fitzgerald_kitchens.setup.projects_settings_fields.validate_projects_settings",
+	},
 }
 
 # Scheduled Tasks
@@ -186,9 +191,10 @@ doc_events = {
 # ------------------------------
 #
 # Specify custom mixins to extend the standard doctype controller.
-# extend_doctype_class = {
-# 	"Task": "fitzgerald_kitchens.custom.task.CustomTaskMixin"
-# }
+extend_doctype_class = {
+	"Production Plan": "fitzgerald_kitchens.custom.production_plan.FKProductionPlan",
+	"Project": "fitzgerald_kitchens.custom.project.FKProject",
+}
 
 # Overriding Methods
 # ------------------------------

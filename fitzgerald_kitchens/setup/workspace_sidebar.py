@@ -233,6 +233,8 @@ def _ensure_manufacturing_reports_sidebar(sidebar):
 
 		items.insert(insert_at, CAPACITY_PIPELINE_REPORT_ITEM)
 		changed = True
+	elif _sync_sidebar_link(items, CAPACITY_PIPELINE_REPORT_ITEM):
+		changed = True
 
 	if changed:
 		_apply_items(sidebar, items)
@@ -368,6 +370,34 @@ def _has_sidebar_link(sidebar, link_to):
 
 def _has_link_in(items, link_to):
 	return any(item.get("link_to") == link_to for item in items)
+
+
+def _remove_sidebar_link(sidebar, link_to):
+	items = [_item_dict(row) for row in sidebar.items]
+	if not _has_link_in(items, link_to):
+		return False
+
+	items = [item for item in items if item.get("link_to") != link_to]
+	_apply_items(sidebar, items)
+	return True
+
+
+def _sync_sidebar_link(items, template):
+	"""Align an existing sidebar row with the template (e.g. clear stray icons)."""
+	for item in items:
+		if item.get("link_to") != template["link_to"]:
+			continue
+
+		changed = False
+		for key, value in template.items():
+			if item.get(key) != value:
+				item[key] = value
+				changed = True
+		if item.get("icon"):
+			item["icon"] = None
+			changed = True
+		return changed
+	return False
 
 
 def _item_dict(row):

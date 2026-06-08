@@ -18,20 +18,15 @@ def boot_session(bootinfo):
 
 
 def _get_latest_boms_by_company():
-	"""Return {company: latest_active_bom_name} ordered by creation desc."""
-	rows = frappe.db.sql(
-		"""
-		SELECT company, name
-		FROM `tabBOM`
-		WHERE docstatus = 1 AND is_active = 1
-		ORDER BY company, creation DESC
-		""",
-		as_dict=True,
+	"""Return {company: default_capacity_pipeline_bom} for boot filter defaults."""
+	from fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report import (
+		get_default_bom,
 	)
 
-	latest = {}
-	for row in rows:
-		if row.company not in latest:
-			latest[row.company] = row.name
-
-	return latest
+	companies = frappe.get_all(
+		"BOM",
+		filters={"docstatus": 1, "is_active": 1},
+		pluck="company",
+		distinct=True,
+	)
+	return {company: get_default_bom(company) for company in companies if company}
