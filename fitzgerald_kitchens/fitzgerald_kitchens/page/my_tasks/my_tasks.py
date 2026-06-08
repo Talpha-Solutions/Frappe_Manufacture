@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import frappe
 from frappe import _
-from frappe.utils import getdate, today
+from frappe.utils import formatdate, getdate, today
 
 from fitzgerald_kitchens.fitzgerald_kitchens.website.project_card import (
 	enrich_tasks_with_schedule_status,
@@ -34,6 +34,16 @@ def _check_my_tasks_access():
 		frappe.throw(_("Not permitted to access My Tasks"), frappe.PermissionError)
 
 
+def _normalize_assignee_entry(entry) -> str | None:
+	if not entry:
+		return None
+	if isinstance(entry, dict):
+		return entry.get("owner") or entry.get("allocated_to") or entry.get("user")
+	if isinstance(entry, str):
+		return entry.strip() or None
+	return str(entry)
+
+
 def _assignees_from_task_row(assign_field) -> list[str]:
 	if not assign_field:
 		return []
@@ -45,10 +55,81 @@ def _assignees_from_task_row(assign_field) -> list[str]:
 		try:
 			assignees = frappe.parse_json(assignees)
 		except Exception:
-			return [assignees] if assignees else []
+			user_id = _normalize_assignee_entry(assignees)
+			return [user_id] if user_id else []
 	if not isinstance(assignees, list):
-		return []
-	return [entry for entry in assignees if entry]
+		user_id = _normalize_assignee_entry(assignees)
+		return [user_id] if user_id else []
+
+	user_ids = []
+	for entry in assignees:
+		user_id = _normalize_assignee_entry(entry)
+		if user_id:
+			user_ids.append(user_id)
+	return user_ids
+
+
+def get_task_assignee_labels(
+	task_name: str,
+	*,
+	completed_by: str | None = None,
+	assign_field=None,
+) -> list[str]:
+	"""Resolve Task assignees from _assign, open ToDos, and completed_by."""
+	user_ids: list[str] = []
+	seen: set[str] = set()
+
+	def add_user(user_id: str | None) -> None:
+		if not user_id or user_id in seen:
+			return
+		seen.add(user_id)
+		user_ids.append(user_id)
+
+	if assign_field is None:
+		assign_field = frappe.db.get_value("Task", task_name, "_assign")
+
+	for user_id in _assignees_from_task_row(assign_field):
+		add_user(user_id)
+
+	try:
+		for user_id in frappe.get_doc("Task", task_name).get_assigned_users() or []:
+			add_user(user_id)
+	except Exception:
+		pass
+
+	for user_id in frappe.get_all(
+		"ToDo",
+		filters={
+			"reference_type": "Task",
+			"reference_name": task_name,
+			"allocated_to": ["is", "set"],
+		},
+		pluck="allocated_to",
+		distinct=True,
+	):
+		add_user(user_id)
+
+	if completed_by:
+		add_user(completed_by)
+
+	labels = []
+	for user_id in user_ids:
+		labels.append(frappe.db.get_value("User", user_id, "full_name") or user_id)
+	return labels
+
+
+def get_task_assignee_display(
+	task_name: str,
+	*,
+	completed_by: str | None = None,
+	assign_field=None,
+) -> str:
+	labels = get_task_assignee_labels(
+		task_name,
+		completed_by=completed_by,
+		assign_field=assign_field,
+	)
+	return ", ".join(labels) if labels else _("Unassigned")
 
 
 def _collect_assigned_task_names(user: str) -> list[str]:
@@ -89,12 +170,13 @@ def _load_tasks(task_names: list[str]) -> list[dict]:
 			"status",
 			"type",
 			"progress",
+			"exp_start_date",
 			"exp_end_date",
 			"completed_on",
 			"modified",
 			"description",
 		],
-		order_by="exp_end_date asc, modified desc",
+		order_by="exp_start_date asc, exp_end_date asc, modified desc",
 	)
 
 	project_names = {task.project for task in tasks if task.project}
@@ -143,18 +225,28 @@ def _task_image_count(task_name: str) -> int:
 	)
 
 
+def _task_start_date(task):
+	if task.exp_start_date:
+		return getdate(task.exp_start_date)
+	return None
+
+
 def _due_label(task, schedule_label: str | None) -> str | None:
 	if task.status == COMPLETED_STATUS:
 		return _("Completed")
-	if not task.exp_end_date:
-		return None
 
-	exp = getdate(task.exp_end_date)
 	today_date = getdate(today())
-	if exp == today_date:
-		return _("DUE Today")
-	if exp < today_date:
+	start = _task_start_date(task)
+	exp_end = getdate(task.exp_end_date) if task.exp_end_date else None
+
+	if exp_end and exp_end < today_date:
 		return _("Overdue")
+	if start and start == today_date:
+		return _("Starts today")
+	if start and start > today_date:
+		return formatdate(start, "d MMM")
+	if exp_end and exp_end == today_date:
+		return _("DUE Today")
 	if schedule_label:
 		return schedule_label
 	return _("Upcoming")
@@ -176,15 +268,32 @@ def _bucket_tasks(tasks: list[dict]) -> dict:
 		if task.status in CANCELLED_STATUSES:
 			continue
 
-		exp = getdate(task.exp_end_date) if task.exp_end_date else None
-		if exp and exp < today_date:
+		exp_end = getdate(task.exp_end_date) if task.exp_end_date else None
+		start = _task_start_date(task)
+
+		if exp_end and exp_end < today_date:
 			buckets["overdue"].append(task)
-		elif exp and exp == today_date:
+		elif start and start == today_date:
 			buckets["today"].append(task)
+		elif start and start > today_date:
+			buckets["upcoming"].append(task)
 		else:
 			buckets["upcoming"].append(task)
 
+	_sort_bucket_tasks(buckets)
 	return buckets
+
+
+def _sort_bucket_tasks(buckets: dict) -> None:
+	def _start_sort_key(task):
+		start = task.exp_start_date or "9999-12-31"
+		return (start, task.exp_end_date or "9999-12-31", task.modified or "")
+
+	buckets["today"].sort(key=_start_sort_key)
+	buckets["upcoming"].sort(key=_start_sort_key)
+	buckets["overdue"].sort(
+		key=lambda task: (task.exp_end_date or "9999-12-31", task.exp_start_date or "", task.modified or "")
+	)
 
 
 def _is_completed_today(task, today_date) -> bool:
@@ -223,7 +332,7 @@ def _user_header() -> dict:
 		"user_image": user_image,
 		"abbr": frappe.utils.get_abbr(full_name),
 		"department": department or _("Worker"),
-		"date_label": frappe.utils.formatdate(today(), "ddd d MMM"),
+		"date_label": frappe.utils.formatdate(today(), "EEE d MMM"),
 	}
 
 
@@ -245,6 +354,7 @@ def get_my_tasks_dashboard():
 			"status": task.status,
 			"type": task.badge_type,
 			"progress": task.progress or 0,
+			"exp_start_date": task.exp_start_date,
 			"exp_end_date": task.exp_end_date,
 			"due_label": task.due_label,
 			"schedule_indicator": task.schedule_indicator,

@@ -1,7 +1,7 @@
 const METHOD_BASE =
-	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.kitchen_configuration.kitchen_configuration";
+	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration.tender_configuration";
 
-frappe.ui.form.on("Kitchen Configuration", {
+frappe.ui.form.on("Tender Configuration", {
 	async refresh(frm) {
 		render_top_intro(frm);
 		if (frm.is_new() && !frm.doc.template) {
@@ -42,7 +42,7 @@ function render_top_intro(frm) {
 	if (!intro) return;
 	intro.$wrapper.html(`
 		<div style="margin-bottom:8px;">
-			<div style="font-size:22px;font-weight:800;line-height:1.2;color:#111827;">Kitchen configuration</div>
+			<div style="font-size:22px;font-weight:800;line-height:1.2;color:#111827;">Tender configuration</div>
 			<div style="font-size:13px;color:#6b7280;margin-top:3px;">Choose specs for one kitchen unit - costs roll up to the right</div>
 		</div>
 	`);

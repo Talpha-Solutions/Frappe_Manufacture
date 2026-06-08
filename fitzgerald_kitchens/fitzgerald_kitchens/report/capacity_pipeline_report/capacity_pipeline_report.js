@@ -12,12 +12,60 @@ const CPR_PALETTE = [
 	{ bg: "#fcf3cf", text: "#7d6608", chart: "#f4d03f" },
 ];
 
+const CPR_REPORT_NAME = "Capacity Pipeline Report";
+
 let cpr_horizon_months = 12;
 let cpr_view_mode = "monthly";
 let cpr_last_pipeline_totals = null;
 let cpr_pipeline_totals_filter_sig = "";
 
-frappe.query_reports["Capacity Pipeline Report"] = {
+function cpr_is_capacity_pipeline_report(report) {
+	if (report?.report_name) {
+		return report.report_name === CPR_REPORT_NAME;
+	}
+	const route = frappe.get_route();
+	if (route[0] === "query-report") {
+		return route[1] === CPR_REPORT_NAME;
+	}
+	return frappe.query_report?.report_name === CPR_REPORT_NAME;
+}
+
+function cpr_teardown() {
+	$(".cpr-header, .cpr-dashboard").remove();
+	$(".layout-main-section").removeClass("cpr-page");
+	$(".page-head").show();
+	cpr_dashboard_render_seq += 1;
+}
+
+function cpr_register_route_teardown() {
+	if (window._cpr_route_teardown_registered) {
+		return;
+	}
+	window._cpr_route_teardown_registered = true;
+
+	frappe.router.on("change", () => {
+		const route = frappe.get_route();
+		if (route[0] !== "query-report" || route[1] !== CPR_REPORT_NAME) {
+			cpr_teardown();
+		}
+	});
+
+	if (frappe.views?.QueryReport?.prototype && !window._cpr_load_report_hook) {
+		window._cpr_load_report_hook = true;
+		const original_load_report = frappe.views.QueryReport.prototype.load_report;
+		frappe.views.QueryReport.prototype.load_report = function (route_options) {
+			const next_report = frappe.get_route()[1];
+			if (next_report !== CPR_REPORT_NAME) {
+				cpr_teardown();
+			}
+			return original_load_report.call(this, route_options);
+		};
+	}
+}
+
+cpr_register_route_teardown();
+
+frappe.query_reports[CPR_REPORT_NAME] = {
 	filters: [
 		{
 			label: __("Company"),
@@ -58,7 +106,7 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 			fieldname: "bom",
 			fieldtype: "Link",
 			options: "BOM",
-			default: frappe.boot?.capacity_pipeline_default_bom || "",
+			default: "",
 			get_query: () => {
 				const company = cpr_get_company();
 				return {
@@ -87,6 +135,11 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 	],
 
 	onload(report) {
+		cpr_register_route_teardown();
+		if (!cpr_is_capacity_pipeline_report(report)) {
+			return;
+		}
+		cpr_teardown();
 		cpr_ensure_workspace_sidebar();
 		cpr_inject_styles();
 		cpr_setup_header(report);
@@ -96,6 +149,9 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 	},
 
 	get_datatable_options(options) {
+		if (!cpr_is_capacity_pipeline_report()) {
+			return options;
+		}
 		const saved = cpr_get_saved_column_widths();
 		if (options.columns?.length) {
 			options.columns = options.columns.map((col) => {
@@ -121,6 +177,9 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 	},
 
 	after_datatable_render() {
+		if (!cpr_is_capacity_pipeline_report()) {
+			return;
+		}
 		cpr_style_rows();
 		cpr_bind_column_resize();
 		cpr_fix_horizontal_scroll();
@@ -129,6 +188,9 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 	},
 
 	after_refresh(report) {
+		if (!cpr_is_capacity_pipeline_report(report)) {
+			return;
+		}
 		cpr_sync_bom_filter_from_boot(report);
 		cpr_sync_view_mode_from_filters();
 		cpr_apply_table_site_only_rows(report);
@@ -137,6 +199,9 @@ frappe.query_reports["Capacity Pipeline Report"] = {
 	},
 
 	formatter(value, row, column, data, default_formatter) {
+		if (!cpr_is_capacity_pipeline_report()) {
+			return default_formatter(value, row, column, data);
+		}
 		const row_data = cpr_get_row_data(row, data);
 		const rt = cpr_get_row_type(row_data, value);
 		const fn = column.fieldname;
@@ -213,8 +278,6 @@ function cint(v) {
 }
 
 function cpr_ensure_workspace_sidebar() {
-	// Report lives under Projects → Reports; module must be Projects so the desk
-	// sidebar shows that workspace (fitzgerald_kitchens has no Workspace Sidebar).
 	if (!frappe.app?.sidebar || !frappe.boot.workspace_sidebar_item?.projects) {
 		return;
 	}
@@ -339,6 +402,9 @@ function cpr_inject_styles() {
 }
 
 function cpr_setup_header(report) {
+	if (!cpr_is_capacity_pipeline_report(report)) {
+		return;
+	}
 	const $main = report.page.main;
 	$main.closest(".layout-main-section").addClass("cpr-page");
 
@@ -357,6 +423,9 @@ function cpr_setup_header(report) {
 }
 
 function cpr_setup_dashboard(report) {
+	if (!cpr_is_capacity_pipeline_report(report)) {
+		return;
+	}
 	const $main = report.page.main;
 	if ($main.find(".cpr-dashboard").length) {
 		return;
@@ -437,34 +506,42 @@ function cpr_get_default_bom_for_company(company) {
 
 function cpr_prepare_filters_before_refresh(report) {
 	const query_report = report || frappe.query_report;
-	return cpr_sync_bom_filter_from_boot(query_report, true).then(async () => {
+	return cpr_sync_default_bom_filter(query_report, { force: true }).then(async () => {
 		cpr_detect_horizon_from_filters(query_report);
 		await cpr_apply_horizon(cpr_horizon_months, false);
 	});
 }
 
-function cpr_sync_bom_filter_from_boot(report, allow_fetch) {
-	const query_report = report || frappe.query_report;
-	if (query_report.get_filter_value("bom")) {
-		return Promise.resolve();
+function cpr_fetch_default_bom(company) {
+	if (!company) {
+		return Promise.resolve("");
 	}
-
-	const company = cpr_get_company(query_report);
-	const boot_bom = cpr_get_default_bom_for_company(company);
-	if (boot_bom) {
-		return cpr_set_bom_filter_value(query_report, boot_bom);
-	}
-
-	if (!allow_fetch || !company) {
-		return Promise.resolve();
-	}
-
 	return frappe
 		.xcall(
 			"fitzgerald_kitchens.fitzgerald_kitchens.report.capacity_pipeline_report.capacity_pipeline_report.get_default_bom",
 			{ company }
 		)
-		.then((bom) => cpr_set_bom_filter_value(query_report, bom));
+		.then((bom) => bom || "");
+}
+
+function cpr_sync_default_bom_filter(report, { force = false } = {}) {
+	const query_report = report || frappe.query_report;
+	if (!force && query_report.get_filter_value("bom")) {
+		return Promise.resolve();
+	}
+
+	const company = cpr_get_company(query_report);
+	if (!company) {
+		return Promise.resolve();
+	}
+
+	return cpr_fetch_default_bom(company).then((bom) =>
+		cpr_set_bom_filter_value(query_report, bom)
+	);
+}
+
+function cpr_sync_bom_filter_from_boot(report, allow_fetch) {
+	return cpr_sync_default_bom_filter(report, { force: allow_fetch });
 }
 
 async function cpr_set_bom_filter_value(report, bom) {
@@ -479,14 +556,7 @@ async function cpr_set_bom_filter_value(report, bom) {
 
 function cpr_set_default_bom(refresh) {
 	const report = frappe.query_report;
-	const company = cpr_get_company(report);
-	const boot_bom = cpr_get_default_bom_for_company(company);
-
-	const apply = boot_bom
-		? cpr_set_bom_filter_value(report, boot_bom)
-		: cpr_sync_bom_filter_from_boot(report, true);
-
-	return apply.then(() => {
+	return cpr_sync_default_bom_filter(report, { force: true }).then(() => {
 		if (refresh) {
 			report.refresh();
 		}
@@ -970,11 +1040,49 @@ function cpr_palette_slot(color_index) {
 	return CPR_PALETTE[(color_index || 0) % CPR_PALETTE.length];
 }
 
+function cpr_chart_label(row) {
+	return row.chart_label || row.project || "";
+}
+
+function cpr_rollup_rows_by_chart_label(rows) {
+	const merged = {};
+	const period_keys = cpr_get_period_columns().map((col) => col.key);
+
+	(rows || []).forEach((row) => {
+		const label = cpr_chart_label(row);
+		if (!label) {
+			return;
+		}
+
+		if (!merged[label]) {
+			merged[label] = {
+				...row,
+				project: label,
+				chart_label: label,
+			};
+			return;
+		}
+
+		const target = merged[label];
+		period_keys.forEach((key) => {
+			target[key] = cint(target[key]) + cint(row[key]);
+			target[`${key}_kitchen`] = cint(target[`${key}_kitchen`]) + cint(row[`${key}_kitchen`]);
+			target[`${key}_wardrobe`] =
+				cint(target[`${key}_wardrobe`]) + cint(row[`${key}_wardrobe`]);
+		});
+	});
+
+	return Object.values(merged);
+}
+
 function cpr_get_chart_project_rows(rows) {
-	/** Site rows are rollups of children — exclude from stacked bars to avoid double height. */
-	const project_rows = rows.filter((r) => r.row_type === "project");
+	/** Roll child unit demand up to Site names for chart legend and stacked bars. */
+	const project_rows = (rows || []).filter((r) => r.row_type === "project");
 	const detail_rows = project_rows.filter((r) => r.project_type !== "Site");
-	return detail_rows.length ? detail_rows : project_rows;
+	const source = detail_rows.length
+		? detail_rows
+		: project_rows.filter((r) => r.project_type === "Site");
+	return cpr_rollup_rows_by_chart_label(source);
 }
 
 function cpr_collect_dashboard_data() {
@@ -993,7 +1101,7 @@ function cpr_collect_dashboard_data() {
 		const free = cint(free_row[key]);
 		const projects = chart_project_rows
 			.map((p) => ({
-				name: p.project,
+				name: cpr_chart_label(p),
 				id: p.project_id,
 				subtitle: p.subtitle || "",
 				color_index: p.color_index || 0,
@@ -1176,6 +1284,9 @@ function cpr_util_status(avg_util) {
 let cpr_dashboard_render_seq = 0;
 
 function cpr_render_dashboard(report) {
+	if (!cpr_is_capacity_pipeline_report(report)) {
+		return;
+	}
 	const query_report = report || frappe.query_report;
 	const $dash = $(".cpr-dashboard");
 	if (!$dash.length || !query_report?.data) {
@@ -1273,14 +1384,10 @@ function cpr_render_kpi_cards($dash, data) {
 		: `${__("all")} ${over_period} ${__("within capacity")}`;
 
 	const pipeline_totals = data.pipeline_totals || cpr_last_pipeline_totals;
-	const pipeline_total = pipeline_totals?.total_demand;
-	const pipeline_projects = pipeline_totals?.project_count;
+	const pipeline_total =
+		pipeline_totals?.total_kitchens ?? pipeline_totals?.total_demand;
 	const pipeline_value =
 		pipeline_total === undefined || pipeline_total === null ? "—" : pipeline_total;
-	const pipeline_project_label =
-		pipeline_projects === undefined || pipeline_projects === null
-			? "—"
-			: pipeline_projects;
 
 	const cards = [
 		{
@@ -1288,9 +1395,7 @@ function cpr_render_kpi_cards($dash, data) {
 			label: __("Total kitchens in pipeline"),
 			value: pipeline_value,
 			value_cls: "",
-			foot: `${__("across")} ${pipeline_project_label} ${__("projects · next")} ${cpr_horizon_months} ${__(
-				"months"
-			)}`,
+			foot: __("kitchen units in pipeline"),
 		},
 		{
 			cls: "cpr-kpi-card--green",
@@ -1336,7 +1441,7 @@ function cpr_render_legend($dash, data) {
 			return `
 			<span class="cpr-legend-item">
 				<span class="cpr-legend-swatch" style="background:${palette.chart}"></span>
-				<span style="color:${palette.text}">${frappe.utils.escape_html(proj.project || "")}</span>
+				<span style="color:${palette.text}">${frappe.utils.escape_html(cpr_chart_label(proj))}</span>
 			</span>`;
 		})
 		.join("");
