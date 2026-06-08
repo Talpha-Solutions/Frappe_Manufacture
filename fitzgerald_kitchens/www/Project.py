@@ -11,6 +11,6 @@ def get_context(context):
 	context.no_cache = 1
 	context.show_sidebar = True
 
-	tracker = get_tracker_context()
+	tracker = get_tracker_context(focused_project=frappe.form_dict.get("project"))
 	context.update(tracker)
 	context.title = tracker.get("page_title") or _("Projects")

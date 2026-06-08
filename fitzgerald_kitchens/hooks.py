@@ -30,7 +30,7 @@ app_license = "mit"
 
 # include js, css files in header of web template
 web_include_css = "/assets/fitzgerald_kitchens/css/portal_sidebar.css"
-# web_include_js = "/assets/fitzgerald_kitchens/js/fitzgerald_kitchens.js"
+web_include_js = "/assets/fitzgerald_kitchens/js/portal_tracker_state.js"
 
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "fitzgerald_kitchens/public/scss/website"

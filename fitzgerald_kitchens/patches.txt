@@ -12,3 +12,4 @@ fitzgerald_kitchens.patches.v1_0.add_project_work_order_buttons
 fitzgerald_kitchens.patches.v1_0.remove_project_work_order_button_fields
 fitzgerald_kitchens.patches.v1_0.move_project_connections_to_details
 fitzgerald_kitchens.patches.v1_0.reorder_project_bom_columns
+fitzgerald_kitchens.patches.v1_0.rename_manufacture_task_type

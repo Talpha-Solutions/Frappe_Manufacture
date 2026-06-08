@@ -26,6 +26,8 @@
   gap: 0.6rem;
   transition: 0.2s ease;
   cursor: pointer;
+  color: inherit;
+  text-decoration: none;
 }
 
 .fk-card:hover {
@@ -102,7 +104,8 @@
 {% endif %}
 
 <!-- CARD -->
-<div class="fk-card project-card"
+<a class="fk-card project-card"
+     href="/projects?project={{ doc.name | urlencode }}"
      data-project="{{ doc.name }}">
 
   <div>
@@ -146,4 +149,4 @@
 
   </div>
 
-</div>
+</a>

@@ -22,7 +22,7 @@ PRODUCTION_STAGES = (
 	"Survey",
 	"Drawing",
 	"Export",
-	"Manufacture",
+	"Manufacturing",
 	"Assembly",
 	"Despatch",
 	"Delivery",
@@ -33,6 +33,8 @@ PRODUCTION_STAGES = (
 STAGE_COUNT = len(PRODUCTION_STAGES)
 
 EXCLUDED_TASK_STATUSES = frozenset({"Cancelled", "Template"})
+
+EXCLUDED_PROJECT_TYPES = frozenset({"Site"})
 
 IN_PROGRESS_TASK_STATUSES = frozenset({"Open", "Working", "Pending Review", "Overdue"})
 
@@ -55,8 +57,9 @@ LEGEND_ITEMS = [
 ]
 
 
-def get_tracker_context() -> dict:
+def get_tracker_context(focused_project: str | None = None) -> dict:
 	"""Build template context for the production stage tracker page."""
+	focused = _resolve_focused_project(focused_project)
 	projects = _get_active_projects()
 	project_names = [row.name for row in projects]
 	tasks = _get_tasks_for_projects(project_names)
@@ -89,7 +92,7 @@ def get_tracker_context() -> dict:
 				"display_title": _format_display_title(project_name, project_type),
 				"location": (project.get("customer") or "").strip(),
 				"category": _detect_category(project_type),
-				"search_text": _build_search_text(project_name, project_type),
+				"search_text": _build_search_text(project_name, project_type, project.name),
 				"tasks_completed": completed_count,
 				"tasks_total": STAGE_COUNT,
 				"progress_percent": progress_percent,
@@ -120,20 +123,48 @@ def get_tracker_context() -> dict:
 		},
 		"projects": tracker_projects,
 		"no_result_message": _("No projects found."),
+		"focused_project": focused.get("name") if focused else None,
+		"initial_search": focused.get("initial_search", "") if focused else "",
+	}
+
+
+def _resolve_focused_project(project_id: str | None) -> dict | None:
+	if not project_id:
+		return None
+
+	project_id = str(project_id).strip()
+	if not project_id or not frappe.db.exists("Project", project_id):
+		return None
+
+	try:
+		project = frappe.get_doc("Project", project_id)
+		project.has_permission("read")
+	except frappe.PermissionError:
+		return None
+
+	project_type = _get_project_type_label(project)
+	project_name = (project.project_name or project.name).strip()
+
+	return {
+		"name": project.name,
+		"project_name": project_name,
+		"initial_search": project_name or project.name,
 	}
 
 
 def _get_active_projects():
 	fields = ["name", "project_name", "status", "customer"]
 	meta = frappe.get_meta("Project")
+	filters = {"status": ["not in", ["Cancelled", "Completed"]]}
 	if meta.has_field("project_type"):
 		fields.append("project_type")
+		filters["project_type"] = ["not in", list(EXCLUDED_PROJECT_TYPES)]
 
 	try:
 		return frappe.get_list(
 			"Project",
 			fields=fields,
-			filters={"status": ["not in", ["Cancelled", "Completed"]]},
+			filters=filters,
 			order_by="creation asc",
 			limit_page_length=500,
 		)
@@ -398,6 +429,6 @@ def _format_display_title(project_name: str, project_type: str) -> str:
 	return project_name
 
 
-def _build_search_text(project_name: str, project_type: str) -> str:
-	parts = [project_name, project_type]
+def _build_search_text(project_name: str, project_type: str, project_id: str = "") -> str:
+	parts = [project_name, project_type, project_id]
 	return " ".join(part.lower() for part in parts if part)

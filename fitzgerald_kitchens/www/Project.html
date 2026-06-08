@@ -426,13 +426,14 @@
       class="fk-search-input"
       id="projectSearch"
       placeholder="{{ _('Search by project name or type…') }}"
+      value="{{ initial_search or '' }}"
       autocomplete="off"
     >
     <div class="fk-filter-pills">
       {% for pill in filter_buttons %}
         <button
           type="button"
-          class="fk-pill{% if pill.key == 'all' %} active{% endif %}"
+          class="fk-pill{% if not focused_project and pill.key == 'all' %} active{% endif %}"
           data-filter="{{ pill.key }}"
         >
           {{ pill.label }}
@@ -447,6 +448,8 @@
         <a
           class="fk-project-card"
           href="{{ project.detail_url }}"
+          data-project-id="{{ project.name|e }}"
+          data-project-label="{{ project.project_name|e }}"
           data-category="{{ project.category|e }}"
           data-search="{{ project.search_text|e }}"
           data-needs-attention="{{ 1 if project.needs_attention else 0 }}"
@@ -510,6 +513,7 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {
+    const trackerState = window.fkTrackerState;
     const pills = document.querySelectorAll(".fk-pill");
     const searchInput = document.getElementById("projectSearch");
     const cards = document.querySelectorAll(".fk-project-card");
@@ -518,6 +522,46 @@
 
     let currentFilter = "all";
     let currentSearch = "";
+    let urlFocusedProject = null;
+
+    function syncFocusedStorage(clickedCard) {
+      if (!trackerState) {
+        return;
+      }
+      const projectId = clickedCard ? clickedCard.getAttribute("data-project-id") : urlFocusedProject;
+      if (!projectId) {
+        return;
+      }
+      const projectLabel = clickedCard ? (clickedCard.getAttribute("data-project-label") || "") : (searchInput ? searchInput.value : "");
+      trackerState.saveFocusedProject(projectId, projectLabel);
+    }
+
+    function clearFocusedState(resetSearch) {
+      urlFocusedProject = null;
+      currentFilter = "all";
+      currentSearch = "";
+
+      if (searchInput) {
+        searchInput.value = "";
+      }
+
+      if (trackerState) {
+        trackerState.clearFocusedProject();
+        trackerState.resetSidebarLinks();
+      }
+
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("project")) {
+        url.searchParams.delete("project");
+        window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+      }
+
+      if (resetSearch !== false) {
+        pills.forEach(function (pill) {
+          pill.classList.toggle("active", pill.getAttribute("data-filter") === "all");
+        });
+      }
+    }
 
     function applyFilters() {
       let visibleCount = 0;
@@ -526,10 +570,13 @@
         const category = card.getAttribute("data-category") || "other";
         const searchText = card.getAttribute("data-search") || "";
         const needsAttention = card.getAttribute("data-needs-attention") === "1";
+        const projectId = card.getAttribute("data-project-id") || "";
 
         let show = true;
 
-        if (currentFilter === "attention") {
+        if (urlFocusedProject) {
+          show = projectId === urlFocusedProject;
+        } else if (currentFilter === "attention") {
           show = needsAttention;
         } else if (currentFilter !== "all" && category !== currentFilter) {
           show = false;
@@ -552,8 +599,28 @@
       }
     }
 
+    function initializeTrackerState() {
+      if (!trackerState) {
+        urlFocusedProject = {{ focused_project|tojson }};
+        currentSearch = (searchInput && searchInput.value || "").toLowerCase().trim();
+        return;
+      }
+
+      const restored = trackerState.restoreTrackerPage({
+        cards: cards,
+        searchInput: searchInput,
+        pills: pills,
+        serverFocusedProject: {{ focused_project|tojson }},
+        serverInitialSearch: {{ initial_search|tojson }},
+      });
+
+      urlFocusedProject = restored.focusedProject;
+      currentSearch = (restored.searchValue || "").toLowerCase().trim();
+    }
+
     pills.forEach(function (pill) {
       pill.addEventListener("click", function () {
+        clearFocusedState(false);
         pills.forEach(function (p) {
           p.classList.remove("active");
         });
@@ -566,9 +633,36 @@
     if (searchInput) {
       searchInput.addEventListener("input", function (event) {
         currentSearch = (event.target.value || "").toLowerCase().trim();
+        if (!currentSearch) {
+          clearFocusedState();
+        }
         applyFilters();
       });
     }
+
+    cards.forEach(function (card) {
+      card.addEventListener("click", function () {
+        syncFocusedStorage(card);
+      });
+    });
+
+    initializeTrackerState();
+    applyFilters();
+
+    if (trackerState) {
+      trackerState.syncSidebarLinks();
+    }
+
+    window.addEventListener("pageshow", function (event) {
+      if (!event.persisted) {
+        return;
+      }
+      initializeTrackerState();
+      applyFilters();
+      if (trackerState) {
+        trackerState.syncSidebarLinks();
+      }
+    });
   });
 </script>
 {% endblock %}

@@ -5,6 +5,10 @@ frappe.ui.form.on("Project", {
 	refresh(frm) {
 		toggle_bom_tab_fields(frm);
 		setup_work_order_create_menu(frm);
+		if (!frm.doc.__islocal) {
+			frm.web_link && frm.web_link.remove();
+			frm.add_web_link("/project?project=" + encodeURIComponent(frm.doc.name));
+		}
 	},
 	kitchen_required(frm) {
 		toggle_bom_tab_fields(frm);

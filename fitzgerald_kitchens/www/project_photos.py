@@ -13,7 +13,7 @@ ALL_TASK_TYPES = [
 	"Delivery",
 	"Despatch",
 	"Assembly",
-	"Manufacture",
+	"Manufacturing",
 	"Export",
 	"Drawing",
 	"Fitting",
@@ -31,7 +31,11 @@ PROJECT_TYPE_FILTERS = [
 	{"key": "pantry", "label": _("Pantry")},
 ]
 
-_TASK_TYPE_LOOKUP = {name.lower(): name for name in ALL_TASK_TYPES}
+_TASK_TYPE_ALIASES = {"manufacture": "Manufacturing"}
+_TASK_TYPE_LOOKUP = {
+	**{name.lower(): name for name in ALL_TASK_TYPES},
+	**_TASK_TYPE_ALIASES,
+}
 
 
 def get_context(context):
