@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import base64
+import re
+from urllib.parse import unquote
 
 import frappe
 from frappe import _
@@ -40,12 +42,62 @@ def normalize_scanned_qr_text(qr_text: str) -> str:
 	if not qr_text:
 		return ""
 
+	# Hardware scanners often append CR/LF or other control characters.
+	qr_text = re.sub(r"[\x00-\x1f\x7f]", "", qr_text).strip()
+
 	candidate = qr_text
 	if "/" in qr_text:
 		candidate = qr_text.rstrip("/").split("/")[-1]
 		candidate = candidate.split("?")[0].strip()
 
+	candidate = unquote(candidate).strip()
+	if candidate.lower().endswith(".png"):
+		candidate = candidate[:-4].strip()
+
 	return candidate or qr_text
+
+
+def _canonical_code_key(code: str | None) -> str:
+	return (code or "").strip().upper()
+
+
+def _build_manifest_code_maps(manifest_rows: list[dict]) -> tuple[dict[str, dict], dict[str, str]]:
+	by_code: dict[str, dict] = {}
+	canonical_map: dict[str, str] = {}
+	for row in manifest_rows:
+		code = (row.get("item_instance_code") or "").strip()
+		if not code:
+			continue
+		by_code[code] = row
+		canonical_map[_canonical_code_key(code)] = code
+	return by_code, canonical_map
+
+
+def _resolve_manifest_code(
+	normalized: str,
+	by_code: dict[str, dict],
+	canonical_map: dict[str, str],
+) -> str | None:
+	clean = (normalized or "").strip()
+	if not clean:
+		return None
+
+	if clean in by_code:
+		return clean
+
+	canonical = _canonical_code_key(clean)
+	if canonical in canonical_map:
+		return canonical_map[canonical]
+
+	suffix_matches = [
+		code
+		for code in by_code
+		if _canonical_code_key(code).endswith(canonical) or canonical.endswith(_canonical_code_key(code))
+	]
+	if len(suffix_matches) == 1:
+		return suffix_matches[0]
+
+	return None
 
 
 def _empty_label_state() -> dict:
@@ -72,54 +124,10 @@ def _get_task_scan_meta(task_name: str) -> dict | None:
 	return task
 
 
-def _get_sibling_label_scan_task_names(project: str, exclude_task: str | None = None) -> list[str]:
-	"""Other Assembly / Despatch / Delivery tasks on the same project."""
-	if not project:
-		return []
-
-	task_names = []
-	for row in frappe.get_all(
-		"Task",
-		filters={"project": project, "type": ["is", "set"]},
-		fields=["name", "type"],
-	):
-		if exclude_task and row.name == exclude_task:
-			continue
-		if is_label_scan_task_type(row.type):
-			task_names.append(row.name)
-	return task_names
-
-
-def _get_other_task_scanned_codes(project: str, current_task: str) -> set[str]:
-	"""Labels already scanned on sibling Assembly / Despatch / Delivery tasks."""
-	sibling_tasks = _get_sibling_label_scan_task_names(project, exclude_task=current_task)
-	if not sibling_tasks:
-		return set()
-
-	return set(
-		frappe.get_all(
-			"Task Label Scan Log",
-			filters={
-				"task": ["in", sibling_tasks],
-				"status": "Scanned",
-				"item_instance_code": ["is", "set"],
-			},
-			pluck="item_instance_code",
-			distinct=True,
-		)
-	)
-
-
 def _get_manifest_rows_for_task(task_name: str, project: str, task_type: str | None = None) -> list[dict]:
-	manifest_rows = expand_manifest_item_instances(project)
-	if not manifest_rows:
-		return []
-
-	excluded_codes = _get_other_task_scanned_codes(project, task_name)
-	if not excluded_codes:
-		return manifest_rows
-
-	return [row for row in manifest_rows if row["item_instance_code"] not in excluded_codes]
+	"""Each Assembly / Despatch / Delivery task uses the full project QR list."""
+	del task_name, task_type
+	return expand_manifest_item_instances(project)
 
 
 def get_task_label_scan_state(task_name: str) -> dict:
@@ -243,6 +251,9 @@ def _apply_scan_side_effects(task_name: str, state: dict) -> dict:
 		side_effects["task_update"] = finalize.get("task_update")
 		side_effects["timesheet_submit"] = finalize.get("timesheet_submit")
 		side_effects["timer"] = finalize
+		mr_submit = _sync_despatch_material_request_side_effects(task_name, side_effects, submit=True)
+		if mr_submit:
+			side_effects["material_request_submit"] = mr_submit
 		return side_effects
 
 	from fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer import (
@@ -258,7 +269,36 @@ def _apply_scan_side_effects(task_name: str, state: dict) -> dict:
 	if progress_update:
 		side_effects["task_progress"] = progress_update.get("progress")
 
+	_sync_despatch_material_request_side_effects(task_name, side_effects, submit=False)
+
 	return side_effects
+
+
+def _sync_despatch_material_request_side_effects(
+	task_name: str, side_effects: dict, *, submit: bool
+) -> dict | None:
+	task_type = normalize_label_scan_task_type(frappe.db.get_value("Task", task_name, "type"))
+	if task_type != "Despatch":
+		return None
+
+	from fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.despatch_material_request import (
+		submit_despatch_material_request,
+		sync_despatch_material_request,
+	)
+
+	try:
+		if submit:
+			result = submit_despatch_material_request(task_name)
+		else:
+			result = sync_despatch_material_request(task_name)
+	except Exception:
+		frappe.log_error(title=f"Despatch material request failed for {task_name}")
+		return None
+
+	if result:
+		side_effects["material_request"] = result.get("name")
+		side_effects["material_request_updated"] = bool(result.get("updated"))
+	return result
 
 
 def record_task_label_scan(task_name: str, qr_text: str) -> dict:
@@ -277,44 +317,24 @@ def record_task_label_scan(task_name: str, qr_text: str) -> dict:
 	if task.status == COMPLETED_STATUS:
 		frappe.throw(_("This task is already completed"))
 
-	other_scanned = _get_other_task_scanned_codes(task.project, task_name)
-	if normalized in other_scanned:
-		state = get_task_label_scan_state(task_name)
-		result = {
-			"ok": False,
-			"result": "other_task",
-			"message": _("This label was already scanned on another task for this project"),
-			**state,
-		}
-		_publish_task_scan_update(task_name, result)
-		return result
-
 	manifest_rows = _get_manifest_rows_for_task(task_name, task.project, task.type)
-	by_code = {row["item_instance_code"]: row for row in manifest_rows}
-	all_manifest_codes = {
-		row["item_instance_code"] for row in expand_manifest_item_instances(task.project)
-	}
+	by_code, canonical_map = _build_manifest_code_maps(manifest_rows)
 
-	if normalized not in by_code:
-		if normalized in all_manifest_codes and normalized in other_scanned:
-			message = _("This label was already scanned on another task for this project")
-			result_key = "other_task"
-		else:
-			message = _("Unknown QR code — not part of this project's labels")
-			result_key = "error"
+	resolved_code = _resolve_manifest_code(normalized, by_code, canonical_map)
 
+	if not resolved_code:
 		_create_scan_log(
 			task_name=task_name,
 			project=task.project,
 			status="Error",
 			qr_text=qr_text,
-			item_instance_code=normalized if normalized in all_manifest_codes else None,
+			item_instance_code=None,
 		)
 		state = get_task_label_scan_state(task_name)
 		result = {
 			"ok": False,
-			"result": result_key,
-			"message": message,
+			"result": "error",
+			"message": _("Unknown QR code — not part of this project's labels"),
 			**state,
 		}
 		_publish_task_scan_update(task_name, result)
@@ -322,7 +342,7 @@ def record_task_label_scan(task_name: str, qr_text: str) -> dict:
 
 	if frappe.db.exists(
 		"Task Label Scan Log",
-		{"task": task_name, "item_instance_code": normalized, "status": "Scanned"},
+		{"task": task_name, "item_instance_code": resolved_code, "status": "Scanned"},
 	):
 		state = get_task_label_scan_state(task_name)
 		return {
@@ -332,13 +352,13 @@ def record_task_label_scan(task_name: str, qr_text: str) -> dict:
 			**state,
 		}
 
-	row = by_code[normalized]
+	row = by_code[resolved_code]
 	_create_scan_log(
 		task_name=task_name,
 		project=task.project,
 		status="Scanned",
 		qr_text=qr_text,
-		item_instance_code=normalized,
+		item_instance_code=resolved_code,
 		item_code=row.get("item_code"),
 		item_name=row.get("item_name"),
 	)
@@ -354,7 +374,7 @@ def record_task_label_scan(task_name: str, qr_text: str) -> dict:
 		"ok": True,
 		"result": "scanned",
 		"message": message,
-		"item_instance_code": normalized,
+		"item_instance_code": resolved_code,
 		"scanned_by": frappe.session.user,
 		**side_effects,
 		**state,

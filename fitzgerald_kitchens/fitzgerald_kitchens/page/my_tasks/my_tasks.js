@@ -289,7 +289,12 @@ class MyTasksPage {
 				<span class="my-tasks-progress-suffix">%</span>
 				<button type="button" class="btn btn-default btn-sm btn-task-progress-update">${__("Update")}</button>
 			</div>
-			<button type="button" class="btn btn-success btn-sm btn-task-complete" ${complete_disabled} title="${complete_title}">${__("Complete")}</button>
+			<div class="my-tasks-control-row my-tasks-action-row">
+				<button type="button" class="btn btn-default btn-sm btn-task-camera">
+					<i class="fa fa-video-camera"></i> ${__("Open Camera")}
+				</button>
+				<button type="button" class="btn btn-success btn-sm btn-task-complete" ${complete_disabled} title="${complete_title}">${__("Complete")}</button>
+			</div>
 		</div>`;
 	}
 
@@ -373,6 +378,11 @@ class MyTasksPage {
 					if (r.message.timesheet_submit?.submitted) {
 						message = __("Task completed and timesheet {0} submitted", [
 							r.message.timesheet_submit.timesheet,
+						]);
+					}
+					if (r.message.material_request_submit?.name) {
+						message = __("Task completed and Material Request {0} submitted", [
+							r.message.material_request_submit.name,
 						]);
 					}
 					frappe.show_alert({
@@ -494,14 +504,28 @@ class MyTasksPage {
 			const progress_label =
 				progress > 0
 					? `${Math.round(progress)}%`
-					: task.image_count
-						? __("{0} Images", [task.image_count])
-						: task.timer_running
-							? __("In progress")
-							: flt(task.total_logged_hours)
-								? __("{0}h logged", [flt(task.total_logged_hours).toFixed(1)])
-								: __("Not started");
+					: task.timer_running
+						? __("In progress")
+						: flt(task.total_logged_hours)
+							? __("{0}h logged", [flt(task.total_logged_hours).toFixed(1)])
+							: __("Not started");
 			const progress_class = progress > 0 || task.timer_running ? "" : "muted";
+			const file_count = flt(task.image_count) || 0;
+			const file_badge_html = file_count
+				? `<span class="my-tasks-file-badge" title="${frappe.utils.escape_html(__("Uploaded files"))}">
+						<i class="fa fa-paperclip" aria-hidden="true"></i>
+						${frappe.utils.escape_html(__("{0} files", [file_count]))}
+					</span>`
+				: "";
+			const scan_total = flt(task.scan_total) || 0;
+			const scan_scanned = flt(task.scan_scanned) || 0;
+			const scan_badge_html =
+				scan_total > 0
+					? `<span class="my-tasks-scan-badge" title="${frappe.utils.escape_html(__("Labels scanned on this task"))}">
+							<i class="fa fa-qrcode" aria-hidden="true"></i>
+							${frappe.utils.escape_html(__("{0}/{1} scanned", [scan_scanned, scan_total]))}
+						</span>`
+					: "";
 
 			const $card = $(`
 				<div class="my-tasks-card" data-task="${frappe.utils.escape_html(task.name)}">
@@ -515,6 +539,8 @@ class MyTasksPage {
 					<div class="my-tasks-card-meta">
 						<span class="my-tasks-badge">${frappe.utils.escape_html(task.type || __("Task"))}</span>
 						<span class="my-tasks-status-badge">${frappe.utils.escape_html(task.status || __("Open"))}</span>
+						${scan_badge_html}
+						${file_badge_html}
 						<span class="my-tasks-progress-badge ${progress_class}">${frappe.utils.escape_html(progress_label)}</span>
 					</div>
 					${this.render_timer_block(task)}
@@ -536,6 +562,17 @@ class MyTasksPage {
 			$card.find(".btn-task-progress-update").on("click", () => {
 				const progress = flt($card.find(".my-tasks-progress-input").val());
 				this.call_task_update("update_task_progress", task, { progress });
+			});
+			$card.find(".btn-task-camera").on("click", () => {
+				if (!fitzgerald_kitchens.task_camera) {
+					frappe.msgprint(__("Camera utility is not loaded. Please refresh the page."));
+					return;
+				}
+				fitzgerald_kitchens.task_camera.launch({
+					doctype: "Task",
+					docname: task.name,
+					on_success: () => me.refresh(),
+				});
 			});
 			$card.find(".btn-task-complete").on("click", function () {
 				if ($(this).prop("disabled")) {

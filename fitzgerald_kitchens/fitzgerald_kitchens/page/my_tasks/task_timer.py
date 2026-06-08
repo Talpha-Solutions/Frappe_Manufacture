@@ -570,7 +570,32 @@ def complete_task(task: str):
 	payload = _timer_payload(task)
 	payload["task_update"] = result
 	payload["timesheet_submit"] = timesheet_submit
+	payload["material_request_submit"] = _submit_despatch_material_request_if_ready(task)
 	return payload
+
+
+def _submit_despatch_material_request_if_ready(task: str) -> dict | None:
+	from fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.label_scan import (
+		get_task_label_scan_state,
+		normalize_label_scan_task_type,
+	)
+
+	if normalize_label_scan_task_type(frappe.db.get_value("Task", task, "type")) != "Despatch":
+		return None
+
+	state = get_task_label_scan_state(task)
+	if not state.get("total_labels") or state.get("outstanding"):
+		return None
+
+	try:
+		from fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.despatch_material_request import (
+			submit_despatch_material_request,
+		)
+
+		return submit_despatch_material_request(task)
+	except Exception:
+		frappe.log_error(title=f"Despatch material request failed for {task}")
+		return None
 
 
 def ensure_task_timer_started_for_scan(task: str) -> dict | None:

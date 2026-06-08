@@ -8,6 +8,10 @@ from frappe import _
 from frappe.utils import formatdate, getdate, today
 
 from fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer import WORKING_STATUS
+from fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.label_scan import (
+	get_task_label_scan_state,
+	is_label_scan_task_type,
+)
 from fitzgerald_kitchens.fitzgerald_kitchens.website.project_card import (
 	enrich_tasks_with_schedule_status,
 	get_task_schedule_display,
@@ -206,6 +210,14 @@ def _load_tasks(task_names: list[str]) -> list[dict]:
 		task.badge_type = task.type or _("Task")
 		task.image_count = _task_image_count(task.name)
 		task.scanned_label = None
+		if is_label_scan_task_type(task.type):
+			scan_state = get_task_label_scan_state(task.name)
+			scanned = scan_state.get("scanned") or 0
+			total = scan_state.get("total_labels") or 0
+			task.scan_scanned = scanned
+			task.scan_total = total
+			if total:
+				task.scanned_label = _("{0}/{1} scanned").format(scanned, total)
 
 	readable = []
 	for task in tasks:
@@ -380,6 +392,8 @@ def get_my_tasks_dashboard():
 			"schedule_indicator": task.schedule_indicator,
 			"image_count": task.image_count,
 			"scanned_label": task.scanned_label,
+			"scan_scanned": getattr(task, "scan_scanned", 0),
+			"scan_total": getattr(task, "scan_total", 0),
 			"timer_running": bool(getattr(task, "timer_running", False)),
 			"timer_paused": bool(getattr(task, "timer_paused", False)),
 			"timer_started_at": getattr(task, "timer_started_at", None),

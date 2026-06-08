@@ -27,6 +27,16 @@ PERMISSIONS = [
 	("Task Label Scan Log", "read"),
 	("Task Label Scan Log", "write"),
 	("Task Label Scan Log", "create"),
+	("Material Request", "read"),
+	("Material Request", "write"),
+	("Material Request", "create"),
+	("Material Request", "submit"),
+	("Stock Entry", "read"),
+	("Stock Entry", "write"),
+	("Stock Entry", "create"),
+	("Stock Entry", "submit"),
+	("Item", "read"),
+	("Warehouse", "read"),
 ]
 
 

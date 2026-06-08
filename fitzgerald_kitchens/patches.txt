@@ -49,3 +49,4 @@ fitzgerald_kitchens.patches.v1_0.fix_production_plan_customer_filter
 fitzgerald_kitchens.patches.v1_0.add_project_download_qr_tab
 fitzgerald_kitchens.patches.v1_0.backfill_project_effective_manifest
 fitzgerald_kitchens.patches.v1_0.add_task_label_scans_tab
+fitzgerald_kitchens.patches.v1_0.add_despatch_material_request_fields

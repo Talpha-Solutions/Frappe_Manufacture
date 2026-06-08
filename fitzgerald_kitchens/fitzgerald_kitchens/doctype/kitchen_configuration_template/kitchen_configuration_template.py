@@ -6,6 +6,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
+STANDARD_SELLING_PRICE_LIST = "Standard Selling"
+
 
 class KitchenConfigurationTemplate(Document):
 	def validate(self):
@@ -45,6 +47,7 @@ def get_item_price_list(doctype, txt, searchfield, start, page_len, filters):
 			"txt": f"%{txt or ''}%",
 			"start": start,
 			"page_len": page_len,
+			"price_list": STANDARD_SELLING_PRICE_LIST,
 		},
 	)
 
@@ -55,6 +58,7 @@ def get_all_item_price_options():
 		_get_item_price_select_sql()
 		+ _get_item_price_from_sql()
 		+ _get_item_price_order_sql(),
+		{"price_list": STANDARD_SELLING_PRICE_LIST},
 		as_dict=True,
 	)
 	return [
@@ -102,6 +106,7 @@ def _get_item_price_from_sql() -> str:
 		from `tabItem Price` ip
 		inner join `tabItem` i on i.name = ip.item_code
 		where i.disabled = 0
+		  and ip.price_list = %(price_list)s
 	"""
 
 

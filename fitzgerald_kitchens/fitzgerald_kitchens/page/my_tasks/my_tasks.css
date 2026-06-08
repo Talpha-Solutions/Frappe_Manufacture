@@ -289,6 +289,52 @@
 	color: #64748b;
 }
 
+.my-tasks-file-badge {
+	font-size: 11px;
+	padding: 3px 8px;
+	border-radius: 6px;
+	background: #ecfdf5;
+	color: #047857;
+	font-weight: 600;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.my-tasks-file-badge .fa-paperclip {
+	font-size: 10px;
+}
+
+.my-tasks-scan-badge {
+	font-size: 11px;
+	padding: 3px 8px;
+	border-radius: 6px;
+	background: #eef2ff;
+	color: #4338ca;
+	font-weight: 600;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.my-tasks-scan-badge .fa-qrcode {
+	font-size: 10px;
+}
+
+.my-tasks-action-row {
+	margin-top: 2px;
+}
+
+.my-tasks-action-row .btn-task-camera,
+.my-tasks-action-row .btn-task-complete {
+	flex: 1;
+	min-width: 120px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+}
+
 .my-tasks-card-actions {
 	display: flex;
 	gap: 8px;
