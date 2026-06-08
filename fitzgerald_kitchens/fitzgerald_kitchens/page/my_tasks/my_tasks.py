@@ -7,7 +7,7 @@ import frappe
 from frappe import _
 from frappe.utils import formatdate, getdate, today
 
-from fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer import WORKING_STATUS
+from fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer import OPEN_STATUS, WORKING_STATUS
 from fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.label_scan import (
 	get_task_label_scan_state,
 	is_label_scan_task_type,
@@ -250,6 +250,25 @@ def _starts_today(task, today_date) -> bool:
 	return bool(start and start == today_date)
 
 
+def _started_before_today(task, today_date) -> bool:
+	start = _task_start_date(task)
+	return bool(start and start < today_date)
+
+
+def _is_open_task(task) -> bool:
+	return task.status == OPEN_STATUS
+
+
+def _belongs_in_today_tab(task, today_date) -> bool:
+	if _is_ongoing_task(task):
+		return True
+	if _starts_today(task, today_date):
+		return True
+	if _is_open_task(task) and _started_before_today(task, today_date):
+		return True
+	return False
+
+
 def _is_ongoing_task(task) -> bool:
 	if task.status in ONGOING_TASK_STATUSES:
 		return True
@@ -296,7 +315,7 @@ def _bucket_tasks(tasks: list[dict]) -> dict:
 		exp_end = getdate(task.exp_end_date) if task.exp_end_date else None
 		start = _task_start_date(task)
 
-		if _is_ongoing_task(task) or _starts_today(task, today_date):
+		if _belongs_in_today_tab(task, today_date):
 			buckets["today"].append(task)
 		elif exp_end and exp_end < today_date:
 			buckets["overdue"].append(task)
