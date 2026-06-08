@@ -1,0 +1,76 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section",
+  "tag",
+  "label",
+  "subtitle",
+  "item_group",
+  "qty_label",
+  "default_qty"
+ ],
+ "fields": [
+  {
+   "fieldname": "section",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Section",
+   "options": "CABINETS\nWORKTOPS\nDIRECT LABOUR\nINDIRECT & FIXED COSTS",
+   "reqd": 1
+  },
+  {
+   "fieldname": "tag",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Tag",
+   "options": "MATERIAL\nLABOUR\nINDIRECT\nFIXED",
+   "reqd": 1
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Label",
+   "reqd": 1
+  },
+  {
+   "fieldname": "subtitle",
+   "fieldtype": "Data",
+   "label": "Subtitle"
+  },
+  {
+   "fieldname": "item_group",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Group",
+   "options": "Item Group",
+   "reqd": 1
+  },
+  {
+   "fieldname": "qty_label",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Qty Label",
+   "options": "QTY\nM²\nHRS/KIT",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "default_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Default Qty"
+  }
+ ],
+ "istable": 1,
+ "module": "fitzgerald_kitchens",
+ "name": "Kitchen Configuration Template Row",
+ "permissions": [],
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}

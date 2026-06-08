@@ -7,6 +7,8 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate
 
+from fitzgerald_kitchens.setup.project_hierarchy_fields import get_projects_in_scope
+
 
 def execute(filters=None):
 	data = get_data(filters)
@@ -22,7 +24,7 @@ def get_data(filters):
 	}
 
 	if filters.get("project"):
-		project_filters["name"] = filters.project
+		project_filters["name"] = ("in", get_projects_in_scope(filters.project))
 
 	projects = frappe.get_all(
 		"Project",

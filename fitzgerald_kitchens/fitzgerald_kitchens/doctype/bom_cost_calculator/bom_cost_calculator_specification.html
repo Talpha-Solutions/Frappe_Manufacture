@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>{{ doc.name }} - {{ _("Cost Specification") }}</title>
+	<style>
+		body {
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 12px;
+			color: #111;
+			margin: 24px;
+		}
+		h1, h2, h3, h4 {
+			margin: 0 0 8px;
+		}
+		.header {
+			border-bottom: 2px solid #333;
+			margin-bottom: 20px;
+			padding-bottom: 12px;
+		}
+		.meta-table, .summary-table, .items-table, .charges-table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-bottom: 18px;
+		}
+		.meta-table td {
+			padding: 4px 8px 4px 0;
+			vertical-align: top;
+		}
+		.summary-table th, .items-table th, .charges-table th {
+			background: #f5f5f5;
+			border: 1px solid #ccc;
+			padding: 6px 8px;
+			text-align: left;
+		}
+		.summary-table td, .items-table td, .charges-table td {
+			border: 1px solid #ccc;
+			padding: 6px 8px;
+		}
+		.text-right { text-align: right; }
+		.section-block {
+			margin-bottom: 22px;
+			page-break-inside: avoid;
+		}
+		.section-title {
+			background: #eef2ff;
+			border: 1px solid #c7d2fe;
+			padding: 8px 10px;
+			margin-bottom: 10px;
+		}
+		.subsection {
+			margin-left: 16px;
+			margin-bottom: 14px;
+		}
+		.section-total {
+			font-weight: bold;
+			text-align: right;
+			margin-top: 6px;
+		}
+		.grand-total {
+			font-size: 16px;
+			font-weight: bold;
+			border-top: 2px solid #333;
+			padding-top: 10px;
+			margin-top: 20px;
+		}
+		.spec-toolbar {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-bottom: 20px;
+			padding: 10px 12px;
+			background: #f5f5f5;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+		}
+		.spec-toolbar button {
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 12px;
+			padding: 6px 14px;
+			border: 1px solid #ccc;
+			border-radius: 4px;
+			background: #fff;
+			color: #111;
+			cursor: pointer;
+		}
+		.spec-toolbar button:hover {
+			background: #eee;
+		}
+		@media print {
+			.spec-toolbar {
+				display: none;
+			}
+		}
+	</style>
+	<script>
+		function bcc_download_specification() {
+			const filename = {{ (doc.name ~ "-cost-specification.html") | tojson }};
+			const html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+			const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+			const link = document.createElement("a");
+			link.href = URL.createObjectURL(blob);
+			link.download = filename;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			URL.revokeObjectURL(link.href);
+		}
+
+		function bcc_print_specification() {
+			window.print();
+		}
+	</script>
+</head>
+<body>
+	<div class="spec-toolbar">
+		<button type="button" onclick="bcc_download_specification()">{{ _("Download") }}</button>
+		<button type="button" onclick="bcc_print_specification()">{{ _("Print") }}</button>
+	</div>
+	<div class="header">
+		<h1>{{ _("Cost Specification") }}</h1>
+		<table class="meta-table">
+			<tr>
+				<td><strong>{{ _("Reference") }}:</strong> {{ doc.name }}</td>
+				<td><strong>{{ _("Item") }}:</strong> {{ doc.item_code }} - {{ doc.item_name or "" }}</td>
+			</tr>
+			<tr>
+				<td><strong>{{ _("Company") }}:</strong> {{ doc.company }}</td>
+				<td><strong>{{ _("Quantity") }}:</strong> {{ doc.qty }} {{ doc.uom or "" }}</td>
+			</tr>
+			<tr>
+				<td><strong>{{ _("Project") }}:</strong> {{ doc.project or "" }}</td>
+				<td><strong>{{ _("Currency") }}:</strong> {{ doc.currency }}</td>
+			</tr>
+		</table>
+	</div>
+
+	{% if include_cost_breakdown %}
+	<div class="section-block">
+		<h2>{{ _("Cost Breakdown") }}</h2>
+		<table class="summary-table">
+			<thead>
+				<tr>
+					<th>{{ _("Component") }}</th>
+					<th class="text-right">{{ _("Amount") }}</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>{{ _("Raw Materials") }}</td>
+					<td class="text-right">{{ fmt(breakdown.raw_materials_total) }}</td>
+				</tr>
+				<tr>
+					<td>{{ _("Labor Cost") }}</td>
+					<td class="text-right">{{ fmt(breakdown.routing_cost_total) }}</td>
+				</tr>
+				<tr>
+					<td>{{ _("Other Charges") }}</td>
+					<td class="text-right">{{ fmt(breakdown.other_charges_total) }}</td>
+				</tr>
+				<tr>
+					<td><strong>{{ _("Total Cost") }}</strong></td>
+					<td class="text-right"><strong>{{ fmt(breakdown.total_cost) }}</strong></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+	{% endif %}
+
+	{% macro render_section(section) %}
+	<div class="section-block subsection" style="margin-left: {{ section.level * 16 }}px;">
+		<div class="section-title">
+			<h3>{{ section.title }}{% if section.item_name %} - {{ section.item_name }}{% endif %}</h3>
+			<div>{{ _("Qty") }}: {{ section.qty }}</div>
+		</div>
+
+		{% if include_route and section.operations %}
+		<h4>{{ _("Labor Cost / Operations") }}</h4>
+		<table class="items-table">
+			<thead>
+				<tr>
+					<th>{{ _("Operation") }}</th>
+					<th class="text-right">{{ _("Time (mins)") }}</th>
+					<th class="text-right">{{ _("Cost") }}</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for op in section.operations %}
+				<tr>
+					<td>{{ op.operation }}</td>
+					<td class="text-right">{{ op.time_in_mins }}</td>
+					<td class="text-right">{{ fmt(op.operating_cost) }}</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+		{% endif %}
+
+		{% if include_raw_materials and section.raw_materials %}
+		<h4>{{ _("Raw Materials") }}</h4>
+		<table class="items-table">
+			<thead>
+				<tr>
+					<th>{{ _("Item Code") }}</th>
+					<th>{{ _("Item Name") }}</th>
+					<th class="text-right">{{ _("Qty") }}</th>
+					<th>{{ _("UOM") }}</th>
+					<th class="text-right">{{ _("Rate") }}</th>
+					<th class="text-right">{{ _("Amount") }}</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for row in section.raw_materials %}
+				<tr>
+					<td>{{ row.item_code }}</td>
+					<td>{{ row.item_name }}</td>
+					<td class="text-right">{{ row.qty }}</td>
+					<td>{{ row.uom or "" }}</td>
+					<td class="text-right">{{ fmt(row.rate) }}</td>
+					<td class="text-right">{{ fmt(row.amount) }}</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+		{% endif %}
+
+		{% for child in section.children %}
+			{{ render_section(child) }}
+		{% endfor %}
+
+		{% if (include_raw_materials or include_route) and not section.children %}
+		<div class="section-total">{{ _("Section Total") }}: {{ fmt(section.section_total) }}</div>
+		{% endif %}
+	</div>
+	{% endmacro %}
+
+	{% if include_raw_materials or include_route %}
+	<div class="section-block">
+		<h2>{{ _("Item List") }}</h2>
+		{% for section in sections %}
+			{{ render_section(section) }}
+		{% endfor %}
+	</div>
+	{% endif %}
+
+	{% if include_other_charges and other_charges %}
+	<div class="section-block">
+		<h2>{{ _("Other Charges") }}</h2>
+		<table class="charges-table">
+			<thead>
+				<tr>
+					<th>{{ _("Charge Type") }}</th>
+					<th>{{ _("Description") }}</th>
+					<th class="text-right">{{ _("Amount") }}</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for row in other_charges %}
+				<tr>
+					<td>{{ row.charge_type }}</td>
+					<td>{{ row.description or "" }}</td>
+					<td class="text-right">{{ fmt(row.amount) }}</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+	{% endif %}
+
+	{% if include_cost_breakdown %}
+	<div class="grand-total">
+		{{ _("Total Cost") }}: {{ fmt(breakdown.total_cost) }}
+	</div>
+	{% endif %}
+</body>
+</html>

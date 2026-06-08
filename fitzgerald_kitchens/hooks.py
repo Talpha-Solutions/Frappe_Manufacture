@@ -26,7 +26,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/fitzgerald_kitchens/css/fitzgerald_kitchens.css"
-# app_include_js = "/assets/fitzgerald_kitchens/js/fitzgerald_kitchens.js"
+app_include_js = "/assets/fitzgerald_kitchens/js/project_sidebar_highlight.js"
 
 # include js, css files in header of web template
 web_include_css = "/assets/fitzgerald_kitchens/css/portal_sidebar.css"
@@ -40,12 +40,15 @@ web_include_js = "/assets/fitzgerald_kitchens/js/portal_tracker_state.js"
 # webform_include_css = {"doctype": "public/css/doctype.css"}
 
 # include js in page
-# page_js = {"page" : "public/js/file.js"}
+page_js = {"my-tasks": "public/js/task_camera.js"}
 
 # include js in doctype views
 doctype_js = {
 	"Project": "public/js/project.js",
-	"Task": "public/js/task.js",
+	"Task": ["public/js/task_camera.js", "public/js/task.js"],
+	"BOM Cost Calculator": "public/js/bom_cost_configurator.bundle.js",
+	"Production Plan": "public/js/production_plan.js",
+	"Projects Settings": "public/js/projects_settings.js",
 }
 doctype_list_js = {
 	"Development Stage": "fitzgerald_kitchens/doctype/development_stage/development_stage_list.js",
@@ -149,13 +152,18 @@ after_migrate = [
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+override_doctype_class = {
+	"Project": "fitzgerald_kitchens.overrides.project.Project",
+}
+
+doc_events = {
+	"Project": {
+		"before_insert": "fitzgerald_kitchens.setup.project_naming.apply_project_naming_series",
+	},
+	"Projects Settings": {
+		"validate": "fitzgerald_kitchens.setup.projects_settings_fields.validate_projects_settings",
+	},
+}
 
 # Scheduled Tasks
 # ---------------
@@ -187,9 +195,10 @@ after_migrate = [
 # ------------------------------
 #
 # Specify custom mixins to extend the standard doctype controller.
-# extend_doctype_class = {
-# 	"Task": "fitzgerald_kitchens.custom.task.CustomTaskMixin"
-# }
+extend_doctype_class = {
+	"Production Plan": "fitzgerald_kitchens.custom.production_plan.FKProductionPlan",
+	"Project": "fitzgerald_kitchens.custom.project.FKProject",
+}
 
 # Overriding Methods
 # ------------------------------
@@ -258,6 +267,8 @@ after_migrate = [
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True
 
+boot_session = "fitzgerald_kitchens.boot.boot_session"
+
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
@@ -266,9 +277,17 @@ after_migrate = [
 # --------
 # Imported from fitzgerald_kitchens/fixtures/*.json on bench migrate.
 # Re-export after desk edits: bench --site <site> export-fixtures --app fitzgerald_kitchens
+from fitzgerald_kitchens.setup.development_stages import STANDARD_STAGE_NAMES
+from fitzgerald_kitchens.setup.project_types import STANDARD_PROJECT_TYPE_NAMES
+
 fixtures = [
 	{
+		"dt": "Project Type",
+		"filters": [["name", "in", sorted(STANDARD_PROJECT_TYPE_NAMES)]],
+	},
+	{
 		"dt": "Development Stage",
+		"filters": [["name", "in", sorted(STANDARD_STAGE_NAMES)]],
 	},
 	{
 		"dt": "Development Stage Settings",
@@ -280,12 +299,18 @@ fixtures = [
 	},
 	{
 		"dt": "Custom Field",
-		"filters": [["fieldname", "in", ["custom_file_upload", "custom_uploader_target"]]],
+		"filters": [["fieldname", "in", ["custom_file_upload", "custom_uploader_target", "custom_label_scans", "custom_label_scans_target"]]],
 	},
 	{
 		"dt": "Property Setter",
 		"filters": [["doc_type", "=", "Task"], ["property", "in", ["max_attachments", "field_order", "fieldtype"]]],
 	},
+	{
+		"dt": "Desktop Icon",
+		"filters": [["name", "=", "My Tasks"]],
+	},
+	# Pages live under fitzgerald_kitchens/page/* and are synced via
+	# ensure_my_tasks_pages() — not fixtures (Page insert requires developer_mode).
 ]
 
 # Translation
@@ -293,11 +318,13 @@ fixtures = [
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+from fitzgerald_kitchens.setup.my_tasks_desk import patch_desktop_icon_external_permission
 from fitzgerald_kitchens.setup.project_website_list import (
 	patch_project_website_list,
 	patch_project_website_tasks,
 )
 
+patch_desktop_icon_external_permission()
 patch_project_website_list()
 patch_project_website_tasks()
 

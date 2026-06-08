@@ -1,0 +1,99 @@
+{
+ "actions": [],
+ "creation": "2026-06-02 12:46:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "phase",
+  "document_type",
+  "document_code",
+  "row_number",
+  "developer",
+  "site_name",
+  "house_number",
+  "project_type",
+  "action",
+  "project",
+  "message"
+ ],
+ "fields": [
+  {
+   "fieldname": "phase",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Phase"
+  },
+  {
+   "fieldname": "document_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Document Type"
+  },
+  {
+   "fieldname": "document_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Document Code"
+  },
+  {
+   "fieldname": "row_number",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Row"
+  },
+  {
+   "fieldname": "developer",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Developer"
+  },
+  {
+   "fieldname": "site_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Site Name"
+  },
+  {
+   "fieldname": "house_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "House Number"
+  },
+  {
+   "fieldname": "project_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Project Type"
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Action",
+   "options": "Created\nUpdated\nSkipped\nFailed"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project"
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Small Text",
+   "label": "Message"
+  }
+ ],
+ "istable": 1,
+ "modified": "2026-06-02 12:46:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Development Workbook Import Log",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "row_number",
+ "sort_order": "ASC",
+ "states": []
+}

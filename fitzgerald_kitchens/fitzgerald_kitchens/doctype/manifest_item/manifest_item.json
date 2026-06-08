@@ -1,0 +1,124 @@
+{
+ "actions": [],
+ "creation": "2026-06-02 12:46:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "description",
+  "qty",
+  "uom",
+  "column_break_dimensions",
+  "width",
+  "height",
+  "depth",
+  "room",
+  "label_category",
+  "include_in_qr_labels",
+  "group_for_label",
+  "linked_bom",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "fetch_from": "item_code.description",
+   "fetch_if_empty": 1,
+   "label": "Description"
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty",
+   "reqd": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_dimensions",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height"
+  },
+  {
+   "fieldname": "depth",
+   "fieldtype": "Float",
+   "label": "Depth"
+  },
+  {
+   "fieldname": "room",
+   "fieldtype": "Select",
+   "label": "Room",
+   "options": "Kitchen\nRobe\nUtility\nVanity\nUnit\nPantry\nAccessories\nRobe Accessories\nKitchen Accessories\nAppliances"
+  },
+  {
+   "fieldname": "label_category",
+   "fieldtype": "Select",
+   "label": "Label Category",
+   "options": "Assembly\nFitting Kit\nExtra",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "include_in_qr_labels",
+   "fieldtype": "Check",
+   "label": "Include in QR Labels"
+  },
+  {
+   "default": "0",
+   "fieldname": "group_for_label",
+   "fieldtype": "Check",
+   "label": "Group for Label"
+  },
+  {
+   "fetch_from": "item_code.default_bom",
+   "fetch_if_empty": 1,
+   "fieldname": "linked_bom",
+   "fieldtype": "Link",
+   "label": "Linked BOM",
+   "options": "BOM"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "istable": 1,
+ "modified": "2026-06-02 12:46:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Manifest Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

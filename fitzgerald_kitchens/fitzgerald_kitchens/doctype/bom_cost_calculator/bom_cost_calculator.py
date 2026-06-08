@@ -10,6 +10,7 @@ from pypika.terms import ValueWrapper
 from erpnext.manufacturing.doctype.bom.bom import get_bom_item_rate
 
 ROUTING_PREFIX = "__routing__:"
+RAW_MATERIALS_PREFIX = "__raw_materials__:"
 OPERATION_SUFFIX = "__op__"
 
 ITEM_FIELDS = [
@@ -17,6 +18,7 @@ ITEM_FIELDS = [
 	"item_name as title",
 	"is_expandable as expandable",
 	"parent as parent_id",
+	"fg_item",
 	"qty",
 	"idx",
 	ValueWrapper("BOM Cost Calculator Item").as_("doctype"),
@@ -99,7 +101,26 @@ class BOMCostCalculator(Document):
 				row.fg_reference_id = self.name
 
 	def set_rate_for_items(self):
-		self.raw_material_cost = self.get_total_cost(self.item_code, self.name)
+		breakdown = self.get_cost_breakdown()
+		self.raw_materials_total = breakdown["raw_materials_total"]
+		self.routing_cost_total = breakdown["routing_cost_total"]
+		self.other_charges_total = breakdown["other_charges_total"]
+		self.raw_material_cost = breakdown["bom_cost"]
+		self.total_cost = breakdown["total_cost"]
+
+	def get_cost_breakdown(self):
+		raw_materials_total = sum(flt(row.amount) for row in self.items if not row.is_expandable)
+		routing_cost_total = _get_routing_cost_total(self)
+		other_charges_total = sum(flt(row.amount) for row in self.other_charges or [])
+		bom_cost = self.get_total_cost(self.item_code, self.name)
+
+		return {
+			"raw_materials_total": raw_materials_total,
+			"routing_cost_total": routing_cost_total,
+			"other_charges_total": other_charges_total,
+			"bom_cost": bom_cost,
+			"total_cost": flt(bom_cost) + flt(other_charges_total),
+		}
 
 	def get_total_cost(self, fg_item=None, fg_reference_id=None, _visited=None):
 		if not fg_item:
@@ -151,7 +172,7 @@ class BOMCostCalculator(Document):
 
 		if assembly_row and assembly_row.routing:
 			amount += _get_routing_operation_cost(assembly_row.routing)
-		elif not assembly_row and self.routing:
+		elif not assembly_row and self.routing and not _has_assembly_routing(self, fg_item, assembly_row):
 			amount += _get_routing_operation_cost(self.routing)
 
 		return amount
@@ -244,13 +265,20 @@ def get_children(doctype=None, parent=None, **kwargs):
 	if parent and str(parent).startswith(ROUTING_PREFIX):
 		return _get_routing_folder_children(parent, kwargs)
 
+	if parent and str(parent).startswith(RAW_MATERIALS_PREFIX):
+		return _get_raw_materials_folder_children(parent, kwargs)
+
 	children = _get_item_children(parent, kwargs)
 	assembly_row_name = kwargs.get("assembly_row_name") or _resolve_assembly_row_name(parent, kwargs)
 
 	if assembly_row_name:
 		routing = frappe.db.get_value("BOM Cost Calculator Item", assembly_row_name, "routing")
 		if routing:
-			children = [_make_routing_node(routing, assembly_row_name, kwargs), *children]
+			children = [
+				_make_routing_node(routing, assembly_row_name, kwargs),
+				_make_raw_materials_node(assembly_row_name, kwargs),
+				*children,
+			]
 
 	return children
 
@@ -292,6 +320,29 @@ def _make_routing_node(routing, assembly_row_name, kwargs):
 			"routing_name": routing,
 			"assembly_row_name": assembly_row_name,
 			"idx": 0,
+			"operation": "",
+			"is_subcontracted": 0,
+		}
+	)
+
+
+def _make_raw_materials_node(assembly_row_name, kwargs):
+	total_cost = _get_raw_materials_folder_total(assembly_row_name, kwargs.get("parent_id"))
+	return frappe._dict(
+		{
+			"value": f"{RAW_MATERIALS_PREFIX}{assembly_row_name}",
+			"title": _("Raw Materials"),
+			"expandable": 1,
+			"doctype": "BOM Cost Calculator Item",
+			"name": f"{RAW_MATERIALS_PREFIX}{assembly_row_name}",
+			"parent_id": kwargs.get("parent_id"),
+			"qty": 0,
+			"uom": "",
+			"amount": total_cost,
+			"rate": total_cost,
+			"is_raw_materials_node": 1,
+			"assembly_row_name": assembly_row_name,
+			"idx": 1,
 			"operation": "",
 			"is_subcontracted": 0,
 		}
@@ -398,20 +449,24 @@ def _get_routing_folder_children(parent_value, kwargs):
 			)
 		)
 
-	if assembly_row_name:
-		assembly_row = frappe.get_doc("BOM Cost Calculator Item", assembly_row_name)
-		rm_filters = {
-			"parent": kwargs.parent_id,
-			"fg_item": assembly_row.item_code,
-			"parent_row_no": assembly_row.idx,
-			"is_expandable": 0,
-		}
-		for rm in frappe.get_all(
-			"BOM Cost Calculator Item", fields=ITEM_FIELDS, filters=rm_filters, order_by="idx"
-		):
-			children.append(rm)
-
 	return children
+
+
+def _get_raw_materials_folder_children(parent_value, kwargs):
+	assembly_row_name = parent_value[len(RAW_MATERIALS_PREFIX) :]
+	if not assembly_row_name:
+		return []
+
+	assembly_row = frappe.get_doc("BOM Cost Calculator Item", assembly_row_name)
+	rm_filters = {
+		"parent": kwargs.parent_id,
+		"fg_item": assembly_row.item_code,
+		"parent_row_no": assembly_row.idx,
+		"is_expandable": 0,
+	}
+	return frappe.get_all(
+		"BOM Cost Calculator Item", fields=ITEM_FIELDS, filters=rm_filters, order_by="idx"
+	)
 
 
 def _get_routing_operations(routing_name):
@@ -436,7 +491,38 @@ def _get_routing_operation_cost(routing_name):
 	return flt(result[0].total) if result else 0.0
 
 
+def _iter_unique_assembly_routings(doc):
+	seen = set()
+	for row in doc.items:
+		if row.is_expandable and row.routing and row.routing not in seen:
+			seen.add(row.routing)
+			yield row.routing
+
+
+def _has_assembly_routing(doc, fg_item, assembly_row):
+	return any(
+		row.is_expandable and row.routing
+		for row in doc.items
+		if row.fg_item == fg_item and doc._is_row_under_assembly(row, assembly_row)
+	)
+
+
+def _get_routing_cost_total(doc):
+	assembly_routings = list(_iter_unique_assembly_routings(doc))
+	if assembly_routings:
+		return sum(_get_routing_operation_cost(routing) for routing in assembly_routings)
+
+	if doc.routing:
+		return _get_routing_operation_cost(doc.routing)
+
+	return 0.0
+
+
 def _get_routing_folder_total(routing_name, assembly_row_name, parent_id):
+	return _get_routing_operation_cost(routing_name)
+
+
+def _get_raw_materials_folder_total(assembly_row_name, parent_id):
 	rm_total = frappe.db.sql(
 		"""
 		SELECT COALESCE(SUM(amount), 0) AS total
@@ -450,7 +536,7 @@ def _get_routing_folder_total(routing_name, assembly_row_name, parent_id):
 		(parent_id, assembly_row_name),
 		as_dict=True,
 	)
-	return flt(rm_total[0].total if rm_total else 0) + _get_routing_operation_cost(routing_name)
+	return flt(rm_total[0].total if rm_total else 0)
 
 
 def _get_assembly_total_cost(parent_id, assembly_row_name, fg_item):
@@ -480,7 +566,14 @@ def add_item(**kwargs):
 	fg_reference_id = resolve_assembly_reference(doc, fg_item, kwargs.fg_reference_id)
 	parent_row_no = ""
 
-	if fg_item and str(fg_item).startswith(ROUTING_PREFIX):
+	if fg_item and str(fg_item).startswith(RAW_MATERIALS_PREFIX):
+		assembly_row_name = fg_item[len(RAW_MATERIALS_PREFIX) :]
+		if assembly_row_name:
+			assembly_row = frappe.get_doc("BOM Cost Calculator Item", assembly_row_name)
+			fg_item = assembly_row.item_code
+			fg_reference_id = ""
+			parent_row_no = assembly_row.idx
+	elif fg_item and str(fg_item).startswith(ROUTING_PREFIX):
 		routing_part = fg_item[len(ROUTING_PREFIX) :]
 		_, assembly_row_name = (routing_part.split(":", 1) + [""])[:2]
 		if assembly_row_name:
@@ -591,6 +684,10 @@ def resolve_assembly_reference(doc, fg_item, fg_reference_id):
 			_, assembly_row_name = (str(fg_reference_id)[len(ROUTING_PREFIX) :].split(":", 1) + [""])[:2]
 			if assembly_row_name:
 				return assembly_row_name
+		if str(fg_reference_id).startswith(RAW_MATERIALS_PREFIX):
+			assembly_row_name = str(fg_reference_id)[len(RAW_MATERIALS_PREFIX) :]
+			if assembly_row_name:
+				return assembly_row_name
 		return fg_reference_id
 
 	if fg_item == doc.item_code:
@@ -635,17 +732,29 @@ def delete_node(**kwargs):
 	if kwargs.fg_item and str(kwargs.fg_item).startswith(ROUTING_PREFIX):
 		return frappe.get_doc("BOM Cost Calculator", kwargs.parent)
 
+	if kwargs.fg_item and str(kwargs.fg_item).startswith(RAW_MATERIALS_PREFIX):
+		return frappe.get_doc("BOM Cost Calculator", kwargs.parent)
+
 	if kwargs.docname and (
-		str(kwargs.docname).startswith(ROUTING_PREFIX) or OPERATION_SUFFIX in str(kwargs.docname)
+		str(kwargs.docname).startswith(ROUTING_PREFIX)
+		or str(kwargs.docname).startswith(RAW_MATERIALS_PREFIX)
+		or OPERATION_SUFFIX in str(kwargs.docname)
 	):
 		return frappe.get_doc("BOM Cost Calculator", kwargs.parent)
 
-	items = get_children(parent=kwargs.fg_item, parent_id=kwargs.parent)
-	if kwargs.docname:
+	if kwargs.docname and frappe.db.exists("BOM Cost Calculator Item", kwargs.docname):
+		row = frappe.get_doc("BOM Cost Calculator Item", kwargs.docname)
 		frappe.delete_doc("BOM Cost Calculator Item", kwargs.docname)
 
+		if not row.is_expandable:
+			doc = frappe.get_doc("BOM Cost Calculator", kwargs.parent)
+			doc.save()
+			return doc
+
+	items = get_children(parent=kwargs.fg_item, parent_id=kwargs.parent)
+
 	for item in items:
-		if item.get("is_routing_node") or item.get("is_operation_node"):
+		if item.get("is_routing_node") or item.get("is_operation_node") or item.get("is_raw_materials_node"):
 			continue
 		frappe.delete_doc("BOM Cost Calculator Item", item.name)
 		if item.expandable:
@@ -677,11 +786,172 @@ def remove_routing(parent, assembly_row_name):
 
 
 @frappe.whitelist()
+def get_cost_summary(parent):
+	doc = frappe.get_doc("BOM Cost Calculator", parent)
+	breakdown = doc.get_cost_breakdown()
+
+	if _cost_breakdown_is_stale(doc, breakdown):
+		doc.save(ignore_permissions=True)
+		breakdown = doc.get_cost_breakdown()
+
+	return breakdown
+
+
+def _build_specification_section(doc, fg_item, assembly_row_name=None, level=0):
+	assembly = doc._get_assembly_row(assembly_row_name) if assembly_row_name and assembly_row_name != doc.name else None
+
+	if assembly:
+		item_name = assembly.item_name or frappe.get_cached_value("Item", assembly.item_code, "item_name")
+		qty = assembly.qty
+		title = assembly.item_code
+	else:
+		item_name = doc.item_name or frappe.get_cached_value("Item", doc.item_code, "item_name")
+		qty = doc.qty
+		title = doc.item_code
+
+	section = {
+		"title": title,
+		"item_name": item_name,
+		"qty": qty,
+		"level": level,
+		"raw_materials": [],
+		"operations": [],
+		"children": [],
+	}
+
+	for row in doc.items:
+		if row.fg_item != fg_item:
+			continue
+		if not doc._is_row_under_assembly(row, assembly):
+			continue
+
+		if row.is_expandable:
+			section["children"].append(
+				_build_specification_section(doc, row.item_code, row.name, level + 1)
+			)
+		else:
+			section["raw_materials"].append(
+				{
+					"item_code": row.item_code,
+					"item_name": row.item_name or row.item_code,
+					"qty": row.qty,
+					"uom": row.uom,
+					"rate": row.rate,
+					"amount": row.amount,
+				}
+			)
+
+	routing_name = None
+	if assembly and assembly.routing:
+		routing_name = assembly.routing
+	elif not assembly and fg_item == doc.item_code and doc.routing and not _has_assembly_routing(doc, fg_item, assembly):
+		routing_name = doc.routing
+
+	if routing_name:
+		for op in _get_routing_operations(routing_name):
+			section["operations"].append(
+				{
+					"operation": op.get("operation"),
+					"time_in_mins": flt(op.get("time_in_mins")),
+					"operating_cost": flt(op.get("operating_cost")),
+				}
+			)
+
+	section["raw_materials_total"] = sum(flt(row.get("amount")) for row in section["raw_materials"])
+	section["operations_total"] = sum(flt(op.get("operating_cost")) for op in section["operations"])
+	section["children_total"] = sum(flt(child.get("section_total")) for child in section["children"])
+	section["section_total"] = (
+		section["raw_materials_total"] + section["operations_total"] + section["children_total"]
+	)
+
+	return section
+
+
+@frappe.whitelist()
+def get_specification_html(
+	parent,
+	include_cost_breakdown=1,
+	include_raw_materials=1,
+	include_route=1,
+	include_other_charges=1,
+):
+	doc = frappe.get_doc("BOM Cost Calculator", parent)
+	breakdown = doc.get_cost_breakdown()
+
+	if _cost_breakdown_is_stale(doc, breakdown):
+		doc.save(ignore_permissions=True)
+		breakdown = doc.get_cost_breakdown()
+
+	currency = doc.currency
+	context = {
+		"doc": doc,
+		"breakdown": breakdown,
+		"currency": currency,
+		"include_cost_breakdown": sbool(include_cost_breakdown),
+		"include_raw_materials": sbool(include_raw_materials),
+		"include_route": sbool(include_route),
+		"include_other_charges": sbool(include_other_charges),
+		"sections": [_build_specification_section(doc, doc.item_code, doc.name)],
+		"other_charges": [
+			{
+				"charge_type": row.charge_type,
+				"description": row.description,
+				"amount": row.amount,
+			}
+			for row in doc.other_charges or []
+		],
+		"fmt": lambda value: frappe.format_value(flt(value), {"fieldtype": "Currency", "options": currency}),
+		"_": _,
+	}
+
+	return frappe.render_template(
+		"fitzgerald_kitchens/fitzgerald_kitchens/doctype/bom_cost_calculator/bom_cost_calculator_specification.html",
+		context,
+	)
+
+
+def _cost_breakdown_is_stale(doc, breakdown):
+	return (
+		flt(doc.raw_materials_total) != flt(breakdown["raw_materials_total"])
+		or flt(doc.routing_cost_total) != flt(breakdown["routing_cost_total"])
+		or flt(doc.other_charges_total) != flt(breakdown["other_charges_total"])
+		or flt(doc.raw_material_cost) != flt(breakdown["bom_cost"])
+		or flt(doc.total_cost) != flt(breakdown["total_cost"])
+	)
+
+
+@frappe.whitelist()
+def add_other_charge(parent, charge_type, amount, description=None):
+	doc = frappe.get_doc("BOM Cost Calculator", parent)
+	doc.append(
+		"other_charges",
+		{
+			"charge_type": charge_type,
+			"description": description or "",
+			"amount": flt(amount),
+		},
+	)
+	doc.save()
+	return doc
+
+
+@frappe.whitelist()
+def remove_other_charge(parent, row_name):
+	doc = frappe.get_doc("BOM Cost Calculator", parent)
+	for row in list(doc.other_charges):
+		if row.name == row_name:
+			doc.remove(row)
+			break
+	doc.save()
+	return doc
+
+
+@frappe.whitelist()
 def edit_bom_cost_calculator(doctype, docname, data, parent):
 	if isinstance(data, str):
 		data = frappe.parse_json(data)
 
-	if str(docname).startswith(ROUTING_PREFIX) or OPERATION_SUFFIX in str(docname):
+	if str(docname).startswith(ROUTING_PREFIX) or str(docname).startswith(RAW_MATERIALS_PREFIX) or OPERATION_SUFFIX in str(docname):
 		return frappe.get_doc("BOM Cost Calculator", parent)
 
 	frappe.db.set_value(doctype, docname, data)

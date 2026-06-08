@@ -1,0 +1,60 @@
+<div class="my-tasks-page">
+	<div class="my-tasks-header">
+		<div class="my-tasks-user">
+			<div class="my-tasks-avatar"></div>
+			<div class="my-tasks-user-meta">
+				<div class="my-tasks-user-name"></div>
+				<div class="my-tasks-user-dept text-muted"></div>
+			</div>
+		</div>
+		<div class="my-tasks-header-right text-right">
+			<div class="my-tasks-date text-muted"></div>
+			<div class="my-tasks-shift badge badge-success">On shift</div>
+		</div>
+	</div>
+
+	<div class="my-tasks-scan-hero">
+		<div class="my-tasks-scan-icon">
+			<svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+				<path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h2v2h-2v-2z" fill="currentColor"/>
+			</svg>
+		</div>
+		<h4 class="my-tasks-scan-title">{{ __("Scan a label") }}</h4>
+		<p class="my-tasks-scan-sub text-muted">
+			{{ __("Tap to open the scanner and pick up your next task") }}
+		</p>
+		<button type="button" class="btn btn-primary btn-open-scanner">
+			{{ __("Open scanner") }}
+		</button>
+		<p class="my-tasks-scan-hint text-muted small">
+			{{ __("Or use a connected handheld scanner anywhere on this screen.") }}
+		</p>
+	</div>
+
+	<div class="my-tasks-kpis row">
+		<div class="col-xs-4">
+			<div class="my-tasks-kpi-card">
+				<div class="my-tasks-kpi-value text-success my-kpi-completed">0</div>
+				<div class="my-tasks-kpi-label text-muted">{{ __("Completed today") }}</div>
+			</div>
+		</div>
+		<div class="col-xs-4">
+			<div class="my-tasks-kpi-card">
+				<div class="my-tasks-kpi-value text-warning my-kpi-due">0</div>
+				<div class="my-tasks-kpi-label text-muted">{{ __("Starts today") }}</div>
+			</div>
+		</div>
+		<div class="col-xs-4">
+			<div class="my-tasks-kpi-card">
+				<div class="my-tasks-kpi-value text-danger my-kpi-overdue">0</div>
+				<div class="my-tasks-kpi-label text-muted">{{ __("Overdue") }}</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="my-tasks-tabs"></div>
+	<div class="my-tasks-list"></div>
+	<div class="my-tasks-empty text-muted text-center" style="display: none;">
+		{{ __("No tasks in this tab") }}
+	</div>
+</div>

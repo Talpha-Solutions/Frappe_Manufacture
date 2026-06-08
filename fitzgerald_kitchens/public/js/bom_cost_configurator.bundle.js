@@ -4,13 +4,49 @@ frappe.provide("frappe.ui");
 const BCC_API =
 	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.bom_cost_calculator.bom_cost_calculator";
 
+function bcc_is_virtual_tree_node(node) {
+	const data = node?.data || {};
+	const value = String(data.value || "");
+	return (
+		data.is_routing_node ||
+		data.is_raw_materials_node ||
+		data.is_operation_node ||
+		value.startsWith("__routing__:") ||
+		value.startsWith("__raw_materials__:") ||
+		value.includes("__op__")
+	);
+}
+
+function bcc_is_removable_raw_material(node) {
+	if (!node || node.is_root || bcc_is_virtual_tree_node(node)) {
+		return false;
+	}
+
+	if (node.parent_node?.data?.is_raw_materials_node) {
+		return true;
+	}
+
+	return !cint(node.expandable);
+}
+
+function bcc_is_deletable_assembly(node) {
+	if (!node || node.is_root || bcc_is_virtual_tree_node(node)) {
+		return false;
+	}
+
+	return cint(node.expandable);
+}
+
 class BOMCostConfigurator {
 	constructor({ wrapper, page, frm, bom_configurator }) {
 		this.$wrapper = $(wrapper);
-		this.page = page;
+		this.$wrapper.addClass("bcc-cost-tree-tab");
+		this.$tree_container = $('<div class="bcc-tree-container"></div>').appendTo(this.$wrapper);
+		this.page = this.$tree_container;
 		this.bom_configurator = bom_configurator;
 		this.frm = frm;
 		this.ROUTING_PREFIX = "__routing__:";
+		this.RAW_MATERIALS_PREFIX = "__raw_materials__:";
 		this.OP_SUFFIX = "__op__";
 		this.CC_API = BCC_API;
 
@@ -60,6 +96,7 @@ class BOMCostConfigurator {
 				node?.data?.expandable &&
 				!node.is_root &&
 				!node.data?.is_routing_node &&
+				!node.data?.is_raw_materials_node &&
 				!node.data?.is_operation_node
 			) {
 				args.assembly_row_name = node.data.name;
@@ -108,6 +145,15 @@ class BOMCostConfigurator {
 			this._bcc_expand_node = node;
 			return original_load_children(node, deep);
 		};
+
+		const original_show_toolbar = tree.show_toolbar.bind(tree);
+		tree.show_toolbar = function (node) {
+			if (node?.$tree_link && this.toolbar) {
+				node.$toolbar?.remove();
+				node.$toolbar = this.get_toolbar(node).insertAfter(node.$tree_link);
+			}
+			original_show_toolbar(node);
+		};
 	}
 
 	bind_events() {
@@ -128,8 +174,8 @@ class BOMCostConfigurator {
 
 	tree_options() {
 		return {
-			parent: this.$wrapper.get(0),
-			body: this.$wrapper.get(0),
+			parent: this.$tree_container.get(0),
+			body: this.$tree_container.get(0),
 			doctype: "BOM Cost Configurator",
 			page: this.page,
 			expandable: true,
@@ -154,8 +200,8 @@ class BOMCostConfigurator {
 			onload: function (me) {
 				me.args["parent_id"] = frm_obj.frm.doc.name;
 				me.args["parent"] = frm_obj.frm.doc.item_code;
-				me.parent = frm_obj.$wrapper.get(0);
-				me.body = frm_obj.$wrapper.get(0);
+				me.parent = frm_obj.$tree_container.get(0);
+				me.body = frm_obj.$tree_container.get(0);
 				me.make_tree();
 			},
 			onrender(node) {
@@ -163,6 +209,11 @@ class BOMCostConfigurator {
 
 				if (data.is_routing_node) {
 					frm_obj._render_routing_node(node);
+					return;
+				}
+
+				if (data.is_raw_materials_node) {
+					frm_obj._render_raw_materials_node(node);
 					return;
 				}
 
@@ -177,7 +228,7 @@ class BOMCostConfigurator {
 				let amount = flt(data.amount);
 
 				if (node.is_root || data.value === frm_obj.frm.doc.item_code) {
-					amount = flt(frm_obj.frm.doc.raw_material_cost) || amount;
+					amount = flt(frm_obj.frm.doc.total_cost || frm_obj.frm.doc.raw_material_cost) || amount;
 				} else if (data.expandable || data.routing) {
 					amount = flt(data.amount) || amount;
 				}
@@ -214,7 +265,11 @@ class BOMCostConfigurator {
 									view.events.edit_bom(node, view);
 								},
 								condition: function (node) {
-									return !node.data?.is_routing_node && !node.data?.is_operation_node;
+									return (
+										!node.data?.is_routing_node &&
+										!node.data?.is_raw_materials_node &&
+										!node.data?.is_operation_node
+									);
 								},
 								btnClass: "hidden-xs",
 							},
@@ -228,8 +283,11 @@ class BOMCostConfigurator {
 									if (node.data?.is_operation_node) {
 										return false;
 									}
-									if (node.data?.is_routing_node) {
+									if (node.data?.is_raw_materials_node) {
 										return true;
+									}
+									if (node.data?.is_routing_node) {
+										return false;
 									}
 									return node.expandable && !node.data?.routing;
 								},
@@ -242,7 +300,12 @@ class BOMCostConfigurator {
 									view.events.add_sub_assembly(node, view);
 								},
 								condition: function (node) {
-									return node.expandable && !node.data?.is_routing_node && !node.data?.is_operation_node;
+									return (
+										node.expandable &&
+										!node.data?.is_routing_node &&
+										!node.data?.is_raw_materials_node &&
+										!node.data?.is_operation_node
+									);
 								},
 								btnClass: "hidden-xs",
 							},
@@ -253,7 +316,12 @@ class BOMCostConfigurator {
 									view.events.add_sub_assembly(node, view, true);
 								},
 								condition: function (node) {
-									return node.expandable && !node.data?.is_routing_node && !node.data?.is_operation_node;
+									return (
+										node.expandable &&
+										!node.data?.is_routing_node &&
+										!node.data?.is_raw_materials_node &&
+										!node.data?.is_operation_node
+									);
 								},
 								btnClass: "hidden-xs",
 							},
@@ -286,6 +354,7 @@ class BOMCostConfigurator {
 									return (
 										!node.expandable &&
 										!node.data?.is_routing_node &&
+										!node.data?.is_raw_materials_node &&
 										!node.data?.is_operation_node
 									);
 								},
@@ -301,6 +370,7 @@ class BOMCostConfigurator {
 									return (
 										!node.expandable &&
 										!node.data?.is_routing_node &&
+										!node.data?.is_raw_materials_node &&
 										!node.data?.is_operation_node
 									);
 								},
@@ -318,19 +388,20 @@ class BOMCostConfigurator {
 								btnClass: "hidden-xs",
 							},
 							{
+								label: __(frappe.utils.icon("delete", "sm") + " Remove Raw Material"),
+								click: function (node) {
+									let view = frappe.views.trees["BOM Cost Configurator"];
+									view.events.delete_node(node, view);
+								},
+								condition: bcc_is_removable_raw_material,
+							},
+							{
 								label: __(frappe.utils.icon("delete", "sm") + " Item"),
 								click: function (node) {
 									let view = frappe.views.trees["BOM Cost Configurator"];
 									view.events.delete_node(node, view);
 								},
-								condition: function (node) {
-									return (
-										!node.is_root &&
-										!node.data?.is_routing_node &&
-										!node.data?.is_operation_node &&
-										!String(node.data?.value || "").startsWith("__routing__:")
-									);
-								},
+								condition: bcc_is_deletable_assembly,
 								btnClass: "hidden-xs",
 							},
 					  ]
@@ -372,7 +443,9 @@ class BOMCostConfigurator {
 				let fg_item = node.data.value;
 				let fg_reference_id = fitzgerald_kitchens.bom.resolve_fg_reference_id(node, this.frm);
 
-				if (node.data.is_routing_node) {
+				if (node.data.is_raw_materials_node) {
+					fg_item = node.data.value;
+				} else if (node.data.is_routing_node) {
 					fg_item = node.data.value;
 					fg_reference_id = node.data.assembly_row_name || fg_reference_id;
 				}
@@ -654,25 +727,47 @@ class BOMCostConfigurator {
 	}
 
 	delete_node(node, view) {
-		if (
-			node.data?.is_routing_node ||
-			node.data?.is_operation_node ||
-			String(node.data?.value || "").startsWith("__routing__:")
-		) {
+		if (bcc_is_virtual_tree_node(node)) {
 			return;
 		}
 
-		frappe.confirm(__("Are you sure you want to delete this Item?"), () => {
+		if (!bcc_is_removable_raw_material(node) && !bcc_is_deletable_assembly(node)) {
+			return;
+		}
+
+		const is_raw_material = bcc_is_removable_raw_material(node);
+
+		const message = is_raw_material
+			? __("Are you sure you want to remove this raw material?")
+			: __("Are you sure you want to delete this Item?");
+
+		let fg_item = node.data.fg_item || node.data.value;
+		if (node.parent_node?.data?.is_raw_materials_node && node.parent_node.data.assembly_row_name) {
+			const assembly_row = this.frm.doc.items?.find(
+				(row) => row.name === node.parent_node.data.assembly_row_name
+			);
+			if (assembly_row?.item_code) {
+				fg_item = assembly_row.item_code;
+			}
+		}
+
+		frappe.confirm(message, () => {
 			frappe.call({
 				method: `${BCC_API}.delete_node`,
 				args: {
 					parent: node.data.parent_id,
-					fg_item: node.data.value,
+					fg_item,
 					doctype: node.data.doctype,
 					docname: node.data.name,
 				},
 				callback: (r) => {
-					view.events.load_tree(r, node.parent_node);
+					let reload_node = node.parent_node;
+					if (reload_node?.data?.is_raw_materials_node) {
+						reload_node.loaded = false;
+					} else if (reload_node?.data?.expandable) {
+						reload_node.loaded = false;
+					}
+					view.events.load_tree(r, reload_node || node.parent_node);
 				},
 			});
 		});
@@ -741,23 +836,288 @@ class BOMCostConfigurator {
 	}
 
 	prepare_layout() {
-		let main_div = $(this.page)[0];
+		let main_div = this.$tree_container[0];
 		let tree_children = $(main_div).find(".tree-children")[0];
 
-		if (!tree_children) {
+		if (main_div) {
+			main_div.style.marginBottom = "0";
+		}
+
+		if (tree_children) {
+			tree_children.style.minHeight = "320px";
+			tree_children.style.maxHeight = "320px";
+			tree_children.style.overflowY = "auto";
+		}
+
+		this.setup_bottom_panel();
+	}
+
+	setup_bottom_panel() {
+		this.$wrapper.find(".bcc-bottom-panel").remove();
+
+		this.$bottom_panel = $(`
+			<div class="bcc-bottom-panel border-top pt-3 mt-3">
+				<div class="row align-items-stretch">
+					<div class="col-md-7 col-sm-12">
+						<div class="d-flex justify-content-between align-items-center mb-2">
+							<h6 class="mb-0 text-muted">${__("Other Charges")}</h6>
+							<button type="button" class="btn btn-sm btn-primary bcc-add-other-charge">
+								${__("Add Other Charge")}
+							</button>
+						</div>
+						<div class="bcc-other-charges-table-wrapper">
+							<table class="table table-sm table-bordered bcc-other-charges-table mb-0">
+								<thead>
+									<tr>
+										<th>${__("Charge Type")}</th>
+										<th>${__("Description")}</th>
+										<th class="text-right">${__("Amount")}</th>
+										<th style="width:40px;"></th>
+									</tr>
+								</thead>
+								<tbody></tbody>
+							</table>
+							<div class="bcc-other-charges-empty text-muted small py-3 text-center">
+								${__("No other charges added yet.")}
+							</div>
+						</div>
+					</div>
+					<div class="col-md-5 col-sm-12 mt-3 mt-md-0">
+						<div class="bcc-cost-summary-card">
+							<div class="bcc-summary-header">
+								<span class="bcc-summary-title">${__("Cost Summary")}</span>
+								<span class="bcc-summary-subtitle">${__("Live breakdown of estimated BOM cost")}</span>
+							</div>
+							<div class="bcc-summary-body">
+								<div class="bcc-summary-row">
+									<span class="bcc-summary-row-label">${__("Raw Materials")}</span>
+									<span class="bcc-summary-value bcc-rm-total">0</span>
+								</div>
+								<div class="bcc-summary-row">
+									<span class="bcc-summary-row-label">${__("Labor Cost")}</span>
+									<span class="bcc-summary-value bcc-route-total">0</span>
+								</div>
+								<div class="bcc-summary-row">
+									<span class="bcc-summary-row-label">${__("Other Charges")}</span>
+									<span class="bcc-summary-value bcc-other-total">0</span>
+								</div>
+							</div>
+							<div class="bcc-summary-total">
+								<div class="bcc-summary-total-row">
+									<span class="bcc-summary-total-label">${__("Total Cost")}</span>
+									<span class="bcc-summary-total-value bcc-grand-total">0</span>
+								</div>
+								<div class="bcc-summary-footer">
+									<button type="button" class="btn btn-sm bcc-generate-specification">
+										${__("Generate Specification")}
+									</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		`).appendTo(this.$wrapper);
+
+		this.$bottom_panel.find(".bcc-add-other-charge").on("click", () => this.show_add_other_charge_dialog());
+		this.$bottom_panel.find(".bcc-generate-specification").on("click", () => {
+			fitzgerald_kitchens.bom.show_generate_specification_dialog(this.frm);
+		});
+		this.refresh_other_charges_table();
+		this.refresh_cost_summary();
+		this.ensure_generate_specification_button();
+	}
+
+	ensure_generate_specification_button() {
+		const $card = this.$wrapper.find(".bcc-cost-summary-card");
+		if (!$card.length || $card.find(".bcc-generate-specification").length) {
 			return;
 		}
 
-		main_div.style.marginBottom = "15px";
-		tree_children.style.minHeight = "370px";
-		tree_children.style.maxHeight = "370px";
-		tree_children.style.overflowY = "auto";
+		const $footer = $('<div class="bcc-summary-footer"></div>').appendTo($card.find(".bcc-summary-total"));
+		$footer.html(`
+			<button type="button" class="btn btn-sm bcc-generate-specification">
+				${__("Generate Specification")}
+			</button>
+		`);
+		$footer.find(".bcc-generate-specification").on("click", () => {
+			fitzgerald_kitchens.bom.show_generate_specification_dialog(this.frm);
+		});
+	}
+
+	show_add_other_charge_dialog() {
+		const dialog = new frappe.ui.Dialog({
+			title: __("Add Other Charge"),
+			fields: [
+				{
+					label: __("Charge Type"),
+					fieldname: "charge_type",
+					fieldtype: "Select",
+					options: [
+						"Freight",
+						"Installation",
+						"Design",
+						"Labour",
+						"Transport",
+						"Packaging",
+						"Miscellaneous",
+					].join("\n"),
+					reqd: 1,
+				},
+				{
+					label: __("Description"),
+					fieldname: "description",
+					fieldtype: "Data",
+				},
+				{
+					label: __("Amount"),
+					fieldname: "amount",
+					fieldtype: "Currency",
+					options: "currency",
+					reqd: 1,
+				},
+			],
+			primary_action_label: __("Add"),
+			primary_action: (values) => {
+				frappe.call({
+					method: `${BCC_API}.add_other_charge`,
+					args: {
+						parent: this.frm.doc.name,
+						charge_type: values.charge_type,
+						description: values.description,
+						amount: values.amount,
+					},
+					callback: (r) => {
+						this.sync_doc_from_response(r.message);
+						this.refresh_other_charges_table();
+						this.refresh_cost_summary();
+						this.refresh_root_tree_cost();
+						dialog.hide();
+					},
+				});
+			},
+		});
+
+		dialog.show();
+	}
+
+	remove_other_charge(row_name) {
+		frappe.confirm(__("Remove this other charge?"), () => {
+			frappe.call({
+				method: `${BCC_API}.remove_other_charge`,
+				args: {
+					parent: this.frm.doc.name,
+					row_name: row_name,
+				},
+				callback: (r) => {
+					this.sync_doc_from_response(r.message);
+					this.refresh_other_charges_table();
+					this.refresh_cost_summary();
+					this.refresh_root_tree_cost();
+				},
+			});
+		});
+	}
+
+	sync_doc_from_response(doc) {
+		if (!doc) {
+			return;
+		}
+
+		this.frm.doc.other_charges = doc.other_charges || this.frm.doc.other_charges || [];
+		this.frm.doc.raw_materials_total = doc.raw_materials_total;
+		this.frm.doc.routing_cost_total = doc.routing_cost_total;
+		this.frm.doc.other_charges_total = doc.other_charges_total;
+		this.frm.doc.raw_material_cost = doc.raw_material_cost ?? doc.bom_cost;
+		this.frm.doc.total_cost = doc.total_cost;
+	}
+
+	render_cost_summary(summary) {
+		if (!summary || !this.$bottom_panel?.length) {
+			return;
+		}
+
+		this.sync_doc_from_response({ ...this.frm.doc, ...summary });
+		this.$bottom_panel.find(".bcc-rm-total").html(this.format_currency(summary.raw_materials_total));
+		this.$bottom_panel.find(".bcc-route-total").html(this.format_currency(summary.routing_cost_total));
+		this.$bottom_panel.find(".bcc-other-total").html(this.format_currency(summary.other_charges_total));
+		this.$bottom_panel
+			.find(".bcc-grand-total")
+			.html(this.format_currency(summary.total_cost ?? summary.bom_cost));
+		this.refresh_root_tree_cost();
+	}
+
+	format_currency(value) {
+		return frappe.format(flt(value), {
+			fieldtype: "Currency",
+			currency: this.frm.doc.currency,
+		});
+	}
+
+	refresh_other_charges_table() {
+		if (!this.$bottom_panel?.length) {
+			return;
+		}
+
+		const charges = this.frm.doc.other_charges || [];
+		const $tbody = this.$bottom_panel.find(".bcc-other-charges-table tbody");
+		$tbody.empty();
+
+		if (!charges.length) {
+			this.$bottom_panel.find(".bcc-other-charges-table").hide();
+			this.$bottom_panel.find(".bcc-other-charges-empty").show();
+			return;
+		}
+
+		this.$bottom_panel.find(".bcc-other-charges-table").show();
+		this.$bottom_panel.find(".bcc-other-charges-empty").hide();
+
+		charges.forEach((row) => {
+			const $tr = $(`
+				<tr data-name="${row.name}">
+					<td>${frappe.utils.escape_html(row.charge_type || "")}</td>
+					<td>${frappe.utils.escape_html(row.description || "")}</td>
+					<td class="text-right">${this.format_currency(row.amount)}</td>
+					<td class="text-center">
+						<button type="button" class="btn btn-xs btn-link text-danger bcc-remove-other-charge" title="${__("Remove")}">
+							${frappe.utils.icon("delete", "sm")}
+						</button>
+					</td>
+				</tr>
+			`);
+			$tr.find(".bcc-remove-other-charge").on("click", () => this.remove_other_charge(row.name));
+			$tbody.append($tr);
+		});
+	}
+
+	refresh_cost_summary() {
+		if (!this.$bottom_panel?.length || !this.frm.doc.name) {
+			return;
+		}
+
+		frappe.call({
+			method: `${BCC_API}.get_cost_summary`,
+			args: { parent: this.frm.doc.name },
+			callback: (r) => this.render_cost_summary(r.message),
+		});
+	}
+
+	refresh_root_tree_cost() {
+		const tree = frappe.views.trees?.["BOM Cost Configurator"]?.tree;
+		const root = tree?.root_node;
+		if (!root) {
+			return;
+		}
+
+		const total = this.frm.doc.total_cost || this.frm.doc.raw_material_cost;
+		const formatted = this.format_currency(total);
+		$(root.parent?.get(0)).find(".fg-item-amt").first().html(formatted);
 	}
 
 	load_tree(response, node) {
 		const doc = response.message;
-		if (doc?.raw_material_cost !== undefined) {
-			this.frm.doc.raw_material_cost = doc.raw_material_cost;
+		if (doc) {
+			this.sync_doc_from_response(doc);
 		}
 
 		frappe.views.trees["BOM Cost Configurator"].tree.load_children(node);
@@ -765,10 +1125,10 @@ class BOMCostConfigurator {
 		let current = node;
 		while (current) {
 			let total_amount;
-			const item_row = doc.items?.find((item) => item.name === current.data?.name);
+			const item_row = doc?.items?.find((item) => item.name === current.data?.name);
 
 			if (current.is_root || current.data?.value === this.frm.doc.item_code) {
-				total_amount = doc.raw_material_cost;
+				total_amount = doc?.total_cost || doc?.raw_material_cost;
 			} else if (item_row) {
 				total_amount = item_row.amount;
 				current.data.amount = item_row.amount;
@@ -777,15 +1137,15 @@ class BOMCostConfigurator {
 			}
 
 			if (total_amount !== undefined) {
-				const formatted = frappe.format(total_amount, {
-					fieldtype: "Currency",
-					currency: this.frm.doc.currency,
-				});
+				const formatted = this.format_currency(total_amount);
 				$(current.parent.get(0)).find(".fg-item-amt").first().html(formatted);
 			}
 
 			current = current.parent_node;
 		}
+
+		this.refresh_other_charges_table();
+		this.refresh_cost_summary();
 	}
 
 	_render_routing_node(node) {
@@ -795,7 +1155,10 @@ class BOMCostConfigurator {
 			currency: this.frm.doc.currency,
 		});
 
-		node.$tree_link.find(".tree-label").css("color", "var(--blue-500)");
+		node.$tree_link
+			.find(".tree-label")
+			.html(__(data.routing_name || data.title || "Route"))
+			.css("color", "var(--blue-500)");
 
 		$(`
 			<div class="pull-right bom-routing-pill"
@@ -803,12 +1166,44 @@ class BOMCostConfigurator {
 				<span class="badge badge-info"
 					style="background:var(--blue-100);color:var(--blue-700);
 						font-size:11px; padding:2px 7px; border-radius:10px;">
-					${__("Route")}
+					${__("Labor Cost")}
 				</span>
 				<span class="fg-item-amt"
 					style="background-color:var(--bg-white);
 						border:1px solid var(--blue-200);
 						color:var(--blue-700);
+						font-weight:500;
+						border-radius:4px;
+						padding:2px 10px;
+						min-width:100px;
+						text-align:right;">
+					${totalCost}
+				</span>
+			</div>
+		`).insertBefore(node.$ul);
+	}
+
+	_render_raw_materials_node(node) {
+		const data = node.data || {};
+		const totalCost = frappe.format(data.amount || 0, {
+			fieldtype: "Currency",
+			currency: this.frm.doc.currency,
+		});
+
+		node.$tree_link.find(".tree-label").html(__("Raw Materials")).css("color", "var(--green-600)");
+
+		$(`
+			<div class="pull-right bom-raw-materials-pill"
+				style="display:inline-flex; align-items:center; gap:6px; margin-right:40px;">
+				<span class="badge badge-success"
+					style="background:var(--green-100);color:var(--green-700);
+						font-size:11px; padding:2px 7px; border-radius:10px;">
+					${__("Raw Materials")}
+				</span>
+				<span class="fg-item-amt"
+					style="background-color:var(--bg-white);
+						border:1px solid var(--green-200);
+						color:var(--green-700);
 						font-weight:500;
 						border-radius:4px;
 						padding:2px 10px;

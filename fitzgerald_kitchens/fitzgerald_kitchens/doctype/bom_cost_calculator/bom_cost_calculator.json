@@ -10,7 +10,6 @@
  "field_order": [
   "tab_2_tab",
   "bom_cost_calculator",
-  "details_tab",
   "section_break_ylsl",
   "item_code",
   "item_name",
@@ -21,7 +20,6 @@
   "uom",
   "section_break_xvld",
   "routing",
-  "raw_materials_tab",
   "currency_detail",
   "rm_cost_as_per",
   "set_rate_based_on_warehouse",
@@ -39,7 +37,12 @@
   "items",
   "costing_detail",
   "raw_material_cost",
-  "remarks_tab",
+  "cost_summary_section",
+  "other_charges",
+  "raw_materials_total",
+  "routing_cost_total",
+  "other_charges_total",
+  "total_cost",
   "remarks",
   "section_break_yixm",
   "status",
@@ -49,6 +52,7 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Company",
    "options": "Company",
    "remember_last_selected_value": 1,
@@ -57,6 +61,7 @@
   {
    "fieldname": "currency_detail",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Costing"
   },
   {
@@ -64,6 +69,7 @@
    "default": "Valuation Rate",
    "fieldname": "rm_cost_as_per",
    "fieldtype": "Select",
+   "hidden": 1,
    "label": "Rate Of Materials Based On",
    "options": "Valuation Rate\nLast Purchase Rate\nPrice List",
    "reqd": 1
@@ -73,6 +79,7 @@
    "depends_on": "eval:doc.rm_cost_as_per===\"Price List\"",
    "fieldname": "buying_price_list",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Price List",
    "options": "Price List"
   },
@@ -81,6 +88,7 @@
    "depends_on": "eval:doc.rm_cost_as_per=='Price List'",
    "fieldname": "price_list_currency",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Price List Currency",
    "options": "Currency",
    "print_hide": 1,
@@ -91,15 +99,18 @@
    "depends_on": "eval:doc.rm_cost_as_per=='Price List'",
    "fieldname": "plc_conversion_rate",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Price List Exchange Rate"
   },
   {
    "fieldname": "column_break_ivyw",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "hidden": 1
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
+   "hidden": 1,
    "in_list_view": 1,
    "label": "Currency",
    "options": "Currency",
@@ -109,18 +120,21 @@
    "default": "1",
    "fieldname": "conversion_rate",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Conversion Rate",
    "precision": "9"
   },
   {
    "fieldname": "materials_section",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "oldfieldtype": "Section Break"
   },
   {
    "allow_bulk_edit": 1,
    "fieldname": "items",
    "fieldtype": "Table",
+   "hidden": 1,
    "label": "Items",
    "oldfieldname": "bom_materials",
    "oldfieldtype": "Table",
@@ -129,11 +143,13 @@
   {
    "fieldname": "costing_detail",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Costing Details"
   },
   {
    "fieldname": "raw_material_cost",
    "fieldtype": "Currency",
+   "hidden": 1,
    "in_list_view": 1,
    "label": "Total Cost",
    "no_copy": 1,
@@ -141,23 +157,84 @@
    "read_only": 1
   },
   {
+   "collapsible": 1,
+   "depends_on": "eval:0",
+   "fieldname": "cost_summary_section",
+   "fieldtype": "Section Break",
+   "hidden": 1,
+   "label": "Cost Summary"
+  },
+  {
+   "depends_on": "eval:0",
+   "fieldname": "other_charges",
+   "fieldtype": "Table",
+   "hidden": 1,
+   "label": "Other Charges",
+   "options": "BOM Cost Calculator Other Charge"
+  },
+  {
+   "depends_on": "eval:0",
+   "fieldname": "raw_materials_total",
+   "fieldtype": "Currency",
+   "hidden": 1,
+   "label": "Raw Materials Total",
+   "no_copy": 1,
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:0",
+   "fieldname": "routing_cost_total",
+   "fieldtype": "Currency",
+   "hidden": 1,
+   "label": "Routing Cost Total",
+   "no_copy": 1,
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:0",
+   "fieldname": "other_charges_total",
+   "fieldtype": "Currency",
+   "hidden": 1,
+   "label": "Other Charges Total",
+   "no_copy": 1,
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:0",
+   "fieldname": "total_cost",
+   "fieldtype": "Currency",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Grand Total Cost",
+   "no_copy": 1,
+   "options": "currency",
+   "read_only": 1
+  },
+  {
    "fieldname": "remarks",
    "fieldtype": "Text Editor",
+   "hidden": 1,
    "label": "Remarks"
   },
   {
    "fieldname": "column_break_ikj7",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "hidden": 1
   },
   {
    "fieldname": "project",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Project",
    "options": "Project"
   },
   {
    "fieldname": "item_code",
    "fieldtype": "Link",
+   "hidden": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Finished Good",
@@ -167,6 +244,7 @@
   {
    "fieldname": "qty",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Quantity",
    "reqd": 1
   },
@@ -174,12 +252,14 @@
    "fetch_from": "item_code.item_name",
    "fieldname": "item_name",
    "fieldtype": "Data",
+   "hidden": 1,
    "label": "Item Name"
   },
   {
    "fetch_from": "item_code.stock_uom",
    "fieldname": "uom",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "UOM",
    "options": "UOM"
   },
@@ -187,21 +267,6 @@
    "fieldname": "tab_2_tab",
    "fieldtype": "Tab Break",
    "label": "Cost Tree"
-  },
-  {
-   "fieldname": "details_tab",
-   "fieldtype": "Tab Break",
-   "label": "Final Product"
-  },
-  {
-   "fieldname": "raw_materials_tab",
-   "fieldtype": "Tab Break",
-   "label": "Sub Assemblies & Raw Materials"
-  },
-  {
-   "fieldname": "remarks_tab",
-   "fieldtype": "Tab Break",
-   "label": "Remarks"
   },
   {
    "fieldname": "connections_tab",
@@ -213,21 +278,25 @@
    "fetch_from": "item_code.item_group",
    "fieldname": "item_group",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Item Group",
    "options": "Item Group"
   },
   {
    "fieldname": "section_break_zcfg",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Warehouse"
   },
   {
    "fieldname": "column_break_tzot",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "hidden": 1
   },
   {
    "fieldname": "default_warehouse",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Default Source Warehouse",
    "options": "Warehouse"
   },
@@ -237,23 +306,27 @@
   },
   {
    "fieldname": "section_break_ylsl",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "hidden": 1
   },
   {
    "default": "0",
    "depends_on": "eval:doc.rm_cost_as_per === \"Valuation Rate\"",
    "fieldname": "set_rate_based_on_warehouse",
    "fieldtype": "Check",
+   "hidden": 1,
    "label": "Set Valuation Rate Based on Source Warehouse"
   },
   {
    "fieldname": "section_break_yixm",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "hidden": 1
   },
   {
    "default": "Draft",
    "fieldname": "status",
    "fieldtype": "Select",
+   "hidden": 1,
    "label": "Status",
    "no_copy": 1,
    "options": "Draft",
@@ -266,11 +339,13 @@
   {
    "fieldname": "section_break_xvld",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Operations Routing"
   },
   {
    "fieldname": "routing",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Routing",
    "options": "Routing"
   }

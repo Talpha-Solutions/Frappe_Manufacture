@@ -1,0 +1,425 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "field:configuration_code",
+ "creation": "2026-06-02 12:46:00.000000",
+ "doctype": "DocType",
+ "document_type": "Setup",
+ "engine": "InnoDB",
+ "field_order": [
+  "configuration_code",
+  "configuration_name",
+  "scope",
+  "based_on_configuration",
+  "based_on_project",
+  "col_break_after_project",
+  "notes",
+  "templates_section",
+  "kitchen_utility_manifest",
+  "wardrobe_manifest",
+  "vanity_unit_manifest",
+  "pantry_manifest",
+  "col_break_after_wardrobe",
+  "default_planning_bom",
+  "process_template",
+  "spec_type_tab",
+  "to_supply_section",
+  "wall_unit_door",
+  "wall_unit_carcass",
+  "tall_unit_door",
+  "tall_unit_carcass",
+  "base_unit_door",
+  "col_break_to_supply",
+  "base_unit_carcass",
+  "island_unit_door",
+  "island_unit_carcass",
+  "gables",
+  "tap_sink_section",
+  "tap",
+  "sink",
+  "flow_restrictor",
+  "appliances_section",
+  "canope_fan",
+  "hob",
+  "oven",
+  "microwave",
+  "col_break_appliances",
+  "fridge_freezer",
+  "dishwasher",
+  "washing_machine",
+  "dryer",
+  "accessories_section",
+  "bins",
+  "cutlery",
+  "vents",
+  "col_break_accessories",
+  "kitchen_handles",
+  "robes_handles",
+  "robes_section",
+  "robe_carcass",
+  "robe_door",
+  "robe_gables",
+  "utility_section",
+  "utility_unit",
+  "utility_gable",
+  "worktops_splashbacks_section",
+  "kitchen_worktop",
+  "kitchen_backsplash",
+  "kitchen_upstand",
+  "col_break_worktops",
+  "utility_worktop",
+  "utility_worktop_upstand"
+ ],
+ "fields": [
+  {
+   "fieldname": "configuration_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Configuration Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "configuration_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Configuration Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "scope",
+   "fieldtype": "Select",
+   "label": "Scope",
+   "options": "Project Template\nUnit Override",
+   "reqd": 1
+  },
+  {
+   "fieldname": "based_on_configuration",
+   "fieldtype": "Link",
+   "label": "Based On Configuration",
+   "options": "Project Unit Configuration"
+  },
+  {
+   "fieldname": "based_on_project",
+   "fieldtype": "Link",
+   "label": "Based On Project",
+   "link_filters": "[[\"Project\",\"project_type\",\"!=\",\"Site\"]]",
+   "options": "Project"
+  },
+  {
+   "fieldname": "col_break_after_project",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Long Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "templates_section",
+   "fieldtype": "Section Break",
+   "label": "Templates / Defaults"
+  },
+  {
+   "fieldname": "kitchen_utility_manifest",
+   "fieldtype": "Link",
+   "label": "Kitchen + Utility Manifest",
+   "options": "Manifest"
+  },
+  {
+   "fieldname": "wardrobe_manifest",
+   "fieldtype": "Link",
+   "label": "Wardrobe Manifest",
+   "options": "Manifest"
+  },
+  {
+   "fieldname": "vanity_unit_manifest",
+   "fieldtype": "Link",
+   "label": "Vanity Unit Manifest",
+   "options": "Manifest"
+  },
+  {
+   "fieldname": "pantry_manifest",
+   "fieldtype": "Link",
+   "label": "Pantry Manifest",
+   "options": "Manifest"
+  },
+  {
+   "fieldname": "col_break_after_wardrobe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_planning_bom",
+   "fieldtype": "Link",
+   "label": "Default Planning BOM",
+   "options": "BOM"
+  },
+  {
+   "fieldname": "process_template",
+   "fieldtype": "Link",
+   "label": "Process Template",
+   "options": "Unit Process Template"
+  },
+  {
+   "fieldname": "spec_type_tab",
+   "fieldtype": "Tab Break",
+   "label": "Spec Type"
+  },
+  {
+   "fieldname": "to_supply_section",
+   "fieldtype": "Section Break",
+   "label": "To Supply"
+  },
+  {
+   "fieldname": "wall_unit_door",
+   "fieldtype": "Data",
+   "label": "Wall Unit Door"
+  },
+  {
+   "fieldname": "wall_unit_carcass",
+   "fieldtype": "Data",
+   "label": "Wall Unit Carcass"
+  },
+  {
+   "fieldname": "tall_unit_door",
+   "fieldtype": "Data",
+   "label": "Tall Unit Door"
+  },
+  {
+   "fieldname": "tall_unit_carcass",
+   "fieldtype": "Data",
+   "label": "Tall Unit Carcass"
+  },
+  {
+   "fieldname": "base_unit_door",
+   "fieldtype": "Data",
+   "label": "Base Unit Door"
+  },
+  {
+   "fieldname": "col_break_to_supply",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "base_unit_carcass",
+   "fieldtype": "Data",
+   "label": "Base Unit Carcass"
+  },
+  {
+   "fieldname": "island_unit_door",
+   "fieldtype": "Data",
+   "label": "Island Unit Door"
+  },
+  {
+   "fieldname": "island_unit_carcass",
+   "fieldtype": "Data",
+   "label": "Island Unit Carcass"
+  },
+  {
+   "fieldname": "gables",
+   "fieldtype": "Data",
+   "label": "Gables"
+  },
+  {
+   "fieldname": "tap_sink_section",
+   "fieldtype": "Section Break",
+   "label": "Tap & Sink"
+  },
+  {
+   "fieldname": "tap",
+   "fieldtype": "Data",
+   "label": "Tap"
+  },
+  {
+   "fieldname": "sink",
+   "fieldtype": "Data",
+   "label": "Sink"
+  },
+  {
+   "fieldname": "flow_restrictor",
+   "fieldtype": "Data",
+   "label": "Flow Restrictor"
+  },
+  {
+   "fieldname": "appliances_section",
+   "fieldtype": "Section Break",
+   "label": "Appliances"
+  },
+  {
+   "fieldname": "canope_fan",
+   "fieldtype": "Data",
+   "label": "Canope fan"
+  },
+  {
+   "fieldname": "hob",
+   "fieldtype": "Data",
+   "label": "Hob"
+  },
+  {
+   "fieldname": "oven",
+   "fieldtype": "Data",
+   "label": "Oven"
+  },
+  {
+   "fieldname": "microwave",
+   "fieldtype": "Data",
+   "label": "Microwave"
+  },
+  {
+   "fieldname": "col_break_appliances",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fridge_freezer",
+   "fieldtype": "Data",
+   "label": "Fridge/freezer"
+  },
+  {
+   "fieldname": "dishwasher",
+   "fieldtype": "Data",
+   "label": "Dishwasher"
+  },
+  {
+   "fieldname": "washing_machine",
+   "fieldtype": "Data",
+   "label": "Washing Machine"
+  },
+  {
+   "fieldname": "dryer",
+   "fieldtype": "Data",
+   "label": "Dryer"
+  },
+  {
+   "fieldname": "accessories_section",
+   "fieldtype": "Section Break",
+   "label": "Accessories"
+  },
+  {
+   "fieldname": "bins",
+   "fieldtype": "Data",
+   "label": "Bins"
+  },
+  {
+   "fieldname": "cutlery",
+   "fieldtype": "Data",
+   "label": "Cutlery"
+  },
+  {
+   "fieldname": "vents",
+   "fieldtype": "Data",
+   "label": "Vents"
+  },
+  {
+   "fieldname": "col_break_accessories",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "kitchen_handles",
+   "fieldtype": "Data",
+   "label": "Kitchen Handles"
+  },
+  {
+   "fieldname": "robes_handles",
+   "fieldtype": "Data",
+   "label": "Robes Handles"
+  },
+  {
+   "fieldname": "robes_section",
+   "fieldtype": "Section Break",
+   "label": "Robes"
+  },
+  {
+   "fieldname": "robe_carcass",
+   "fieldtype": "Data",
+   "label": "Robe Carcass"
+  },
+  {
+   "fieldname": "robe_door",
+   "fieldtype": "Data",
+   "label": "Robe Door"
+  },
+  {
+   "fieldname": "robe_gables",
+   "fieldtype": "Data",
+   "label": "Robe Gables"
+  },
+  {
+   "fieldname": "utility_section",
+   "fieldtype": "Section Break",
+   "label": "Utility"
+  },
+  {
+   "fieldname": "utility_unit",
+   "fieldtype": "Data",
+   "label": "Utility Unit"
+  },
+  {
+   "fieldname": "utility_gable",
+   "fieldtype": "Data",
+   "label": "Utility Gable"
+  },
+  {
+   "fieldname": "worktops_splashbacks_section",
+   "fieldtype": "Section Break",
+   "label": "Worktops & Splashbacks"
+  },
+  {
+   "fieldname": "kitchen_worktop",
+   "fieldtype": "Data",
+   "label": "Kitchen Worktop"
+  },
+  {
+   "fieldname": "kitchen_backsplash",
+   "fieldtype": "Data",
+   "label": "Kitchen Backsplash"
+  },
+  {
+   "fieldname": "kitchen_upstand",
+   "fieldtype": "Data",
+   "label": "Kitchen Upstand"
+  },
+  {
+   "fieldname": "col_break_worktops",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "utility_worktop",
+   "fieldtype": "Data",
+   "label": "Utility Worktop"
+  },
+  {
+   "fieldname": "utility_worktop_upstand",
+   "fieldtype": "Data",
+   "label": "Utility Worktop Upstand"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-02 12:46:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Project Unit Configuration",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "configuration_code"
+}

@@ -7,23 +7,62 @@ from fitzgerald_kitchens.setup.development_stages import (
 )
 
 
+def ensure_capacity_pipeline_report_module():
+	"""Script reports must use the app module so Python resolves correctly."""
+	if not frappe.db.exists("Report", "Capacity Pipeline Report"):
+		return
+	frappe.db.set_value(
+		"Report",
+		"Capacity Pipeline Report",
+		"module",
+		"fitzgerald_kitchens",
+		update_modified=False,
+	)
+
+
 def after_install():
+	ensure_capacity_pipeline_report_module()
+	from fitzgerald_kitchens.setup.project_bom_fields import remove_project_bom_fields
+	from fitzgerald_kitchens.setup.project_unit_fields import ensure_project_unit_fields
 	from fitzgerald_kitchens.setup.project_bom_fields import ensure_project_bom_fields
+	from fitzgerald_kitchens.setup.production_plan_fields import ensure_production_plan_fields
 	from fitzgerald_kitchens.setup.project_website_list import (
 		patch_project_website_list,
 		patch_project_website_tasks,
 	)
+	from fitzgerald_kitchens.setup.my_tasks_desk import ensure_my_tasks_desk
 	from fitzgerald_kitchens.setup.workspace_sidebar import (
 		ensure_manufacturing_sidebar,
 		ensure_projects_sidebar,
 	)
 
 	ensure_development_stage_settings()
+	from fitzgerald_kitchens.setup.projects_settings_fields import ensure_projects_settings_fields
+	from fitzgerald_kitchens.setup.project_form_layout import reset_project_form_layout
+
+	reset_project_form_layout()
+	from fitzgerald_kitchens.setup.project_naming import (
+		ensure_project_naming_series_options,
+		ensure_unit_series_counters,
+	)
+
+	ensure_project_naming_series_options()
+	ensure_unit_series_counters()
+	ensure_project_types()
+	ensure_projects_settings_fields()
 	ensure_project_bom_fields()
+	ensure_production_plan_fields()
 	ensure_projects_sidebar()
 	ensure_manufacturing_sidebar()
+	ensure_my_tasks_desk()
 	patch_project_website_list()
 	patch_project_website_tasks()
+
+
+def ensure_project_types():
+	from fitzgerald_kitchens.setup.project_types import ensure_project_types as _ensure
+
+	_ensure()
 
 
 def ensure_development_stage_settings():
