@@ -26,7 +26,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/fitzgerald_kitchens/css/fitzgerald_kitchens.css"
-# app_include_js = "/assets/fitzgerald_kitchens/js/fitzgerald_kitchens.js"
+app_include_js = "/assets/fitzgerald_kitchens/js/project_sidebar_highlight.js"
 
 # include js, css files in header of web template
 web_include_css = "/assets/fitzgerald_kitchens/css/portal_sidebar.css"

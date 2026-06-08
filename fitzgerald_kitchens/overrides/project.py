@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import frappe
-
 from fitzgerald_kitchens.workbook_import.naming import (
 	format_task_subject_with_unit_context,
 	unit_context_label_for_project,
@@ -20,7 +18,6 @@ class Project(_ProjectBase):
 	def create_task_from_template(self, task_details):
 		unit_label = unit_context_label_for_project(self)
 		if unit_label:
-			task_details = frappe._dict(task_details)
 			task_details.subject = format_task_subject_with_unit_context(
 				task_details.subject,
 				unit_label,
