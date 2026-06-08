@@ -14,14 +14,28 @@ const PROJECT_NAMING_SERIES = {
 	Unit: "UNIT-UNT-.#####",
 };
 
+function force_project_overview_web_link(frm) {
+	if (!frm || frm.doctype !== "Project" || frm.doc.__islocal) {
+		return;
+	}
+
+	const path = "/project?project=" + encodeURIComponent(frm.doc.name);
+
+	// ERPNext and prior refresh passes may each add a sidebar link; clear all first.
+	if (frm.sidebar?.clear_user_actions) {
+		frm.sidebar.clear_user_actions();
+	} else if (frm.web_link) {
+		frm.web_link.remove();
+	}
+
+	frm.add_web_link(path);
+}
+
 frappe.ui.form.on("Project", {
 	refresh(frm) {
-		toggle_bom_tab_fields(frm);
-		setup_work_order_create_menu(frm);
-		if (!frm.doc.__islocal) {
-			frm.web_link && frm.web_link.remove();
-			frm.add_web_link("/project?project=" + encodeURIComponent(frm.doc.name));
-		}
+		// Run after ERPNext's refresh handler so only one link remains.
+		frappe.after_ajax(() => force_project_overview_web_link(frm));
+
 		toggle_unit_tab(frm);
 		toggle_download_qr_tab(frm);
 		toggle_parent_unit(frm);

@@ -523,6 +523,7 @@
     let currentFilter = "all";
     let currentSearch = "";
     let urlFocusedProject = null;
+    let focusedSearchBaseline = "";
 
     function syncFocusedStorage(clickedCard) {
       if (!trackerState) {
@@ -536,13 +537,20 @@
       trackerState.saveFocusedProject(projectId, projectLabel);
     }
 
-    function clearFocusedState(resetSearch) {
-      urlFocusedProject = null;
-      currentFilter = "all";
-      currentSearch = "";
+    function clearFocusedState(options) {
+      options = options || {};
+      const resetSearch = options.resetSearch !== false;
+      const resetPills = options.resetPills !== false;
 
-      if (searchInput) {
-        searchInput.value = "";
+      urlFocusedProject = null;
+      focusedSearchBaseline = "";
+
+      if (resetSearch) {
+        currentFilter = "all";
+        currentSearch = "";
+        if (searchInput) {
+          searchInput.value = "";
+        }
       }
 
       if (trackerState) {
@@ -556,7 +564,7 @@
         window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
       }
 
-      if (resetSearch !== false) {
+      if (resetPills) {
         pills.forEach(function (pill) {
           pill.classList.toggle("active", pill.getAttribute("data-filter") === "all");
         });
@@ -603,6 +611,9 @@
       if (!trackerState) {
         urlFocusedProject = {{ focused_project|tojson }};
         currentSearch = (searchInput && searchInput.value || "").toLowerCase().trim();
+        if (urlFocusedProject && searchInput) {
+          focusedSearchBaseline = searchInput.value || "";
+        }
         return;
       }
 
@@ -616,11 +627,14 @@
 
       urlFocusedProject = restored.focusedProject;
       currentSearch = (restored.searchValue || "").toLowerCase().trim();
+      if (urlFocusedProject && searchInput) {
+        focusedSearchBaseline = searchInput.value || "";
+      }
     }
 
     pills.forEach(function (pill) {
       pill.addEventListener("click", function () {
-        clearFocusedState(false);
+        clearFocusedState({ resetPills: false });
         pills.forEach(function (p) {
           p.classList.remove("active");
         });
@@ -633,9 +647,20 @@
     if (searchInput) {
       searchInput.addEventListener("input", function (event) {
         currentSearch = (event.target.value || "").toLowerCase().trim();
-        if (!currentSearch) {
+
+        if (urlFocusedProject) {
+          if (!currentSearch) {
+            clearFocusedState();
+          } else if (
+            focusedSearchBaseline
+            && currentSearch !== focusedSearchBaseline.toLowerCase().trim()
+          ) {
+            clearFocusedState({ resetSearch: false, resetPills: false });
+          }
+        } else if (!currentSearch) {
           clearFocusedState();
         }
+
         applyFilters();
       });
     }

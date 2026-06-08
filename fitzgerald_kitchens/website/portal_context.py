@@ -10,6 +10,7 @@ _PORTAL_TEMPLATE_PREFIXES = frozenset(
 		"rfq",
 		"material_request_info",
 		"portal",
+		"project",
 		"tasks",
 		"projects",
 		"timelog_info",

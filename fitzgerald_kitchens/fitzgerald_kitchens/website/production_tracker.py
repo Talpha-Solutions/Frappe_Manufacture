@@ -61,6 +61,7 @@ def get_tracker_context(focused_project: str | None = None) -> dict:
 	"""Build template context for the production stage tracker page."""
 	focused = _resolve_focused_project(focused_project)
 	projects = _get_active_projects()
+	projects = _ensure_focused_project_in_list(projects, focused)
 	project_names = [row.name for row in projects]
 	tasks = _get_tasks_for_projects(project_names)
 	tasks_by_project = _group_tasks_by_project(tasks)
@@ -152,12 +153,17 @@ def _resolve_focused_project(project_id: str | None) -> dict | None:
 	}
 
 
-def _get_active_projects():
+def _project_list_fields() -> list[str]:
 	fields = ["name", "project_name", "status", "customer"]
-	meta = frappe.get_meta("Project")
-	filters = {"status": ["not in", ["Cancelled", "Completed"]]}
-	if meta.has_field("project_type"):
+	if frappe.get_meta("Project").has_field("project_type"):
 		fields.append("project_type")
+	return fields
+
+
+def _get_active_projects():
+	fields = _project_list_fields()
+	filters = {"status": ["not in", ["Cancelled", "Completed"]]}
+	if "project_type" in fields:
 		filters["project_type"] = ["not in", list(EXCLUDED_PROJECT_TYPES)]
 
 	try:
@@ -170,6 +176,31 @@ def _get_active_projects():
 		)
 	except frappe.PermissionError:
 		return []
+
+
+def _get_project_list_row(project_id: str):
+	rows = frappe.get_list(
+		"Project",
+		fields=_project_list_fields(),
+		filters={"name": project_id},
+		limit_page_length=1,
+	)
+	return rows[0] if rows else None
+
+
+def _ensure_focused_project_in_list(projects, focused: dict | None):
+	if not focused:
+		return projects
+
+	project_names = {row.name for row in projects}
+	if focused["name"] in project_names:
+		return projects
+
+	focused_row = _get_project_list_row(focused["name"])
+	if not focused_row:
+		return projects
+
+	return [*projects, focused_row]
 
 
 def _get_tasks_for_projects(project_names: list[str]):
