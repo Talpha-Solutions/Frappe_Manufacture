@@ -376,13 +376,23 @@ def _clean_label(value):
 	return str(value).strip()
 
 
+_WARDROBE_PROJECT_TYPES = frozenset(
+	{
+		"robe",
+		"wardrobe",
+		"wardrobes",
+		"kitchens + wardrobes",
+	}
+)
+
+
 def _detect_category(project_type):
 	project_type = _clean_label(project_type).lower()
 
+	if project_type in _WARDROBE_PROJECT_TYPES:
+		return "wardrobes"
 	if project_type in ("kitchen", "kitchens"):
 		return "kitchens"
-	if project_type in ("wardrobe", "wardrobes"):
-		return "wardrobes"
 	if project_type in ("utility", "utilities"):
 		return "utilities"
 	if project_type in ("vanity unit", "vanity"):
@@ -390,10 +400,11 @@ def _detect_category(project_type):
 	if project_type in ("pantry",):
 		return "pantry"
 
-	if "kitchen" in project_type:
-		return "kitchens"
+	# Wardrobe before kitchen — compound types like "Kitchens + Wardrobes" contain both.
 	if "wardrobe" in project_type:
 		return "wardrobes"
+	if "kitchen" in project_type:
+		return "kitchens"
 	if "utility" in project_type:
 		return "utilities"
 	if "vanity" in project_type:
