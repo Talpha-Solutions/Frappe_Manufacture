@@ -85,8 +85,8 @@ PROJECT_PRODUCTION_TIME_SUMMARY_ITEM = {
 }
 
 MANUFACTURING_COST_SUMMARY_ITEM = {
-	"label": "Manufacturing Cost Summary",
-	"link_to": "Manufacturing Cost Summary",
+	"label": "Production Cost Summary",
+	"link_to": "Production Cost Summary",
 	"link_type": "Report",
 	"type": "Link",
 	"child": 1,
