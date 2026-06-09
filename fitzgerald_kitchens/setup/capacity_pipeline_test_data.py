@@ -509,7 +509,7 @@ def _expected_site_subtitle_counts(site_project_id):
 
 	totals = _query_site_structural_totals(site_project_id)
 	return {
-		"units": totals["houses"],
+		"units": totals["units"],
 		"kitchens": totals["kitchens"],
 		"wardrobes": totals["wardrobes"],
 	}
