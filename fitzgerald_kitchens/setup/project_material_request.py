@@ -13,6 +13,8 @@ from fitzgerald_kitchens.setup.manifest_line_labels import (
 )
 from fitzgerald_kitchens.setup.project_unit_fields import SITE_PROJECT_TYPE
 
+DEFAULT_MATERIAL_ISSUE_WAREHOUSE = "Stores -fkd"
+
 
 @frappe.whitelist()
 def make_material_request_from_project(project: str):
@@ -32,7 +34,8 @@ def make_material_request_from_project(project: str):
 		frappe.throw(_("Manifest '{0}' was not found.").format(manifest_name))
 
 	manifest = frappe.get_doc("Manifest", manifest_name)
-	items = _manifest_lines_for_material_request(manifest, project_doc.name)
+	from_warehouse = resolve_material_issue_warehouse(project_doc.company)
+	items = _manifest_lines_for_material_request(manifest, project_doc.name, from_warehouse)
 	if not items:
 		frappe.throw(
 			_("No non-BOM manifest items found. Material Request only includes Fitting Kit and Extra lines.")
@@ -40,7 +43,8 @@ def make_material_request_from_project(project: str):
 
 	mr = frappe.new_doc("Material Request")
 	mr.company = project_doc.company
-	mr.material_request_type = "Purchase"
+	mr.material_request_type = "Material Issue"
+	mr.set_warehouse = from_warehouse
 	if project_doc.get("project_name"):
 		mr.title = project_doc.project_name
 
@@ -50,8 +54,58 @@ def make_material_request_from_project(project: str):
 	return mr.as_dict()
 
 
-def _manifest_lines_for_material_request(manifest, project_name: str) -> list[dict]:
+def resolve_material_issue_warehouse(company: str) -> str:
+	"""Resolve the default source warehouse for unit Material Issue requests."""
+	if not company:
+		frappe.throw(_("Company is required to resolve the Material Issue warehouse."))
+
+	warehouse = frappe.db.get_value(
+		"Warehouse",
+		{"name": DEFAULT_MATERIAL_ISSUE_WAREHOUSE, "company": company, "is_group": 0, "disabled": 0},
+		"name",
+	)
+	if warehouse:
+		return warehouse
+
+	warehouse = frappe.db.get_value(
+		"Warehouse",
+		{
+			"company": company,
+			"is_group": 0,
+			"disabled": 0,
+			"warehouse_name": DEFAULT_MATERIAL_ISSUE_WAREHOUSE,
+		},
+		"name",
+	)
+	if warehouse:
+		return warehouse
+
+	warehouse = frappe.db.get_value(
+		"Warehouse",
+		{"company": company, "is_group": 0, "disabled": 0, "warehouse_name": ("like", "Stores%")},
+		"name",
+	)
+	if warehouse:
+		return warehouse
+
+	frappe.throw(
+		_("Material Issue warehouse '{0}' was not found for company {1}.").format(
+			DEFAULT_MATERIAL_ISSUE_WAREHOUSE,
+			company,
+		)
+	)
+
+
+def _manifest_lines_for_material_request(
+	manifest, project_name: str, from_warehouse: str
+) -> list[dict]:
 	rows: list[dict] = []
+	item_codes = {
+		line.item_code
+		for line in manifest.items
+		if line.item_code and flt(line.qty) > 0
+	}
+	item_uoms = _item_stock_uoms(item_codes)
 
 	for line in manifest.items:
 		if not line.item_code or flt(line.qty) <= 0:
@@ -63,17 +117,37 @@ def _manifest_lines_for_material_request(manifest, project_name: str) -> list[di
 		if category == LABEL_CATEGORY_ASSEMBLY:
 			continue
 
+		stock_uom = item_uoms.get(line.item_code)
+		if not stock_uom:
+			frappe.throw(_("Default Unit of Measure is not set for Item {0}.").format(line.item_code))
+
 		row = {
 			"item_code": line.item_code,
 			"qty": flt(line.qty),
 			"project": project_name,
+			"warehouse": from_warehouse,
+			"uom": stock_uom,
+			"stock_uom": stock_uom,
+			"conversion_factor": 1,
 		}
 		if line.get("description"):
 			row["description"] = line.description
-		if line.get("uom"):
-			row["uom"] = line.uom
-			row["stock_uom"] = line.uom
 
 		rows.append(row)
 
 	return rows
+
+
+def _item_stock_uoms(item_codes: set[str]) -> dict[str, str]:
+	if not item_codes:
+		return {}
+
+	return {
+		row.name: row.stock_uom
+		for row in frappe.get_all(
+			"Item",
+			filters={"name": ("in", list(item_codes))},
+			fields=["name", "stock_uom"],
+		)
+		if row.stock_uom
+	}

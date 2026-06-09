@@ -1,6 +1,26 @@
 frappe.provide("fitzgerald_kitchens.project_sidebar");
 
 (function () {
+	// Desk does not define frappe.ready (website only). Polyfill for stale cached scripts.
+	if (window.frappe && typeof frappe.ready !== "function") {
+		frappe.ready = function (callback) {
+			if (frappe.app?.sidebar) {
+				callback();
+				return;
+			}
+			const run = () => {
+				if (frappe.app?.sidebar) {
+					callback();
+				}
+			};
+			if (window.jQuery) {
+				jQuery(document).one("app_ready", run);
+			}
+			setTimeout(run, 500);
+			setTimeout(run, 1500);
+		};
+	}
+
 	const SITE_PROJECT_TYPE = "Site";
 	const SITE_SIDEBAR_LABEL = "Project";
 	const UNIT_SIDEBAR_LABEL = "Unit";
@@ -252,7 +272,6 @@ frappe.provide("fitzgerald_kitchens.project_sidebar");
 			apply_project_sidebar_highlight(this);
 		};
 
-		document.addEventListener("click", handle_project_sidebar_click, true);
 		proto._fk_route_patch = true;
 		return true;
 	}
@@ -318,6 +337,16 @@ frappe.provide("fitzgerald_kitchens.project_sidebar");
 	}
 
 	function bootstrap() {
+		if (!window.jQuery || !window.frappe) {
+			setTimeout(bootstrap, 10);
+			return;
+		}
+
+		if (!window._fk_project_sidebar_click) {
+			document.addEventListener("click", handle_project_sidebar_click, true);
+			window._fk_project_sidebar_click = true;
+		}
+
 		if (!patch_sidebar_prototype()) {
 			setTimeout(bootstrap, 10);
 			return;
