@@ -213,9 +213,9 @@ extend_doctype_class = {
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-# 	"Task": "fitzgerald_kitchens.task.get_dashboard_data"
-# }
+override_doctype_dashboards = {
+	"Project": "fitzgerald_kitchens.setup.project_dashboard.get_project_dashboard",
+}
 
 # exempt linked doctypes from being automatically cancelled
 #

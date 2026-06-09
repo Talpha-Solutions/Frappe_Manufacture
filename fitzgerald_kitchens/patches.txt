@@ -60,3 +60,4 @@ fitzgerald_kitchens.patches.v1_0.backfill_unit_project_names
 fitzgerald_kitchens.patches.v1_0.backfill_template_task_subjects
 fitzgerald_kitchens.patches.v1_0.add_task_label_scans_tab
 fitzgerald_kitchens.patches.v1_0.add_despatch_material_request_fields
+fitzgerald_kitchens.patches.v1_0.remove_projects_sidebar_development_items

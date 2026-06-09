@@ -39,6 +39,8 @@ def make_production_plan_from_project(project: str):
 	if project_doc.get("fk_parent_project"):
 		plan.fk_project_site = project_doc.fk_parent_project
 
+	plan.project = project_doc.name
+
 	plan.append(
 		"fk_projects",
 		{

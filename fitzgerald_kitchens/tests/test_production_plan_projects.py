@@ -136,6 +136,33 @@ class TestProductionPlanProjects(IntegrationTestCase):
 		self.assertEqual(plan["fk_projects"][0]["project"], project.name)
 		self.assertEqual(plan["fk_projects"][0]["effective_manifest"], manifest.name)
 
+	def test_get_production_plan_names_for_project(self):
+		item_code = self._create_item_with_bom("PP Test Dashboard Item")
+		manifest = self._create_manifest(item_code)
+		project = self._create_project("PP Test Dashboard Kitchen", manifest.name)
+
+		plan = frappe.new_doc("Production Plan")
+		plan.company = self.company
+		plan.posting_date = nowdate()
+		plan.get_items_from = "Project"
+		plan.project = project.name
+		plan.append(
+			"fk_projects",
+			{
+				"project": project.name,
+				"project_name": project.project_name,
+				"project_type": project.project_type,
+				"effective_manifest": manifest.name,
+				"status": project.status,
+			},
+		)
+		plan.insert(ignore_permissions=True)
+
+		from fitzgerald_kitchens.setup.project_dashboard import get_production_plan_names_for_project
+
+		names = get_production_plan_names_for_project(project.name)
+		self.assertIn(plan.name, names)
+
 	def _create_item_with_bom(self, item_code: str) -> str:
 		rm_item_code = f"{item_code}-RM"
 		for code, is_fg in ((rm_item_code, False), (item_code, True)):
