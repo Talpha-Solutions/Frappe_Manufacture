@@ -14,6 +14,20 @@ from fitzgerald_kitchens.manufacturing.project_manifest import (
 
 
 class FKProductionPlan(ProductionPlan):
+	def validate(self):
+		self._sync_project_from_fk_projects()
+		super().validate()
+
+	def _sync_project_from_fk_projects(self):
+		if self.get_items_from != "Project":
+			return
+
+		projects = [row.project for row in self.get("fk_projects", []) if row.project]
+		if len(projects) == 1:
+			self.project = projects[0]
+		elif len(projects) != 1 and self.project and self.project not in projects:
+			self.project = None
+
 	@frappe.whitelist()
 	def get_open_projects(self):
 		"""Pull projects based on criteria selected."""
@@ -110,7 +124,7 @@ class FKProductionPlan(ProductionPlan):
 
 		if not self.get("po_items"):
 			frappe.throw(
-				_("No items found in the Effective Manifest for the selected projects"),
+				_("No manufacturing items found in the Effective Manifest for the selected projects"),
 				title=_("Items Required"),
 			)
 

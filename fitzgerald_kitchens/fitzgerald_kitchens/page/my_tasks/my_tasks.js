@@ -24,6 +24,18 @@ frappe.pages["my-tasks"].on_page_hide = function () {
 };
 
 const COLLAPSE_STORAGE_KEY = "my_tasks_card_sections";
+const LABEL_SCAN_TASK_TYPES = new Set(["Assembly", "Despatch", "Dispatch", "Delivery"]);
+
+function is_label_scan_task_type(task_type) {
+	if (!task_type) {
+		return false;
+	}
+	const normalized = String(task_type).trim().toLowerCase();
+	if (normalized === "dispatch") {
+		return true;
+	}
+	return LABEL_SCAN_TASK_TYPES.has(task_type);
+}
 
 class MyTasksPage {
 	constructor(page) {
@@ -264,28 +276,25 @@ class MyTasksPage {
 			return "";
 		}
 		const progress = Math.round(flt(task.progress));
-		const status = task.status || "Open";
 		const timer_active = !!task.timer_running || !!task.timer_paused;
 		const complete_disabled = timer_active ? "disabled" : "";
 		const complete_title = timer_active
 			? frappe.utils.escape_html(__("Stop the timer before completing"))
 			: "";
-		const status_hint =
-			status === "Open"
-				? `<p class="my-tasks-status-hint text-muted small">${__(
-						"Start the task, stop the timer to save time, then Complete submits the timesheet and sets progress to 100%."
-					)}</p>`
-				: "";
 
 		return `<div class="my-tasks-task-controls">
-			${status_hint}
 			<div class="my-tasks-control-row">
 				<label class="my-tasks-control-label">${__("Progress")}</label>
 				<input type="number" class="form-control input-sm my-tasks-progress-input" min="0" max="100" value="${progress}">
 				<span class="my-tasks-progress-suffix">%</span>
 				<button type="button" class="btn btn-default btn-sm btn-task-progress-update">${__("Update")}</button>
 			</div>
-			<button type="button" class="btn btn-success btn-sm btn-task-complete" ${complete_disabled} title="${complete_title}">${__("Complete")}</button>
+			<div class="my-tasks-control-row my-tasks-action-row">
+				<button type="button" class="btn btn-default btn-sm btn-task-camera">
+					<i class="fa fa-video-camera"></i> ${__("Open Camera")}
+				</button>
+				<button type="button" class="btn btn-success btn-sm btn-task-complete" ${complete_disabled} title="${complete_title}">${__("Complete")}</button>
+			</div>
 		</div>`;
 	}
 
@@ -341,7 +350,9 @@ class MyTasksPage {
 			} else {
 				actionButtons = `<button type="button" class="btn btn-primary btn-sm btn-task-start">${__("Start task")}</button>`;
 			}
-			actionButtons += `<button type="button" class="btn btn-default btn-sm btn-task-scan">${__("Scan")}</button>`;
+			if (is_label_scan_task_type(task.type)) {
+				actionButtons += `<button type="button" class="btn btn-default btn-sm btn-task-scan">${__("Scan")}</button>`;
+			}
 		}
 		actionButtons += `<button type="button" class="btn btn-default btn-sm btn-task-details">${__("Details")}</button>`;
 
@@ -363,15 +374,40 @@ class MyTasksPage {
 					return;
 				}
 				if (method === "complete_task") {
+					const mrSubmit = r.message.material_request_submit || {};
+					const mr =
+						mrSubmit.new_mr ||
+						mrSubmit.submitted_existing_mr ||
+						mrSubmit.name;
+					const mrErrors = (mrSubmit.errors || []).filter(Boolean);
+					const stockEntry = (mrSubmit.stock_entries || [])[0];
 					let message = __("Task completed");
 					if (r.message.timesheet_submit?.submitted) {
 						message = __("Task completed and timesheet {0} submitted", [
 							r.message.timesheet_submit.timesheet,
 						]);
 					}
+					if (stockEntry && mr) {
+						message = __("Task completed, MR {0} submitted and Stock Entry {1} issued", [
+							mr,
+							stockEntry,
+						]);
+					} else if (mr) {
+						message = __("Task completed and Material Request {0} submitted", [mr]);
+					}
+					if (mrErrors.length) {
+						message = __("Task completed but material issue failed: {0}", [
+							mrErrors.join("; "),
+						]);
+						frappe.msgprint({
+							title: __("Material Issue Error"),
+							message: mrErrors.join("<br>"),
+							indicator: "orange",
+						});
+					}
 					frappe.show_alert({
 						message,
-						indicator: "green",
+						indicator: mrErrors.length ? "orange" : "green",
 					});
 					if (this.active_tab !== "completed") {
 						this.active_tab = "completed";
@@ -488,27 +524,43 @@ class MyTasksPage {
 			const progress_label =
 				progress > 0
 					? `${Math.round(progress)}%`
-					: task.image_count
-						? __("{0} Images", [task.image_count])
-						: task.timer_running
-							? __("In progress")
-							: flt(task.total_logged_hours)
-								? __("{0}h logged", [flt(task.total_logged_hours).toFixed(1)])
-								: __("Not started");
+					: task.timer_running
+						? __("In progress")
+						: flt(task.total_logged_hours)
+							? __("{0}h logged", [flt(task.total_logged_hours).toFixed(1)])
+							: __("Not started");
 			const progress_class = progress > 0 || task.timer_running ? "" : "muted";
+			const file_count = flt(task.image_count) || 0;
+			const file_badge_html = file_count
+				? `<span class="my-tasks-file-badge" title="${frappe.utils.escape_html(__("Uploaded files"))}">
+						<i class="fa fa-paperclip" aria-hidden="true"></i>
+						${frappe.utils.escape_html(__("{0} files", [file_count]))}
+					</span>`
+				: "";
+			const scan_total = flt(task.scan_total) || 0;
+			const scan_scanned = flt(task.scan_scanned) || 0;
+			const scan_badge_html =
+				scan_total > 0
+					? `<span class="my-tasks-scan-badge" title="${frappe.utils.escape_html(__("Labels scanned on this task"))}">
+							<i class="fa fa-qrcode" aria-hidden="true"></i>
+							${frappe.utils.escape_html(__("{0}/{1} scanned", [scan_scanned, scan_total]))}
+						</span>`
+					: "";
 
 			const $card = $(`
 				<div class="my-tasks-card" data-task="${frappe.utils.escape_html(task.name)}">
 					<div class="my-tasks-card-top">
 						<div>
-							<div class="my-tasks-card-title">${frappe.utils.escape_html(task.subject)}</div>
-							<div class="my-tasks-card-sub">${frappe.utils.escape_html(task.unit_subtitle || task.project_label || "")}</div>
+							<div class="my-tasks-card-title">${frappe.utils.escape_html(task.project_label || task.unit_subtitle || task.project || "")}</div>
+							<div class="my-tasks-card-sub">${frappe.utils.escape_html(task.subject)}</div>
 						</div>
 						${task.due_label ? `<div class="my-tasks-due ${due_class}">${frappe.utils.escape_html(task.due_label)}</div>` : ""}
 					</div>
 					<div class="my-tasks-card-meta">
 						<span class="my-tasks-badge">${frappe.utils.escape_html(task.type || __("Task"))}</span>
 						<span class="my-tasks-status-badge">${frappe.utils.escape_html(task.status || __("Open"))}</span>
+						${scan_badge_html}
+						${file_badge_html}
 						<span class="my-tasks-progress-badge ${progress_class}">${frappe.utils.escape_html(progress_label)}</span>
 					</div>
 					${this.render_timer_block(task)}
@@ -530,6 +582,17 @@ class MyTasksPage {
 			$card.find(".btn-task-progress-update").on("click", () => {
 				const progress = flt($card.find(".my-tasks-progress-input").val());
 				this.call_task_update("update_task_progress", task, { progress });
+			});
+			$card.find(".btn-task-camera").on("click", () => {
+				if (!fitzgerald_kitchens.task_camera) {
+					frappe.msgprint(__("Camera utility is not loaded. Please refresh the page."));
+					return;
+				}
+				fitzgerald_kitchens.task_camera.launch({
+					doctype: "Task",
+					docname: task.name,
+					on_success: () => me.refresh(),
+				});
 			});
 			$card.find(".btn-task-complete").on("click", function () {
 				if ($(this).prop("disabled")) {

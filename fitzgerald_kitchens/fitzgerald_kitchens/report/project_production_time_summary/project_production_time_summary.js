@@ -59,4 +59,24 @@ frappe.query_reports["Project Production Time Summary"] = {
 			options: ["", "Not Started", "In Process", "Completed", "Stopped", "Closed"],
 		},
 	],
+
+	formatter(value, row, column, data, default_formatter) {
+		const extra_time_fields = ["extra_time", "task_extra_time"];
+		if (!extra_time_fields.includes(column.fieldname)) {
+			return default_formatter(value, row, column, data);
+		}
+
+		const amount = flt(data?.[column.fieldname] ?? value);
+		if (!amount) {
+			return default_formatter(value, row, column, data);
+		}
+
+		const is_negative = amount < 0;
+		const color = is_negative ? "green" : "red";
+		const precision = cint(column.precision) || 2;
+		const formatted = format_number(Math.abs(amount), null, precision);
+		const display_value = is_negative ? `(${formatted})` : formatted;
+
+		return `<div style="color:${color}!important;font-weight:400;text-align:right;">${display_value}</div>`;
+	},
 };

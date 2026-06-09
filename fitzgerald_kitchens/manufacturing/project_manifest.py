@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import frappe
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from erpnext.manufacturing.doctype.work_order.work_order import get_item_details
 
@@ -79,6 +79,32 @@ def get_active_bom_no(item_code: str, linked_bom: str | None = None, project: st
 	return bom_no or None
 
 
+RAW_MATERIAL_ITEM_GROUPS = frozenset({"Raw Material"})
+
+
+def is_manufacturing_item(item_code: str) -> bool:
+	"""Return True for finished goods / sub-assemblies, not raw materials."""
+	if not item_code:
+		return False
+
+	item = frappe.db.get_value(
+		"Item",
+		item_code,
+		["include_item_in_manufacturing", "item_group", "disabled"],
+		as_dict=True,
+	)
+	if not item or item.disabled:
+		return False
+
+	if not cint(item.include_item_in_manufacturing):
+		return False
+
+	if (item.item_group or "") in RAW_MATERIAL_ITEM_GROUPS:
+		return False
+
+	return True
+
+
 def get_manifest_items_for_project(project: str, effective_manifest: str | None = None) -> list[dict]:
 	manifest_name = effective_manifest or resolve_project_effective_manifest(project)
 	if not manifest_name:
@@ -96,8 +122,11 @@ def get_manifest_items_for_project(project: str, effective_manifest: str | None 
 		if not row.item_code:
 			continue
 
-		bom_no = get_active_bom_no(row.item_code, row.linked_bom, project=project) or ""
 		item_details = get_item_details(row.item_code, project=project, skip_bom_info=True, throw=False) or {}
+		if not is_manufacturing_item(row.item_code):
+			continue
+
+		bom_no = get_active_bom_no(row.item_code, row.linked_bom, project=project) or ""
 		qty = flt(row.qty)
 
 		items.append(

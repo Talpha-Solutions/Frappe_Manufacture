@@ -570,4 +570,75 @@ def complete_task(task: str):
 	payload = _timer_payload(task)
 	payload["task_update"] = result
 	payload["timesheet_submit"] = timesheet_submit
+	payload["material_request_submit"] = _submit_despatch_material_request_if_ready(task)
 	return payload
+
+
+def _submit_despatch_material_request_if_ready(task: str) -> dict | None:
+	from fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.label_scan import (
+		get_task_label_scan_state,
+		normalize_label_scan_task_type,
+	)
+
+	if normalize_label_scan_task_type(frappe.db.get_value("Task", task, "type")) != "Despatch":
+		return None
+
+	state = get_task_label_scan_state(task)
+	if not state.get("total_labels") or state.get("outstanding"):
+		return None
+
+	try:
+		from fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.despatch_material_request import (
+			submit_despatch_material_request,
+		)
+
+		return submit_despatch_material_request(task)
+	except Exception:
+		frappe.log_error(title=f"Despatch material request failed for {task}")
+		return None
+
+
+def ensure_task_timer_started_for_scan(task: str) -> dict | None:
+	"""Start the task timer when a label is scanned, if it is not already running."""
+	try:
+		_check_task_access(task)
+	except Exception:
+		return None
+
+	user = frappe.session.user
+	running = _get_running_time_log(user)
+	if running and running.task == task:
+		return _timer_payload(task, running)
+
+	try:
+		return start_task_timer(task)
+	except Exception:
+		frappe.log_error(
+			message=frappe.get_traceback(),
+			title=f"Scan timer auto-start failed for {task}",
+		)
+		return None
+
+
+@frappe.whitelist()
+def finalize_task_after_all_labels_scanned(task: str) -> dict:
+	"""Stop an active timer, submit the draft timesheet, and complete the task."""
+	_check_task_access(task)
+	user = frappe.session.user
+	_set_timer_paused(user, task, False)
+
+	stopped = None
+	running = _get_running_time_log(user, task)
+	if running:
+		timesheet = frappe.get_doc("Timesheet", running.timesheet_name)
+		stopped = _close_time_log_row(timesheet, running.detail_name, submit_after=False)
+
+	timesheet_submit = _submit_draft_timesheet_for_task(user, task)
+	task_update = _apply_task_update(task, complete=True)
+	payload = _timer_payload(task)
+	return {
+		"stopped": stopped,
+		"timesheet_submit": timesheet_submit,
+		"task_update": task_update,
+		**payload,
+	}

@@ -30,7 +30,7 @@ app_include_js = "/assets/fitzgerald_kitchens/js/project_sidebar_highlight.js"
 
 # include js, css files in header of web template
 web_include_css = "/assets/fitzgerald_kitchens/css/portal_sidebar.css"
-# web_include_js = "/assets/fitzgerald_kitchens/js/fitzgerald_kitchens.js"
+web_include_js = "/assets/fitzgerald_kitchens/js/portal_tracker_state.js"
 
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "fitzgerald_kitchens/public/scss/website"
@@ -40,12 +40,12 @@ web_include_css = "/assets/fitzgerald_kitchens/css/portal_sidebar.css"
 # webform_include_css = {"doctype": "public/css/doctype.css"}
 
 # include js in page
-# page_js = {"page" : "public/js/file.js"}
+page_js = {"my-tasks": "public/js/task_camera.js"}
 
 # include js in doctype views
 doctype_js = {
 	"Project": "public/js/project.js",
-	"Task": "public/js/task.js",
+	"Task": ["public/js/task_camera.js", "public/js/task.js"],
 	"BOM Cost Calculator": "public/js/bom_cost_configurator.bundle.js",
 	"Production Plan": "public/js/production_plan.js",
 	"Projects Settings": "public/js/projects_settings.js",
@@ -163,6 +163,9 @@ doc_events = {
 	"Projects Settings": {
 		"validate": "fitzgerald_kitchens.setup.projects_settings_fields.validate_projects_settings",
 	},
+	"Stock Entry": {
+		"before_submit": "fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.despatch_material_request.validate_despatch_stock_entry_before_submit",
+	},
 }
 
 # Scheduled Tasks
@@ -210,9 +213,9 @@ extend_doctype_class = {
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-# 	"Task": "fitzgerald_kitchens.task.get_dashboard_data"
-# }
+override_doctype_dashboards = {
+	"Project": "fitzgerald_kitchens.setup.project_dashboard.get_project_dashboard",
+}
 
 # exempt linked doctypes from being automatically cancelled
 #
@@ -299,7 +302,7 @@ fixtures = [
 	},
 	{
 		"dt": "Custom Field",
-		"filters": [["fieldname", "in", ["custom_file_upload", "custom_uploader_target"]]],
+		"filters": [["fieldname", "in", ["custom_file_upload", "custom_uploader_target", "custom_label_scans", "custom_label_scans_target"]]],
 	},
 	{
 		"dt": "Property Setter",

@@ -5,7 +5,11 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import nowdate
 
-from fitzgerald_kitchens.manufacturing.project_manifest import get_manifest_items_for_project
+from fitzgerald_kitchens.manufacturing.project_manifest import (
+	get_manifest_items_for_project,
+	get_projects_for_production_plan,
+	is_manufacturing_item,
+)
 
 
 class TestProductionPlanProjects(IntegrationTestCase):
@@ -69,6 +73,95 @@ class TestProductionPlanProjects(IntegrationTestCase):
 
 		production_items = plan.get_production_items()
 		self.assertEqual(next(iter(production_items.values()))["project"], project.name)
+
+	def test_raw_material_items_are_excluded(self):
+		fg_code = f"PP Test FG {frappe.generate_hash(length=6)}"
+		rm_code = f"PP Test RM {frappe.generate_hash(length=6)}"
+		self._create_item_with_bom(fg_code)
+		if not frappe.db.exists("Item", rm_code):
+			frappe.get_doc(
+				{
+					"doctype": "Item",
+					"item_code": rm_code,
+					"item_name": rm_code,
+					"item_group": "Raw Material",
+					"stock_uom": "Nos",
+					"is_stock_item": 1,
+					"include_item_in_manufacturing": 0,
+				}
+			).insert(ignore_permissions=True)
+
+		manifest_code = f"PP-TEST-MANIFEST-{frappe.generate_hash(length=6)}"
+		if not frappe.db.exists("Project Unit Configuration", "PP-TEST-CONFIG"):
+			frappe.get_doc(
+				{
+					"doctype": "Project Unit Configuration",
+					"configuration_code": "PP-TEST-CONFIG",
+					"configuration_name": "PP Test Config",
+					"scope": "Project Template",
+				}
+			).insert(ignore_permissions=True)
+
+		manifest = frappe.get_doc(
+			{
+				"doctype": "Manifest",
+				"manifest_code": manifest_code,
+				"scope": "Project Template",
+				"manifest_category": "Kitchen",
+				"configuration": "PP-TEST-CONFIG",
+				"items": [
+					{"item_code": fg_code, "qty": 1, "uom": "Nos"},
+					{"item_code": rm_code, "qty": 5, "uom": "Nos"},
+				],
+			}
+		)
+		manifest.insert(ignore_permissions=True)
+		project = self._create_project("PP Test RM Filter Kitchen", manifest.name)
+
+		items = get_manifest_items_for_project(project.name)
+		self.assertEqual([row["item_code"] for row in items], [fg_code])
+		self.assertFalse(is_manufacturing_item(rm_code))
+
+	def test_make_production_plan_from_project(self):
+		item_code = self._create_item_with_bom("PP Test From Project Item")
+		manifest = self._create_manifest(item_code)
+		project = self._create_project("PP Test From Project Kitchen", manifest.name)
+
+		from fitzgerald_kitchens.setup.project_production_plan import make_production_plan_from_project
+
+		plan = make_production_plan_from_project(project.name)
+		self.assertEqual(plan["company"], self.company)
+		self.assertEqual(plan["get_items_from"], "Project")
+		self.assertEqual(len(plan["fk_projects"]), 1)
+		self.assertEqual(plan["fk_projects"][0]["project"], project.name)
+		self.assertEqual(plan["fk_projects"][0]["effective_manifest"], manifest.name)
+
+	def test_get_production_plan_names_for_project(self):
+		item_code = self._create_item_with_bom("PP Test Dashboard Item")
+		manifest = self._create_manifest(item_code)
+		project = self._create_project("PP Test Dashboard Kitchen", manifest.name)
+
+		plan = frappe.new_doc("Production Plan")
+		plan.company = self.company
+		plan.posting_date = nowdate()
+		plan.get_items_from = "Project"
+		plan.project = project.name
+		plan.append(
+			"fk_projects",
+			{
+				"project": project.name,
+				"project_name": project.project_name,
+				"project_type": project.project_type,
+				"effective_manifest": manifest.name,
+				"status": project.status,
+			},
+		)
+		plan.insert(ignore_permissions=True)
+
+		from fitzgerald_kitchens.setup.project_dashboard import get_production_plan_names_for_project
+
+		names = get_production_plan_names_for_project(project.name)
+		self.assertIn(plan.name, names)
 
 	def _create_item_with_bom(self, item_code: str) -> str:
 		rm_item_code = f"{item_code}-RM"

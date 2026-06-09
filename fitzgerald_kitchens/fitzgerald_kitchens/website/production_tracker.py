@@ -12,6 +12,7 @@ import frappe
 from frappe import _
 from frappe.utils import formatdate, getdate, today
 
+from fitzgerald_kitchens.setup.project_hierarchy_fields import SITE_PARENT_FIELD
 from fitzgerald_kitchens.www.project_photos import (
 	_detect_category,
 	_get_project_type_label,
@@ -22,7 +23,7 @@ PRODUCTION_STAGES = (
 	"Survey",
 	"Drawing",
 	"Export",
-	"Manufacture",
+	"Manufacturing",
 	"Assembly",
 	"Despatch",
 	"Delivery",
@@ -33,6 +34,8 @@ PRODUCTION_STAGES = (
 STAGE_COUNT = len(PRODUCTION_STAGES)
 
 EXCLUDED_TASK_STATUSES = frozenset({"Cancelled", "Template"})
+
+EXCLUDED_PROJECT_TYPES = frozenset({"Site"})
 
 IN_PROGRESS_TASK_STATUSES = frozenset({"Open", "Working", "Pending Review", "Overdue"})
 
@@ -55,9 +58,11 @@ LEGEND_ITEMS = [
 ]
 
 
-def get_tracker_context() -> dict:
+def get_tracker_context(focused_project: str | None = None) -> dict:
 	"""Build template context for the production stage tracker page."""
+	focused = _resolve_focused_project(focused_project)
 	projects = _get_active_projects()
+	projects = _ensure_focused_project_in_list(projects, focused)
 	project_names = [row.name for row in projects]
 	tasks = _get_tasks_for_projects(project_names)
 	tasks_by_project = _group_tasks_by_project(tasks)
@@ -69,6 +74,10 @@ def get_tracker_context() -> dict:
 	global_metrics = _new_global_metrics()
 
 	for project in projects:
+		project_type = _get_project_type_label(project)
+		if project_type in EXCLUDED_PROJECT_TYPES:
+			continue
+
 		project_tasks = tasks_by_project.get(project.name, [])
 		stage_tasks = _map_stage_tasks(project_tasks)
 		stages = [_build_stage_cell(stage_name, stage_tasks.get(stage_name), user_map) for stage_name in PRODUCTION_STAGES]
@@ -78,7 +87,6 @@ def get_tracker_context() -> dict:
 		completed_count = sum(1 for stage in stages if stage.get("status") == "Completed")
 		progress_percent = int(round((completed_count / STAGE_COUNT) * 100)) if STAGE_COUNT else 0
 
-		project_type = _get_project_type_label(project)
 		project_name = (project.get("project_name") or project.name).strip()
 
 		tracker_projects.append(
@@ -89,7 +97,7 @@ def get_tracker_context() -> dict:
 				"display_title": _format_display_title(project_name, project_type),
 				"location": (project.get("customer") or "").strip(),
 				"category": _detect_category(project_type),
-				"search_text": _build_search_text(project_name, project_type),
+				"search_text": _build_search_text(project_name, project_type, project.name),
 				"tasks_completed": completed_count,
 				"tasks_total": STAGE_COUNT,
 				"progress_percent": progress_percent,
@@ -107,38 +115,142 @@ def get_tracker_context() -> dict:
 			)
 		)
 
+	focus_is_site = bool(focused and focused.get("is_site"))
+
 	return {
 		"page_title": _("Production stage tracker"),
 		"today_label": getdate(today()).strftime("%a %d %b %Y"),
 		"legend_items": LEGEND_ITEMS,
 		"filter_buttons": FILTER_BUTTONS,
 		"kpi": {
-			"units_in_production": len(projects),
+			"units_in_production": len(tracker_projects),
 			"tasks_overdue": global_metrics["overdue"],
 			"due_today": global_metrics["due_today"],
 			"on_time_rate": on_time_rate,
 		},
 		"projects": tracker_projects,
 		"no_result_message": _("No projects found."),
+		"focused_project": focused.get("name") if focused and not focus_is_site else None,
+		"initial_search": focused.get("initial_search", "") if focused else "",
+		"focus_is_site": focus_is_site,
 	}
 
 
-def _get_active_projects():
+def _resolve_focused_project(project_id: str | None) -> dict | None:
+	if not project_id:
+		return None
+
+	project_id = str(project_id).strip()
+	if not project_id or not frappe.db.exists("Project", project_id):
+		return None
+
+	try:
+		project = frappe.get_doc("Project", project_id)
+		project.has_permission("read")
+	except frappe.PermissionError:
+		return None
+
+	project_type = _get_project_type_label(project)
+	project_name = (project.project_name or project.name).strip()
+	is_site = project_type in EXCLUDED_PROJECT_TYPES
+
+	return {
+		"name": project.name,
+		"project_name": project_name,
+		"initial_search": _site_focus_search_term(project_name) if is_site else (project_name or project.name),
+		"is_site": is_site,
+	}
+
+
+def _site_focus_search_term(site_name: str) -> str:
+	"""Search token for a Site row — use the full site name (e.g. Site 005)."""
+	return (site_name or "").strip()
+
+
+def _get_site_child_project_ids(site_id: str) -> set[str]:
+	if not site_id or not frappe.get_meta("Project").has_field(SITE_PARENT_FIELD):
+		return set()
+
+	return set(
+		frappe.get_all(
+			"Project",
+			filters={SITE_PARENT_FIELD: site_id, "docstatus": ("<", 2)},
+			pluck="name",
+		)
+	)
+
+
+def _filter_projects_to_site_units(projects, focused: dict):
+	"""Keep only unit projects that belong to the focused Site."""
+	site_id = focused.get("name")
+	site_name = (focused.get("project_name") or "").strip()
+	child_ids = _get_site_child_project_ids(site_id)
+
+	filtered = []
+	for project in projects:
+		project_type = _get_project_type_label(project)
+		if project_type in EXCLUDED_PROJECT_TYPES:
+			continue
+
+		if project.name in child_ids:
+			filtered.append(project)
+			continue
+
+		project_name = (project.get("project_name") or "").strip()
+		if site_name and site_name in project_name:
+			filtered.append(project)
+
+	return filtered
+
+
+def _project_list_fields() -> list[str]:
 	fields = ["name", "project_name", "status", "customer"]
-	meta = frappe.get_meta("Project")
-	if meta.has_field("project_type"):
+	if frappe.get_meta("Project").has_field("project_type"):
 		fields.append("project_type")
+	return fields
+
+
+def _get_active_projects():
+	fields = _project_list_fields()
+	filters = {"status": ["not in", ["Cancelled", "Completed"]]}
+	if "project_type" in fields:
+		filters["project_type"] = ["not in", list(EXCLUDED_PROJECT_TYPES)]
 
 	try:
 		return frappe.get_list(
 			"Project",
 			fields=fields,
-			filters={"status": ["not in", ["Cancelled", "Completed"]]},
+			filters=filters,
 			order_by="creation asc",
 			limit_page_length=500,
 		)
 	except frappe.PermissionError:
 		return []
+
+
+def _get_project_list_row(project_id: str):
+	rows = frappe.get_list(
+		"Project",
+		fields=_project_list_fields(),
+		filters={"name": project_id},
+		limit_page_length=1,
+	)
+	return rows[0] if rows else None
+
+
+def _ensure_focused_project_in_list(projects, focused: dict | None):
+	if not focused or focused.get("is_site"):
+		return projects
+
+	project_names = {row.name for row in projects}
+	if focused["name"] in project_names:
+		return projects
+
+	focused_row = _get_project_list_row(focused["name"])
+	if not focused_row:
+		return projects
+
+	return [*projects, focused_row]
 
 
 def _get_tasks_for_projects(project_names: list[str]):
@@ -398,6 +510,6 @@ def _format_display_title(project_name: str, project_type: str) -> str:
 	return project_name
 
 
-def _build_search_text(project_name: str, project_type: str) -> str:
-	parts = [project_name, project_type]
+def _build_search_text(project_name: str, project_type: str, project_id: str = "") -> str:
+	parts = [project_name, project_type, project_id]
 	return " ".join(part.lower() for part in parts if part)

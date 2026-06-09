@@ -14,8 +14,28 @@ const PROJECT_NAMING_SERIES = {
 	Unit: "UNIT-UNT-.#####",
 };
 
+function force_project_overview_web_link(frm) {
+	if (!frm || frm.doctype !== "Project" || frm.doc.__islocal) {
+		return;
+	}
+
+	const path = "/project?project=" + encodeURIComponent(frm.doc.name);
+
+	// ERPNext and prior refresh passes may each add a sidebar link; clear all first.
+	if (frm.sidebar?.clear_user_actions) {
+		frm.sidebar.clear_user_actions();
+	} else if (frm.web_link) {
+		frm.web_link.remove();
+	}
+
+	frm.add_web_link(path);
+}
+
 frappe.ui.form.on("Project", {
 	refresh(frm) {
+		// Run after ERPNext's refresh handler so only one link remains.
+		frappe.after_ajax(() => force_project_overview_web_link(frm));
+
 		toggle_unit_tab(frm);
 		toggle_download_qr_tab(frm);
 		toggle_parent_unit(frm);
@@ -23,6 +43,7 @@ frappe.ui.form.on("Project", {
 		setup_download_qr_actions(frm);
 		setup_installation_manifest_actions(frm);
 		setup_material_request_actions(frm);
+		setup_production_plan_actions(frm);
 		setup_amend_manifest_actions(frm);
 		render_download_qr_html(frm);
 	},
@@ -168,6 +189,42 @@ function setup_material_request_actions(frm) {
 	}
 
 	frm.add_custom_button(__("Material Request"), () => create_material_request_from_project(frm), __("Actions"));
+}
+
+function setup_production_plan_actions(frm) {
+	if (frm.is_new() || is_site_project(frm) || !frm.doc.fk_effective_manifest) {
+		return;
+	}
+	if (!frappe.model.can_create("Production Plan")) {
+		return;
+	}
+
+	frm.add_custom_button(
+		__("Create Production Plan"),
+		() => create_production_plan_from_project(frm),
+		__("Actions")
+	);
+}
+
+function create_production_plan_from_project(frm) {
+	if (!frm.doc.fk_effective_manifest) {
+		frappe.msgprint(__("Set Effective Manifest on the Unit tab first."));
+		return;
+	}
+
+	frappe.call({
+		method: "fitzgerald_kitchens.setup.project_production_plan.make_production_plan_from_project",
+		args: { project: frm.doc.name },
+		freeze: true,
+		freeze_message: __("Creating Production Plan..."),
+		callback(r) {
+			if (!r.message) {
+				return;
+			}
+			frappe.model.sync(r.message);
+			frappe.set_route("Form", "Production Plan", r.message.name);
+		},
+	});
 }
 
 function setup_amend_manifest_actions(frm) {

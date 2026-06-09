@@ -1,7 +1,7 @@
 // Copyright (c) 2026, talpha solutions and contributors
 // For license information, please see license.txt
 
-frappe.query_reports["Manufacturing Cost Summary"] = {
+frappe.query_reports["Production Cost Summary"] = {
 	filters: [
 		{
 			label: __("Company"),

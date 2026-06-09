@@ -32,32 +32,6 @@ UNIT_PROJECTS_SIDEBAR_ITEM = {
 	"show_arrow": 0,
 }
 
-MAIN_SIDEBAR_ITEM = {
-	"label": "Development Unit",
-	"link_to": "Development Unit",
-	"link_type": "DocType",
-	"type": "Link",
-	"icon": "package",
-	"child": 0,
-	"collapsible": 1,
-	"indent": 0,
-	"keep_closed": 0,
-	"show_arrow": 0,
-}
-
-QR_SCAN_SIDEBAR_ITEM = {
-	"label": "QR Stage Scan",
-	"link_to": "Development Unit QR Scan",
-	"link_type": "DocType",
-	"type": "Link",
-	"icon": "scan-barcode",
-	"child": 0,
-	"collapsible": 1,
-	"indent": 0,
-	"keep_closed": 0,
-	"show_arrow": 0,
-}
-
 MY_TASKS_SIDEBAR_ITEM = {
 	"label": "My Tasks",
 	"link_to": "my-tasks",
@@ -111,8 +85,8 @@ PROJECT_PRODUCTION_TIME_SUMMARY_ITEM = {
 }
 
 MANUFACTURING_COST_SUMMARY_ITEM = {
-	"label": "Manufacturing Cost Summary",
-	"link_to": "Manufacturing Cost Summary",
+	"label": "Production Cost Summary",
+	"link_to": "Production Cost Summary",
 	"link_type": "Report",
 	"type": "Link",
 	"child": 1,
@@ -153,6 +127,12 @@ PROJECT_REPORT_SIDEBAR_ITEMS = [
 ]
 
 
+REMOVED_PROJECTS_SIDEBAR_LINKS = (
+	"Development Unit",
+	"Development Unit QR Scan",
+)
+
+
 def ensure_projects_sidebar():
 	if not frappe.db.exists("Workspace Sidebar", PROJECTS_SIDEBAR):
 		return
@@ -160,19 +140,16 @@ def ensure_projects_sidebar():
 	sidebar = frappe.get_doc("Workspace Sidebar", PROJECTS_SIDEBAR)
 	changed = False
 
+	if _remove_projects_sidebar_items(sidebar):
+		changed = True
+
 	if _ensure_site_projects_sidebar_filter(sidebar):
 		changed = True
 
 	if _ensure_unit_projects_sidebar_item(sidebar):
 		changed = True
 
-	if _ensure_main_sidebar_item(sidebar):
-		changed = True
-
 	if _ensure_my_tasks_sidebar_item(sidebar):
-		changed = True
-
-	if _ensure_qr_scan_sidebar_item(sidebar):
 		changed = True
 
 	if _ensure_setup_sidebar_items(sidebar):
@@ -369,19 +346,13 @@ def _index_after_reports_section(items):
 	return len(items)
 
 
-def _ensure_main_sidebar_item(sidebar):
-	if _has_sidebar_link(sidebar, MAIN_SIDEBAR_ITEM["link_to"]):
+def _remove_projects_sidebar_items(sidebar):
+	items = [_item_dict(row) for row in sidebar.items]
+	filtered = [item for item in items if item.get("link_to") not in REMOVED_PROJECTS_SIDEBAR_LINKS]
+	if len(filtered) == len(items):
 		return False
 
-	items = [_item_dict(row) for row in sidebar.items]
-	insert_at = _index_of_link(items, "Task")
-	if insert_at is None:
-		insert_at = _index_after_link(items, "Project")
-	if insert_at is None:
-		insert_at = len(items)
-
-	items.insert(insert_at, MAIN_SIDEBAR_ITEM)
-	_apply_items(sidebar, items)
+	_apply_items(sidebar, filtered)
 	return True
 
 
@@ -392,29 +363,15 @@ def _ensure_my_tasks_sidebar_item(sidebar):
 	items = [_item_dict(row) for row in sidebar.items]
 	insert_at = _index_of_link(items, "Task")
 	if insert_at is None:
-		insert_at = _index_of_link(items, QR_SCAN_SIDEBAR_ITEM["link_to"])
-		if insert_at is not None:
-			insert_at += 1
+		unit_index = _index_of_sidebar_label(items, UNIT_PROJECTS_SIDEBAR_ITEM["label"])
+		if unit_index is not None:
+			insert_at = unit_index + 1
+	if insert_at is None:
+		insert_at = _index_after_link(items, "Project")
 	if insert_at is None:
 		insert_at = len(items)
 
 	items.insert(insert_at, MY_TASKS_SIDEBAR_ITEM)
-	_apply_items(sidebar, items)
-	return True
-
-
-def _ensure_qr_scan_sidebar_item(sidebar):
-	if _has_sidebar_link(sidebar, QR_SCAN_SIDEBAR_ITEM["link_to"]):
-		return False
-
-	items = [_item_dict(row) for row in sidebar.items]
-	insert_at = _index_of_link(items, MAIN_SIDEBAR_ITEM["link_to"])
-	if insert_at is None:
-		insert_at = len(items)
-	else:
-		insert_at += 1
-
-	items.insert(insert_at, QR_SCAN_SIDEBAR_ITEM)
 	_apply_items(sidebar, items)
 	return True
 
