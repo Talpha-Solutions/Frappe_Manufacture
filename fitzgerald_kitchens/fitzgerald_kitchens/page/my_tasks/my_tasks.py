@@ -139,21 +139,25 @@ def get_task_assignee_display(
 
 
 def _collect_assigned_task_names(user: str) -> list[str]:
-	"""Tasks assigned via ToDo (any status) or Task._assign."""
+	"""Tasks explicitly assigned to the user via ToDo or Task._assign."""
 	names: set[str] = set()
 
 	for name in frappe.get_all(
 		"ToDo",
-		filters={"allocated_to": user, "reference_type": "Task"},
+		filters={
+			"allocated_to": user,
+			"reference_type": "Task",
+			"status": ["!=", "Cancelled"],
+		},
 		pluck="reference_name",
 		distinct=True,
 	):
-		if name:
+		if name and frappe.db.exists("Task", name):
 			names.add(name)
 
 	for row in frappe.get_all(
 		"Task",
-		filters={"_assign": ["is", "set"]},
+		filters={"_assign": ["like", f"%{user}%"]},
 		fields=["name", "_assign"],
 	):
 		if user in _assignees_from_task_row(row._assign):
@@ -368,6 +372,36 @@ def _kpis(buckets: dict) -> dict:
 	}
 
 
+def _assigned_project_options(user: str) -> list[dict]:
+	"""Projects linked only to tasks assigned to the logged-in user."""
+	task_names = _collect_assigned_task_names(user)
+	if not task_names:
+		return []
+
+	readable_task_names = [
+		name
+		for name in task_names
+		if frappe.has_permission("Task", doc=name, ptype="read")
+	]
+	if not readable_task_names:
+		return []
+
+	rows = frappe.db.sql(
+		"""
+		select distinct t.project as name,
+			coalesce(nullif(p.project_name, ''), t.project) as label
+		from `tabTask` t
+		left join `tabProject` p on p.name = t.project
+		where t.name in %(task_names)s
+			and ifnull(t.project, '') != ''
+		order by label asc
+		""",
+		{"task_names": readable_task_names},
+		as_dict=True,
+	)
+	return rows
+
+
 def _user_header() -> dict:
 	user = frappe.session.user
 	full_name = frappe.db.get_value("User", user, "full_name") or user
@@ -388,11 +422,20 @@ def _user_header() -> dict:
 
 
 @frappe.whitelist()
-def get_my_tasks_dashboard():
+def get_my_tasks_dashboard(project: str | None = None):
 	_check_my_tasks_access()
 	user = frappe.session.user
 
-	tasks = _load_tasks(_collect_assigned_task_names(user))
+	all_tasks = _load_tasks(_collect_assigned_task_names(user))
+	projects = _assigned_project_options(user)
+	allowed_projects = {row["name"] for row in projects}
+	if project and project not in allowed_projects:
+		project = None
+
+	tasks = all_tasks
+	if project:
+		tasks = [task for task in all_tasks if task.project == project]
+
 	buckets = _bucket_tasks(tasks)
 
 	def serialize_task(task):
@@ -425,6 +468,8 @@ def get_my_tasks_dashboard():
 
 	return {
 		"user": _user_header(),
+		"project_filter": project or "",
+		"projects": projects,
 		"kpis": _kpis(buckets),
 		"tabs": {
 			key: {
