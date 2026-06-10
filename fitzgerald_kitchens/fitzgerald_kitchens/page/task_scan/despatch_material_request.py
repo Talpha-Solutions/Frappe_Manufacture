@@ -432,3 +432,4 @@ def submit_despatch_material_request(task_name: str) -> dict | None:
 		"issue_results": issue_results,
 		"errors": errors,
 	}
+
