@@ -85,34 +85,31 @@ def _get_project_company(project: str) -> str | None:
 	return frappe.db.get_value("Project", project, "company")
 
 
+def _get_mr_project(mr_name: str) -> str | None:
+	return frappe.db.get_value(
+		"Material Request Item",
+		{"parent": mr_name, "project": ["!=", ""]},
+		"project",
+	)
+
+
 def _find_existing_material_request(project: str) -> str | None:
 	for docstatus in (0, 1):
-		name = frappe.db.get_value(
-			"Material Request",
-			{
-				"project": project,
-				"docstatus": docstatus,
-				"status": ["not in", ["Stopped", "Cancelled", "Closed"]],
-			},
-			order_by="modified desc",
+		rows = frappe.db.sql(
+			"""
+			select mr.name
+			from `tabMaterial Request` mr
+			inner join `tabMaterial Request Item` mri on mri.parent = mr.name
+			where mri.project = %s
+				and mr.docstatus = %s
+				and ifnull(mr.status, '') not in ('Stopped', 'Cancelled', 'Closed')
+			order by mr.modified desc
+			limit 1
+			""",
+			(project, docstatus),
 		)
-		if name:
-			return name
-
-	item_parents = frappe.db.sql(
-		"""
-		select parent
-		from `tabMaterial Request Item`
-		where project = %s
-		order by modified desc
-		limit 1
-		""",
-		project,
-	)
-	if item_parents:
-		mr_name = item_parents[0][0]
-		if frappe.db.get_value("Material Request", mr_name, "docstatus") in (0, 1):
-			return mr_name
+		if rows:
+			return rows[0][0]
 	return None
 
 
@@ -129,16 +126,53 @@ def _get_despatch_task_for_project(project: str) -> str | None:
 	return None
 
 
-def is_despatch_scan_complete_for_project(project: str) -> bool:
-	task_name = _get_despatch_task_for_project(project)
+def _get_despatch_task_for_material_request(mr_name: str, project: str | None) -> str | None:
+	task_name = frappe.db.get_value("Material Request", mr_name, "custom_scan_task")
+	if task_name and frappe.db.exists("Task", task_name):
+		return task_name
+	if project:
+		return _get_despatch_task_for_project(project)
+	return None
+
+
+def _link_mr_to_despatch_task(mr_name: str, scan_task: str) -> None:
+	if not scan_task or not frappe.db.exists("Material Request", mr_name):
+		return
+	current = frappe.db.get_value("Material Request", mr_name, "custom_scan_task")
+	if current == scan_task:
+		return
+	frappe.db.set_value(
+		"Material Request",
+		mr_name,
+		"custom_scan_task",
+		scan_task,
+		update_modified=False,
+	)
+
+
+def _is_despatch_scan_complete(task_name: str) -> bool:
+	"""Allow issue when Despatch task is completed or all PK/QR labels are scanned."""
 	if not task_name:
+		return True
+	if frappe.db.get_value("Task", task_name, "status") == "Completed":
 		return True
 	state = get_task_label_scan_state(task_name)
 	if not state.get("total_labels"):
 		return True
-	if state.get("outstanding"):
-		return False
-	return frappe.db.get_value("Task", task_name, "status") == "Completed"
+	return not state.get("outstanding")
+
+
+def _despatch_scan_block_message(task_name: str, mr_name: str) -> str:
+	state = get_task_label_scan_state(task_name)
+	scanned = state.get("scanned") or 0
+	total = state.get("total_labels") or 0
+	if total:
+		return _(
+			"Complete all Despatch PK/QR scans on task {0} ({1}/{2} scanned) before issuing material for Material Request {3}."
+		).format(task_name, scanned, total, mr_name)
+	return _(
+		"Complete all Despatch QR scans on task {0} before issuing material for Material Request {1}."
+	).format(task_name, mr_name)
 
 
 def validate_despatch_stock_entry_before_submit(doc, method=None):
@@ -147,23 +181,23 @@ def validate_despatch_stock_entry_before_submit(doc, method=None):
 
 	mr_names = {row.material_request for row in doc.items if row.material_request}
 	for mr_name in mr_names:
-		mr = frappe.db.get_value(
-			"Material Request",
-			mr_name,
-			["material_request_type", "project"],
-			as_dict=True,
-		)
-		if not mr or mr.material_request_type != DESPATCH_NEW_MR_TYPE or not mr.project:
+		mr_type = frappe.db.get_value("Material Request", mr_name, "material_request_type")
+		if mr_type != DESPATCH_NEW_MR_TYPE:
 			continue
-		if not _get_despatch_task_for_project(mr.project):
+
+		project = _get_mr_project(mr_name)
+		if not project:
+			project = next(
+				(row.project for row in doc.items if row.material_request == mr_name and row.project),
+				None,
+			)
+		task_name = _get_despatch_task_for_material_request(mr_name, project)
+		if not task_name:
 			continue
-		if is_despatch_scan_complete_for_project(mr.project):
+		if _is_despatch_scan_complete(task_name):
 			continue
-		task_name = _get_despatch_task_for_project(mr.project)
 		frappe.throw(
-			_(
-				"Complete all Despatch QR scans on task {0} before issuing material for Material Request {1}."
-			).format(task_name, mr_name),
+			_despatch_scan_block_message(task_name, mr_name),
 			title=_("Despatch Scan Required"),
 		)
 
@@ -175,8 +209,10 @@ def _mr_item_qty_map(mr_doc) -> dict[str, float]:
 	return qty_map
 
 
-def _submit_draft_mr(mr_doc, warehouse: str) -> str:
+def _submit_draft_mr(mr_doc, warehouse: str, *, scan_task: str | None = None) -> str:
 	mr_doc.flags.ignore_permissions = True
+	if scan_task:
+		mr_doc.custom_scan_task = scan_task
 	if mr_doc.docstatus == 0:
 		_apply_despatch_warehouses(mr_doc, warehouse)
 		mr_doc.save(ignore_permissions=True)
@@ -190,13 +226,15 @@ def _create_material_request(
 	company: str,
 	*,
 	warehouse: str,
+	scan_task: str | None = None,
 ) -> frappe.model.document.Document:
 	mr = frappe.new_doc("Material Request")
 	mr.material_request_type = DESPATCH_NEW_MR_TYPE
 	mr.company = company
-	mr.project = project
 	mr.transaction_date = today()
 	mr.schedule_date = today()
+	if scan_task:
+		mr.custom_scan_task = scan_task
 
 	for item_code, qty in sorted(item_qty_map.items()):
 		mr.append(
@@ -337,7 +375,7 @@ def submit_despatch_material_request(task_name: str) -> dict | None:
 		new_mr_items = _scanned_items_not_on_mr(mr_doc, scanned_qty)
 		if mr_doc.docstatus == 0:
 			try:
-				submitted_existing_mr = _submit_draft_mr(mr_doc, warehouse)
+				submitted_existing_mr = _submit_draft_mr(mr_doc, warehouse, scan_task=task_name)
 			except Exception as exc:
 				errors.append(_clean_error_message(exc))
 				frappe.log_error(
@@ -349,6 +387,7 @@ def submit_despatch_material_request(task_name: str) -> dict | None:
 		existing_mr_name if mr_doc and mr_doc.docstatus == 1 else None
 	)
 	if issue_mr_name:
+		_link_mr_to_despatch_task(issue_mr_name, task_name)
 		_append_issue_result(
 			issue_mr_name,
 			issue_results=issue_results,
@@ -363,6 +402,7 @@ def submit_despatch_material_request(task_name: str) -> dict | None:
 				new_mr_items,
 				company,
 				warehouse=warehouse,
+				scan_task=task_name,
 			)
 			new_mr_name = new_mr.name
 			_append_issue_result(

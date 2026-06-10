@@ -24,6 +24,7 @@ frappe.pages["my-tasks"].on_page_hide = function () {
 };
 
 const COLLAPSE_STORAGE_KEY = "my_tasks_card_sections";
+const PROJECT_FILTER_STORAGE_KEY = "my_tasks_project_filter";
 const LABEL_SCAN_TASK_TYPES = new Set(["Assembly", "Despatch", "Dispatch", "Delivery"]);
 
 function is_label_scan_task_type(task_type) {
@@ -41,6 +42,7 @@ class MyTasksPage {
 	constructor(page) {
 		this.page = page;
 		this.active_tab = "today";
+		this.project_filter = localStorage.getItem(PROJECT_FILTER_STORAGE_KEY) || "";
 		this.data = null;
 		this.scanner_task = null;
 		this._timer_interval = null;
@@ -130,6 +132,12 @@ class MyTasksPage {
 			this.handle_scan(value);
 		});
 
+		this.$wrapper.on("change", ".my-tasks-project-filter", (e) => {
+			this.project_filter = $(e.target).val() || "";
+			localStorage.setItem(PROJECT_FILTER_STORAGE_KEY, this.project_filter);
+			this.refresh();
+		});
+
 		$(document).on("keydown.my_tasks_scan", (e) => {
 			if ($(".modal:visible").length) {
 				return;
@@ -147,6 +155,7 @@ class MyTasksPage {
 	refresh() {
 		frappe.call({
 			method: "fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.my_tasks.get_my_tasks_dashboard",
+			args: { project: this.project_filter || null },
 			freeze: true,
 			callback: (r) => {
 				if (!r.message) {
@@ -169,6 +178,7 @@ class MyTasksPage {
 		const d = this.data;
 		this.render_header(d.user);
 		this.render_kpis(d.kpis);
+		this.render_project_filter(d.projects || [], d.project_filter);
 		this.render_tabs(d.tabs);
 		this.render_tasks(d.tabs[this.active_tab]?.tasks || []);
 		this.start_timer_interval();
@@ -471,6 +481,36 @@ class MyTasksPage {
 		this.$wrapper.find(".my-kpi-completed").text(kpis.completed_today ?? 0);
 		this.$wrapper.find(".my-kpi-due").text(kpis.due_today ?? 0);
 		this.$wrapper.find(".my-kpi-overdue").text(kpis.overdue ?? 0);
+	}
+
+	render_project_filter(projects, selected_project) {
+		const $filters = this.$wrapper.find(".my-tasks-filters");
+		const $select = this.$wrapper.find(".my-tasks-project-filter");
+		const options = projects || [];
+		$filters.toggle(options.length > 0);
+
+		if (!options.length) {
+			this.project_filter = "";
+			localStorage.removeItem(PROJECT_FILTER_STORAGE_KEY);
+			return;
+		}
+
+		const allowed = new Set(options.map((project) => project.name));
+		let current = selected_project || this.project_filter || "";
+		if (current && !allowed.has(current)) {
+			current = "";
+			localStorage.removeItem(PROJECT_FILTER_STORAGE_KEY);
+		}
+
+		$select.empty();
+		$select.append(`<option value="">${frappe.utils.escape_html(__("All projects"))}</option>`);
+		options.forEach((project) => {
+			$select.append(
+				`<option value="${frappe.utils.escape_html(project.name)}">${frappe.utils.escape_html(project.label || project.name)}</option>`
+			);
+		});
+		$select.val(current);
+		this.project_filter = current;
 	}
 
 	render_tabs(tabs) {
