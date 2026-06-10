@@ -3,7 +3,10 @@
 
 from frappe.model.document import Document
 
+from fitzgerald_kitchens.setup.manifest_line_labels import sync_manifest_line_labels
+
 
 class Manifest(Document):
-	pass
-
+	def before_save(self):
+		for line in self.items:
+			sync_manifest_line_labels(line)

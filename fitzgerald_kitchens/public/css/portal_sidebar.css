@@ -6,6 +6,7 @@
 :root {
 	--fk-portal-gutter: 1.25rem;
 	--fk-portal-gap: 1.75rem;
+	--fk-portal-sidebar-top-gap: 1.5rem;
 	--fk-portal-sidebar-width: 12rem;
 	--fk-portal-sidebar-bg: #f8fafc;
 	--fk-portal-sidebar-border: #e2e8f0;
@@ -56,6 +57,17 @@ body[frappe-session-status="logged-in"] .container:has(> .row > .sidebar-column)
 body[frappe-session-status="logged-in"]
 	.container:has(> .row > .sidebar-column)
 	> .row
+	> .sidebar-column {
+	position: sticky;
+	top: calc(var(--navbar-height, 4.5rem) + var(--fk-portal-sidebar-top-gap));
+	align-self: start;
+	height: calc(100vh - var(--navbar-height, 4.5rem) - var(--fk-portal-sidebar-top-gap));
+	max-height: calc(100vh - var(--navbar-height, 4.5rem) - var(--fk-portal-sidebar-top-gap));
+}
+
+body[frappe-session-status="logged-in"]
+	.container:has(> .row > .sidebar-column)
+	> .row
 	> .sidebar-column,
 body[frappe-session-status="logged-in"]
 	.container:has(> .row > .sidebar-column)
@@ -98,9 +110,11 @@ body[frappe-session-status="logged-in"]
    -------------------------------------------------------------------------- */
 
 body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar {
-	position: sticky;
-	top: calc(var(--navbar-height, 4.5rem) + 1rem);
-	padding: 1rem 0 2rem;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	height: 100%;
+	padding: 1rem 0;
 	margin: 0;
 	background: var(--fk-portal-sidebar-bg);
 	border: 1px solid var(--fk-portal-sidebar-border);
@@ -110,6 +124,7 @@ body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar {
 
 body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar .sidebar-items {
 	padding: 0.5rem;
+	flex: 0 0 auto;
 }
 
 body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar .list-unstyled {
@@ -220,8 +235,16 @@ body[frappe-session-status="logged-in"] .main-column .breadcrumb-container {
 		grid-template-columns: var(--fk-portal-sidebar-width) minmax(0, 1fr);
 	}
 
+	body[frappe-session-status="logged-in"]
+		.container:has(> .row > .sidebar-column)
+		> .row
+		> .sidebar-column {
+		height: calc(100vh - var(--navbar-height, 4.5rem) - var(--fk-portal-sidebar-top-gap));
+		max-height: calc(100vh - var(--navbar-height, 4.5rem) - var(--fk-portal-sidebar-top-gap));
+	}
+
 	body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar {
-		padding: 0.75rem 0 1.25rem;
+		padding: 0.75rem 0;
 	}
 
 	body[frappe-session-status="logged-in"] .sidebar-column .sidebar-item a {
@@ -236,8 +259,18 @@ body[frappe-session-status="logged-in"] .main-column .breadcrumb-container {
 		grid-template-rows: auto 1fr;
 	}
 
-	body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar {
+	body[frappe-session-status="logged-in"]
+		.container:has(> .row > .sidebar-column)
+		> .row
+		> .sidebar-column {
 		position: static;
+		height: auto;
+		max-height: none;
+	}
+
+	body[frappe-session-status="logged-in"] .sidebar-column .web-sidebar {
+		display: block;
+		height: auto;
 		padding: 0.75rem;
 	}
 

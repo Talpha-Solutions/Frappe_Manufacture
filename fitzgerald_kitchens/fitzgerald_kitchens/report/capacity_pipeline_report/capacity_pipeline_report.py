@@ -156,8 +156,8 @@ def get_pipeline_totals(filters=None):
 
 
 def _project_schedule_date_sql(prefix="p"):
-    """Best available planned delivery date on a Project row."""
-    return f"COALESCE({prefix}.expected_end_date, {prefix}.expected_start_date)"
+    """Planned production month on a Project row — Expected Start Date, else Expected End."""
+    return f"COALESCE({prefix}.expected_start_date, {prefix}.expected_end_date)"
 
 
 def _project_unit_qty_sql(prefix="p"):
@@ -848,7 +848,10 @@ def _rollup_site_demand(projects, demand_map, product_breakdown, periods):
 
 
 def _query_site_structural_totals(site_name):
-    """Kitchen / wardrobe quantities on all active child unit projects under a Site."""
+    """Kitchen / wardrobe quantities on all active child unit projects under a Site.
+
+    Site subtitle "Units" matches kitchen count (1 kitchen = 1 pipeline unit).
+    """
     if not frappe.db.has_column("Project", SITE_PARENT_FIELD):
         return {"houses": 0, "kitchens": 0, "wardrobes": 0}
 
@@ -878,17 +881,20 @@ def _query_site_structural_totals(site_name):
         as_dict=True,
     )
 
+    kitchens = sum(int(row.kitchen_qty or 0) for row in rows)
+    wardrobes = sum(int(row.wardrobe_qty or 0) for row in rows)
     return {
         "houses": len(rows),
-        "kitchens": sum(int(row.kitchen_qty or 0) for row in rows),
-        "wardrobes": sum(int(row.wardrobe_qty or 0) for row in rows),
+        "units": kitchens,
+        "kitchens": kitchens,
+        "wardrobes": wardrobes,
     }
 
 
 def _set_site_subtitle_totals(projects):
     """
-    Site subtitle: distinct units (houses) outside brackets; kitchen / wardrobe
-    quantities inside — from all active child projects under the Site.
+    Site subtitle: kitchen units outside brackets (1 kitchen = 1 unit); kitchen /
+    wardrobe detail inside — from all active child projects under the Site.
     """
     site_projects = [
         p for p in projects if getattr(p, "project_type", None) == "Site"
@@ -899,7 +905,7 @@ def _set_site_subtitle_totals(projects):
     for site in site_projects:
         structural = _query_site_structural_totals(site.name)
         site.site_house_count = structural["houses"]
-        site.site_unit_count = structural["houses"]
+        site.site_unit_count = structural["units"]
         site.site_kitchen_count = structural["kitchens"]
         site.site_robe_count = structural["wardrobes"]
 
@@ -979,7 +985,7 @@ def _q_demand(project_names, from_date, to_date):
 
 def _q_project_demand(project_names, from_date, to_date):
     """
-    Count Project unit quantity scheduled in each month via expected dates.
+    Count Project unit quantity scheduled in each month via Expected Start Date.
 
     Used when no Job Card production data exists for the filtered projects.
     """
@@ -2328,9 +2334,9 @@ def _project_subtitle(proj):
     project_type = getattr(proj, "project_type", None)
 
     if project_type == "Site":
-        unit_count = int(getattr(proj, "site_house_count", 0) or 0)
+        unit_count = int(getattr(proj, "site_unit_count", 0) or 0)
         if not unit_count:
-            unit_count = int(getattr(proj, "site_unit_count", 0) or 0)
+            unit_count = int(getattr(proj, "site_kitchen_count", 0) or 0)
         kitchen_count = int(getattr(proj, "site_kitchen_count", 0) or 0)
         robe_count = int(getattr(proj, "site_robe_count", 0) or 0)
 

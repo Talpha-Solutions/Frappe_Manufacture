@@ -6,8 +6,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from fitzgerald_kitchens.workbook_import.type_mapping import TypeMappingRow
-
 
 @dataclass(frozen=True)
 class SiteTypeScope:
@@ -33,8 +31,8 @@ def collect_site_type_scopes(rows: list[dict[str, Any]]) -> list[SiteTypeScope]:
 	return scopes
 
 
-def mapping_by_type(type_mappings: list[TypeMappingRow]) -> dict[str, TypeMappingRow]:
-	return {mapping.unit_type: mapping for mapping in type_mappings}
+def unique_unit_types(scopes: list[SiteTypeScope]) -> set[str]:
+	return {scope.unit_type for scope in scopes if scope.unit_type}
 
 
 def count_unique_sites(rows: list[dict[str, Any]]) -> int:

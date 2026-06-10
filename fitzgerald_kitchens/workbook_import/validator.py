@@ -7,7 +7,11 @@ from typing import Any
 
 import frappe
 
-from fitzgerald_kitchens.workbook_import.constants import QTY_COLUMNS
+from fitzgerald_kitchens.workbook_import.constants import (
+	QTY_COLUMNS,
+	SUB_UNIT_PROJECT_QTY_COLUMNS,
+	has_kitchen_unit,
+)
 from fitzgerald_kitchens.workbook_import.scope import collect_site_type_scopes, count_unique_sites
 
 
@@ -54,9 +58,9 @@ def validate_workbook_rows(
 		if not any(qtys.values()):
 			errors.append(f"{row_label}: At least one unit quantity must be greater than zero.")
 
-		if any(qtys[col] > 0 for col, _ptype in QTY_COLUMNS if col != "kitchen_qty") and qtys[
-			"kitchen_qty"
-		] <= 0:
+		if any(qtys[col] > 0 for col, _ptype in SUB_UNIT_PROJECT_QTY_COLUMNS) and not has_kitchen_unit(
+			qtys
+		):
 			errors.append(
 				f"{row_label}: Kitchen quantity must be greater than zero when other unit types are requested."
 			)
@@ -64,8 +68,10 @@ def validate_workbook_rows(
 		if developer and site_name:
 			sites.add((developer, site_name))
 
-		for _col, project_type in QTY_COLUMNS:
-			if qtys[_col] > 0:
+		if has_kitchen_unit(qtys):
+			expected_units += 1
+		for col, _project_type in SUB_UNIT_PROJECT_QTY_COLUMNS:
+			if qtys[col] > 0:
 				expected_units += 1
 
 	preview = {
@@ -93,17 +99,6 @@ def _parse_qty_columns(row: dict[str, Any], row_label: str, errors: list[str]) -
 			errors.append(f"{row_label}: {_column_label(col)} cannot be negative.")
 			value = 0
 		qtys[col] = value
-	return qtys
-
-
-def parse_row_qtys(row: dict[str, Any]) -> dict[str, int]:
-	qtys: dict[str, int] = {}
-	for col, _project_type in QTY_COLUMNS:
-		raw = row.get(col, 0)
-		if raw in (None, ""):
-			qtys[col] = 0
-			continue
-		qtys[col] = int(float(str(raw).strip()))
 	return qtys
 
 

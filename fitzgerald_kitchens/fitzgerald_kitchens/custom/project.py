@@ -2,6 +2,14 @@
 # For license information, please see license.txt
 
 import frappe
+from erpnext.projects.doctype.project.project import Project
+
+
+class CustomProject(Project):
+	def get_installation_manifest_context(self) -> dict:
+		from fitzgerald_kitchens.setup.project_manifest_print import build_installation_manifest_context
+
+		return build_installation_manifest_context(self)
 
 
 @frappe.whitelist()

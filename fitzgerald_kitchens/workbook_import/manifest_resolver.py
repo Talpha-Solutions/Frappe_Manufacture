@@ -11,11 +11,11 @@ KITCHEN_UTILITY_MANIFEST_TYPES = frozenset(
 	{
 		KITCHEN_PROJECT_TYPE,
 		"Utility",
-		"Vanity Unit",
-		"Pantry",
 	}
 )
 ROBE_MANIFEST_TYPE = "Robe"
+VANITY_MANIFEST_TYPE = "Vanity Unit"
+PANTRY_MANIFEST_TYPE = "Pantry"
 
 
 def resolve_effective_manifest(config_code: str | None, project_type: str | None) -> str | None:
@@ -31,7 +31,12 @@ def resolve_effective_manifest(config_code: str | None, project_type: str | None
 	puc = frappe.db.get_value(
 		"Project Unit Configuration",
 		config_code,
-		["kitchen_utility_manifest", "wardrobe_manifest"],
+		[
+			"kitchen_utility_manifest",
+			"wardrobe_manifest",
+			"vanity_unit_manifest",
+			"pantry_manifest",
+		],
 		as_dict=True,
 	)
 	if not puc:
@@ -39,6 +44,12 @@ def resolve_effective_manifest(config_code: str | None, project_type: str | None
 
 	if project_type == ROBE_MANIFEST_TYPE:
 		return puc.wardrobe_manifest or None
+
+	if project_type == VANITY_MANIFEST_TYPE:
+		return puc.vanity_unit_manifest or None
+
+	if project_type == PANTRY_MANIFEST_TYPE:
+		return puc.pantry_manifest or None
 
 	if project_type in KITCHEN_UTILITY_MANIFEST_TYPES:
 		return puc.kitchen_utility_manifest or None

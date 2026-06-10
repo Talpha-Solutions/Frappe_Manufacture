@@ -1,27 +1,30 @@
+import json
+from urllib.parse import quote
+
 import frappe
+
+from fitzgerald_kitchens.setup.project_unit_fields import SITE_PROJECT_TYPE
 
 PROJECTS_SIDEBAR = "Projects"
 MANUFACTURING_SIDEBAR = "Manufacturing"
 
-MAIN_SIDEBAR_ITEM = {
-	"label": "Development Unit",
-	"link_to": "Development Unit",
-	"link_type": "DocType",
-	"type": "Link",
-	"icon": "package",
-	"child": 0,
-	"collapsible": 1,
-	"indent": 0,
-	"keep_closed": 0,
-	"show_arrow": 0,
-}
+SITE_PROJECTS_SIDEBAR_FILTERS = f'[["Project","project_type","=","{SITE_PROJECT_TYPE}"]]'
 
-QR_SCAN_SIDEBAR_ITEM = {
-	"label": "QR Stage Scan",
-	"link_to": "Development Unit QR Scan",
-	"link_type": "DocType",
+
+def unit_projects_list_url() -> str:
+	"""URL preserves != operator (DocType sidebar filters strip it)."""
+	filter_value = quote(json.dumps(["!=", SITE_PROJECT_TYPE]))
+	return f"/desk/project/view/list?project_type={filter_value}"
+
+
+UNIT_PROJECTS_SIDEBAR_ITEM = {
+	"label": "Unit",
+	"link_to": None,
+	"link_type": "URL",
 	"type": "Link",
-	"icon": "scan-barcode",
+	"icon": "organization",
+	"filters": None,
+	"url": unit_projects_list_url(),
 	"child": 0,
 	"collapsible": 1,
 	"indent": 0,
@@ -82,8 +85,20 @@ PROJECT_PRODUCTION_TIME_SUMMARY_ITEM = {
 }
 
 MANUFACTURING_COST_SUMMARY_ITEM = {
-	"label": "Manufacturing Cost Summary",
-	"link_to": "Manufacturing Cost Summary",
+	"label": "Production Cost Summary",
+	"link_to": "Production Cost Summary",
+	"link_type": "Report",
+	"type": "Link",
+	"child": 1,
+	"collapsible": 1,
+	"indent": 0,
+	"keep_closed": 0,
+	"show_arrow": 0,
+}
+
+PROJECT_TENDER_PROFIT_MARGIN_ITEM = {
+	"label": "Project Tender Profit Margin",
+	"link_to": "Project Tender Profit Margin",
 	"link_type": "Report",
 	"type": "Link",
 	"child": 1,
@@ -121,7 +136,14 @@ PROJECT_REPORT_SIDEBAR_ITEMS = [
 	CAPACITY_PIPELINE_REPORT_ITEM,
 	PROJECT_PRODUCTION_TIME_SUMMARY_ITEM,
 	MANUFACTURING_COST_SUMMARY_ITEM,
+	PROJECT_TENDER_PROFIT_MARGIN_ITEM,
 ]
+
+
+REMOVED_PROJECTS_SIDEBAR_LINKS = (
+	"Development Unit",
+	"Development Unit QR Scan",
+)
 
 
 def ensure_projects_sidebar():
@@ -131,13 +153,16 @@ def ensure_projects_sidebar():
 	sidebar = frappe.get_doc("Workspace Sidebar", PROJECTS_SIDEBAR)
 	changed = False
 
-	if _ensure_main_sidebar_item(sidebar):
+	if _remove_projects_sidebar_items(sidebar):
+		changed = True
+
+	if _ensure_site_projects_sidebar_filter(sidebar):
+		changed = True
+
+	if _ensure_unit_projects_sidebar_item(sidebar):
 		changed = True
 
 	if _ensure_my_tasks_sidebar_item(sidebar):
-		changed = True
-
-	if _ensure_qr_scan_sidebar_item(sidebar):
 		changed = True
 
 	if _ensure_setup_sidebar_items(sidebar):
@@ -149,6 +174,85 @@ def ensure_projects_sidebar():
 	if changed:
 		sidebar.flags.ignore_permissions = True
 		sidebar.save()
+
+
+def _ensure_site_projects_sidebar_filter(sidebar):
+	items = [_item_dict(row) for row in sidebar.items]
+	changed = False
+
+	for item in items:
+		if item.get("link_to") != "Project" or item.get("link_type") != "DocType":
+			continue
+		if item.get("label") != "Project":
+			continue
+		if item.get("filters") != SITE_PROJECTS_SIDEBAR_FILTERS:
+			item["filters"] = SITE_PROJECTS_SIDEBAR_FILTERS
+			changed = True
+		break
+
+	if changed:
+		_apply_items(sidebar, items)
+	return changed
+
+
+def _ensure_unit_projects_sidebar_item(sidebar):
+	items = [_item_dict(row) for row in sidebar.items]
+	if _has_sidebar_label(items, UNIT_PROJECTS_SIDEBAR_ITEM["label"]):
+		changed = _sync_unit_projects_sidebar_item(items, sidebar)
+		return changed or _ensure_unit_projects_sidebar_order(sidebar)
+
+	insert_at = _index_of_project_doctype_link(items)
+	if insert_at is None:
+		return False
+
+	items.insert(insert_at + 1, UNIT_PROJECTS_SIDEBAR_ITEM.copy())
+	_apply_items(sidebar, items)
+	return True
+
+
+def _ensure_unit_projects_sidebar_order(sidebar):
+	items = [_item_dict(row) for row in sidebar.items]
+	project_index = _index_of_project_doctype_link(items)
+	unit_index = _index_of_sidebar_label(items, UNIT_PROJECTS_SIDEBAR_ITEM["label"])
+	if project_index is None or unit_index is None or unit_index == project_index + 1:
+		return False
+
+	unit_item = items.pop(unit_index)
+	if unit_index < project_index:
+		project_index = _index_of_project_doctype_link(items)
+	items.insert(project_index + 1, unit_item)
+	_apply_items(sidebar, items)
+	return True
+
+
+def _index_of_sidebar_label(items, label, link_to=None):
+	for index, item in enumerate(items):
+		if item.get("label") != label:
+			continue
+		if link_to and item.get("link_to") != link_to:
+			continue
+		return index
+	return None
+
+
+def _sync_unit_projects_sidebar_item(items, sidebar):
+	changed = False
+	expected_url = unit_projects_list_url()
+	for item in items:
+		if item.get("label") != UNIT_PROJECTS_SIDEBAR_ITEM["label"]:
+			continue
+		for key, value in UNIT_PROJECTS_SIDEBAR_ITEM.items():
+			if item.get(key) != value:
+				item[key] = value
+				changed = True
+		if item.get("url") != expected_url:
+			item["url"] = expected_url
+			changed = True
+		break
+
+	if changed:
+		_apply_items(sidebar, items)
+	return changed
 
 
 def _ensure_projects_reports_sidebar(sidebar):
@@ -255,19 +359,13 @@ def _index_after_reports_section(items):
 	return len(items)
 
 
-def _ensure_main_sidebar_item(sidebar):
-	if _has_sidebar_link(sidebar, MAIN_SIDEBAR_ITEM["link_to"]):
+def _remove_projects_sidebar_items(sidebar):
+	items = [_item_dict(row) for row in sidebar.items]
+	filtered = [item for item in items if item.get("link_to") not in REMOVED_PROJECTS_SIDEBAR_LINKS]
+	if len(filtered) == len(items):
 		return False
 
-	items = [_item_dict(row) for row in sidebar.items]
-	insert_at = _index_of_link(items, "Task")
-	if insert_at is None:
-		insert_at = _index_after_link(items, "Project")
-	if insert_at is None:
-		insert_at = len(items)
-
-	items.insert(insert_at, MAIN_SIDEBAR_ITEM)
-	_apply_items(sidebar, items)
+	_apply_items(sidebar, filtered)
 	return True
 
 
@@ -278,29 +376,15 @@ def _ensure_my_tasks_sidebar_item(sidebar):
 	items = [_item_dict(row) for row in sidebar.items]
 	insert_at = _index_of_link(items, "Task")
 	if insert_at is None:
-		insert_at = _index_of_link(items, QR_SCAN_SIDEBAR_ITEM["link_to"])
-		if insert_at is not None:
-			insert_at += 1
+		unit_index = _index_of_sidebar_label(items, UNIT_PROJECTS_SIDEBAR_ITEM["label"])
+		if unit_index is not None:
+			insert_at = unit_index + 1
+	if insert_at is None:
+		insert_at = _index_after_link(items, "Project")
 	if insert_at is None:
 		insert_at = len(items)
 
 	items.insert(insert_at, MY_TASKS_SIDEBAR_ITEM)
-	_apply_items(sidebar, items)
-	return True
-
-
-def _ensure_qr_scan_sidebar_item(sidebar):
-	if _has_sidebar_link(sidebar, QR_SCAN_SIDEBAR_ITEM["link_to"]):
-		return False
-
-	items = [_item_dict(row) for row in sidebar.items]
-	insert_at = _index_of_link(items, MAIN_SIDEBAR_ITEM["link_to"])
-	if insert_at is None:
-		insert_at = len(items)
-	else:
-		insert_at += 1
-
-	items.insert(insert_at, QR_SCAN_SIDEBAR_ITEM)
 	_apply_items(sidebar, items)
 	return True
 
@@ -352,6 +436,17 @@ def _setup_section_end_index(items):
 	return len(items) if setup_start is not None else None
 
 
+def _index_of_project_doctype_link(items):
+	for index, item in enumerate(items):
+		if item.get("link_to") != "Project":
+			continue
+		if item.get("link_type") != "DocType":
+			continue
+		if item.get("label") == "Project":
+			return index
+	return None
+
+
 def _index_of_link(items, link_to):
 	for index, item in enumerate(items):
 		if item.get("link_to") == link_to:
@@ -370,6 +465,16 @@ def _has_sidebar_link(sidebar, link_to):
 
 def _has_link_in(items, link_to):
 	return any(item.get("link_to") == link_to for item in items)
+
+
+def _has_sidebar_label(items, label, link_to=None):
+	for item in items:
+		if item.get("label") != label:
+			continue
+		if link_to is not None and item.get("link_to") != link_to:
+			continue
+		return True
+	return False
 
 
 def _remove_sidebar_link(sidebar, link_to):

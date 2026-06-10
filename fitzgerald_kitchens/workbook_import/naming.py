@@ -9,8 +9,15 @@ import frappe
 
 _INVALID_SCOPE_CHARS = re.compile(r"[\|/\\]+")
 
-# Short label in unit project_name (Quantity Sheet Number column value).
-UNIT_LOCATION_PREFIX = "Apt"
+# Label for Quantity Sheet Number column in display titles (was "Apt").
+UNIT_LOCATION_PREFIX = "Unit"
+
+
+def format_unit_location_label(house_number: str) -> str:
+	number = str(house_number or "").strip()
+	if not number:
+		return UNIT_LOCATION_PREFIX
+	return f"{UNIT_LOCATION_PREFIX} {number}"
 
 
 def normalize_site_scope(site_name: str) -> str:
@@ -43,8 +50,44 @@ def build_robe_manifest_code(unit_type: str, site_name: str) -> str:
 	return f"{(unit_type or '').strip()}-Robe-Manifest-{normalize_site_scope(site_name)}"
 
 
+def build_vanity_manifest_code(unit_type: str, site_name: str) -> str:
+	return f"{(unit_type or '').strip()}-Vanity-Manifest-{normalize_site_scope(site_name)}"
+
+
+def build_pantry_manifest_code(unit_type: str, site_name: str) -> str:
+	return f"{(unit_type or '').strip()}-Pantry-Manifest-{normalize_site_scope(site_name)}"
+
+
 def build_unit_project_name(site_name: str, house_number: str, project_type: str) -> str:
-	return f"{site_name.strip()} | {UNIT_LOCATION_PREFIX} {house_number} | {project_type}"
+	return f"{format_unit_location_label(house_number)} | {project_type} | {site_name.strip()}"
+
+
+def unit_context_label_for_project(project) -> str:
+	"""Full unit label e.g. Unit 11 | Kitchen | The Lane MOCKSITE."""
+	if isinstance(project, str):
+		project = frappe.get_doc("Project", project)
+	elif not hasattr(project, "get"):
+		project = frappe._dict(project)
+
+	if project.get("project_name") and project.get("fk_parent_project"):
+		return project.project_name.strip()
+
+	if project.get("fk_parent_project") and project.get("fk_house_number"):
+		site_name = frappe.db.get_value("Project", project.fk_parent_project, "project_name") or ""
+		return build_unit_project_name(site_name, project.fk_house_number, project.project_type or "")
+
+	return ""
+
+
+def format_task_subject_with_unit_context(subject: str, unit_context: str) -> str:
+	subject = (subject or "").strip()
+	unit_context = (unit_context or "").strip()
+	if not unit_context:
+		return subject
+	suffix = f" - {unit_context}"
+	if subject.endswith(suffix):
+		return subject
+	return f"{subject}{suffix}"
 
 
 def apply_site_scoped_configuration_codes(rows: list[dict]) -> None:

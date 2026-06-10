@@ -9,7 +9,6 @@
    {
     "child": 0,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": "home",
     "indent": 0,
@@ -26,7 +25,6 @@
    {
     "child": 0,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": "chart",
     "indent": 0,
@@ -43,8 +41,7 @@
    {
     "child": 0,
     "collapsible": 1,
-    "display_depends_on": null,
-    "filters": null,
+    "filters": "[[\"Project\",\"project_type\",\"=\",\"Site\"]]",
     "icon": "projects",
     "indent": 0,
     "keep_closed": 0,
@@ -60,41 +57,22 @@
    {
     "child": 0,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
-    "icon": "package",
+    "icon": "organization",
     "indent": 0,
     "keep_closed": 0,
-    "label": "Development Unit",
-    "link_to": "Development Unit",
-    "link_type": "DocType",
+    "label": "Unit",
+    "link_to": null,
+    "link_type": "URL",
     "navigate_to_tab": null,
     "route_options": null,
     "show_arrow": 0,
     "type": "Link",
-    "url": null
+    "url": "/desk/project/view/list?project_type=%5B%22%21%3D%22%2C%20%22Site%22%5D"
    },
    {
     "child": 0,
     "collapsible": 1,
-    "display_depends_on": null,
-    "filters": null,
-    "icon": "scan-barcode",
-    "indent": 0,
-    "keep_closed": 0,
-    "label": "QR Stage Scan",
-    "link_to": "Development Unit QR Scan",
-    "link_type": "DocType",
-    "navigate_to_tab": null,
-    "route_options": null,
-    "show_arrow": 0,
-    "type": "Link",
-    "url": null
-   },
-   {
-    "child": 0,
-    "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": "list-checks",
     "indent": 0,
@@ -111,7 +89,6 @@
    {
     "child": 0,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": "list-todo",
     "indent": 0,
@@ -128,7 +105,6 @@
    {
     "child": 0,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": "calendar-clock",
     "indent": 0,
@@ -145,7 +121,6 @@
    {
     "child": 0,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": "database",
     "indent": 1,
@@ -162,7 +137,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -179,7 +153,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -196,7 +169,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -213,7 +185,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -230,7 +201,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -247,7 +217,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -264,7 +233,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -281,7 +249,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -298,7 +265,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -315,7 +281,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -332,7 +297,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -349,7 +313,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -366,7 +329,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -383,7 +345,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -400,7 +361,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -417,7 +377,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -434,7 +393,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -451,7 +409,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -468,7 +425,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -485,7 +441,6 @@
    {
     "child": 0,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": "sheet",
     "indent": 1,
@@ -502,7 +457,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -519,7 +473,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": "",
     "indent": 0,
@@ -536,7 +489,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -553,13 +505,12 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
     "keep_closed": 0,
-    "label": "Manufacturing Cost Summary",
-    "link_to": "Manufacturing Cost Summary",
+    "label": "Production Cost Summary",
+    "link_to": "Production Cost Summary",
     "link_type": "Report",
     "navigate_to_tab": null,
     "route_options": null,
@@ -570,7 +521,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -587,7 +537,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -604,7 +553,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -621,7 +569,6 @@
    {
     "child": 1,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": null,
     "indent": 0,
@@ -638,7 +585,6 @@
    {
     "child": 0,
     "collapsible": 1,
-    "display_depends_on": null,
     "filters": null,
     "icon": "settings",
     "indent": 0,
@@ -653,7 +599,7 @@
     "url": null
    }
   ],
-  "modified": "2026-06-02 08:26:08.597976",
+  "modified": "2026-06-08 12:57:08.951241",
   "module": "Projects",
   "module_onboarding": "Projects Onboarding",
   "name": "Projects",
