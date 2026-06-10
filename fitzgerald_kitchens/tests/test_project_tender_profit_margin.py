@@ -293,17 +293,35 @@ class TestProjectTenderProfitMargin(IntegrationTestCase):
 			}
 		)
 
-	def _create_kitchen(self, project_name, site, company, **kwargs):
+	def _create_kitchen(self, project_name, site, company, project_type="Kitchen", **kwargs):
 		values = {
 			"doctype": "Project",
 			"project_name": project_name,
-			"project_type": "Kitchen",
+			"project_type": project_type,
 			"company": company,
 			**kwargs,
 		}
 		if site:
 			values["fk_parent_project"] = site
 		return self._insert_project(values)
+
+	def test_robe_child_included_when_site_linked_to_tender(self):
+		company = self._get_company()
+		tender_name, _tender_price = self._get_existing_tender()
+		if not tender_name:
+			self.skipTest("No Tender Configuration available in test database")
+
+		site = self._create_site("Mixed Child Site", company=company, tender=tender_name)
+		kitchen = self._create_kitchen("Kitchen Child", site.name, company=company)
+		robe = self._create_kitchen("Robe Child", site.name, company=company, project_type="Robe")
+
+		data = get_data(self._report_filters(company, site=site.name))
+		child_units = {row["kitchen_unit"] for row in data}
+
+		self.assertIn(kitchen.name, child_units)
+		self.assertIn(robe.name, child_units)
+		robe_row = next(row for row in data if row["kitchen_unit"] == robe.name)
+		self.assertEqual(robe_row["project_type"], "Robe")
 
 	def _create_work_order(self, project, company, planned_start_date=None):
 		item = frappe.db.get_value("Item", {"is_stock_item": 1}, "name")

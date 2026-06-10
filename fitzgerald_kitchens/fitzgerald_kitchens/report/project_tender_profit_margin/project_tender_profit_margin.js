@@ -126,15 +126,15 @@ frappe.query_reports[PTPM_REPORT_NAME] = {
 			},
 		},
 		{
-			label: __("Kitchen Unit"),
+			label: __("Child Project"),
 			fieldname: "kitchen_unit",
 			fieldtype: "Link",
 			options: "Project",
 			get_query: () => {
-				const filters = { project_type: "Kitchen" };
+				const filters = [["Project", "project_type", "!=", "Site"]];
 				const site = ptpm_get_site_filter();
 				if (site) {
-					filters.fk_parent_project = site;
+					filters.push(["Project", "fk_parent_project", "=", site]);
 				}
 				return { filters };
 			},
@@ -217,7 +217,7 @@ frappe.query_reports[PTPM_REPORT_NAME] = {
 };
 
 function ptpm_build_chart_title(site_name) {
-	const title = __("Kitchen Unit Cost vs Tender");
+	const title = __("Child Project Cost vs Tender");
 	const name = (site_name || "").trim();
 	if (!name) {
 		return title;
@@ -568,15 +568,17 @@ function ptpm_format_currency(value) {
 function ptpm_chart_axis_label(row) {
 	const code = (row.kitchen_unit || "").trim();
 	const name = (row.kitchen_name || "").trim();
+	const project_type = (row.project_type || "").trim();
 	if (code) {
 		if (code.length <= 14) {
-			return code;
+			return project_type ? `${code} (${project_type})` : code;
 		}
 		const parts = code.split("-");
 		if (parts.length >= 2) {
-			return parts.slice(-2).join("-");
+			const short_code = parts.slice(-2).join("-");
+			return project_type ? `${short_code} (${project_type})` : short_code;
 		}
-		return code;
+		return project_type ? `${code} (${project_type})` : code;
 	}
 	return name || code;
 }
@@ -750,7 +752,7 @@ function ptpm_margin_value_class(avg_margin_pct) {
 
 function ptpm_over_tender_foot(over_units) {
 	if (!over_units.length) {
-		return __("all kitchen units within tender");
+		return __("all child projects within tender");
 	}
 
 	const labels = over_units
@@ -887,7 +889,7 @@ function ptpm_site_banner_html(site_ctx) {
 					<div class="ptpm-site-banner-value ptpm-site-banner-value--tender">${tender_price}</div>
 				</div>
 				<div class="ptpm-site-banner-item">
-					<div class="ptpm-site-banner-label">${__("Kitchen Units")}</div>
+					<div class="ptpm-site-banner-label">${__("Child Projects")}</div>
 					<div class="ptpm-site-banner-value">${site_ctx.kitchen_count}</div>
 				</div>
 			</div>
@@ -922,7 +924,7 @@ function ptpm_render_kpi_cards($dash, kpi) {
 			label: __("Avg profit margin"),
 			value: ptpm_format_currency(kpi.avg_profit_margin),
 			value_cls: kpi.avg_profit_margin >= 0 ? "ptpm-kpi-value--orange" : "ptpm-kpi-value--red",
-			foot: __("average per kitchen unit"),
+			foot: __("average per child project"),
 		},
 	];
 
@@ -989,12 +991,12 @@ async function ptpm_render_dashboard() {
 	const chart_site_name = ptpm_resolve_chart_site_name(site_ctx, rows, site_filter);
 	const chart_title = ptpm_build_chart_title(chart_site_name);
 	const chart_sub = site_ctx
-		? `${__("Kitchen units under selected site only")} · ${__(
+		? `${__("All child projects under selected site")} · ${__(
 				"Tender Price Per Kitchen"
 		  )} ${ptpm_format_currency(site_ctx.tender_price)} ${__(
 				"from linked tender"
 		  )} · ${from_label} — ${to_label}`
-		: __("Select a Site Project to view kitchen unit costs against the site tender");
+		: __("Select a Site Project to view child project costs against the site tender");
 
 	const dashboard = $(`
 		<div class="ptpm-dashboard">
@@ -1079,7 +1081,7 @@ function ptpm_render_chart($dash, units, site_ctx) {
 		ptpm_render_empty_chart(
 			$dash,
 			site_ctx?.tender_price
-				? __("No kitchen units found for this site")
+				? __("No child projects found for this site")
 				: __("This site has no linked Tender Configuration")
 		);
 		return;

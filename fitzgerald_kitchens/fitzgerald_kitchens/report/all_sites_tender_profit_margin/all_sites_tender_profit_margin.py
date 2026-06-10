@@ -13,6 +13,7 @@ from fitzgerald_kitchens.fitzgerald_kitchens.report.project_tender_profit_margin
 	_get_kitchen_completion_by_site,
 	_resolve_tender_price_per_kitchen,
 	_resolve_tender_price_total,
+	_site_child_project_filters,
 	get_kitchen_unit_margin_data,
 )
 
@@ -32,7 +33,8 @@ def execute(filters=None):
 	message = _(
 		"Site-level tender profit margin for all Site projects in the selected company, "
 		"whether or not a Tender Configuration is linked. Tender Price uses the linked "
-		"tender's Tender Price total. Costs are rolled up from kitchen units under each site."
+		"tender's Tender Price total. Costs are rolled up from all child projects under "
+		"each site (Kitchen, Robe, Utility, and other unit types)."
 	)
 	return columns, data, message
 
@@ -57,11 +59,7 @@ def _get_kitchen_counts_by_site(site_names):
 	counts = defaultdict(int)
 	for row in frappe.get_all(
 		"Project",
-		filters={
-			"docstatus": ("<", 2),
-			"project_type": "Kitchen",
-			"fk_parent_project": ("in", site_names),
-		},
+		filters=_site_child_project_filters(site_names),
 		fields=["fk_parent_project"],
 	):
 		counts[row.fk_parent_project] += 1
@@ -211,7 +209,7 @@ def get_columns(filters):
 			"width": 180,
 		},
 		{
-			"label": _("Kitchen Units"),
+			"label": _("Child Projects"),
 			"fieldname": "kitchen_count",
 			"fieldtype": "Int",
 			"width": 110,

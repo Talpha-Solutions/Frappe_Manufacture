@@ -503,7 +503,7 @@ function astpm_render_kpi_cards($dash, kpi) {
 			label: __("Sites with tender"),
 			value: kpi.site_count,
 			value_cls: "",
-			foot: `${kpi.kitchen_count} ${__("kitchen units with cost")}`,
+			foot: `${kpi.kitchen_count} ${__("child projects")}`,
 		},
 		{
 			cls: "astpm-kpi-card--green",
@@ -743,7 +743,7 @@ function astpm_bind_chart_hover($canvas, $tooltip, sites, layout) {
 		$tooltip.html(`
 			<div class="astpm-chart-tooltip-title">${frappe.utils.escape_html(site.label)}</div>
 			<div class="astpm-chart-tooltip-meta">${frappe.utils.escape_html(site.site)} · ${site.kitchen_count} ${__(
-				"kitchen units"
+				"child projects"
 			)}</div>
 			<div class="astpm-chart-tooltip-meta">${__("Tender")}: ${frappe.utils.escape_html(site.tender_name || "—")}</div>
 			<div class="astpm-chart-tooltip-divider"></div>

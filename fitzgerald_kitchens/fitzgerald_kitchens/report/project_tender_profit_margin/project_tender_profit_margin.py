@@ -12,14 +12,30 @@ from fitzgerald_kitchens.fitzgerald_kitchens.utils.project_manufacturing_cost im
 	get_work_order_metrics,
 )
 
+SITE_PROJECT_TYPE = "Site"
+
+
+def _site_child_project_filters(site_names, *, project_name=None):
+	"""All non-Site child projects linked to the given site projects."""
+	filters = {
+		"docstatus": ("<", 2),
+		"project_type": ("!=", SITE_PROJECT_TYPE),
+		"fk_parent_project": ("in", site_names),
+	}
+	if project_name:
+		filters["name"] = project_name
+	return filters
+
 
 def execute(filters=None):
 	data = get_data(filters)
 	columns = get_columns(filters)
 	message = _(
 		"Select a Site Project with a linked Tender Configuration. Margin uses Tender Price "
-		"Per Kitchen from that tender. Manufacturing and task actual costs use the From/To Date "
-		"filter; expense claims, purchase, and material costs are cumulative project totals."
+		"Per Kitchen from that tender. Costs include all child projects under the site "
+		"(Kitchen, Robe, Utility, and other unit types). Manufacturing and task actual costs "
+		"use the From/To Date filter; expense claims, purchase, and material costs are "
+		"cumulative project totals."
 	)
 	return columns, data, message
 
@@ -35,7 +51,7 @@ def get_data(filters):
 
 
 def get_kitchen_unit_margin_data(filters, include_all_sites=False):
-	"""Per-kitchen margin rows. When include_all_sites is True, all Site projects are included."""
+	"""Per child-project margin rows. When include_all_sites is True, all Site projects are included."""
 	filters = frappe._dict(filters or {})
 	if filters.get("site_project"):
 		filters.site_project = _resolve_site_project_filter(filters.site_project)
@@ -47,11 +63,7 @@ def get_kitchen_unit_margin_data(filters, include_all_sites=False):
 	site_by_name = {row.name: row for row in sites}
 	site_names = list(site_by_name)
 
-	unit_filters = {
-		"docstatus": ("<", 2),
-		"project_type": "Kitchen",
-		"fk_parent_project": ("in", site_names),
-	}
+	unit_filters = _site_child_project_filters(site_names)
 	if filters.get("kitchen_unit"):
 		unit_filters["name"] = filters.kitchen_unit
 
@@ -61,13 +73,14 @@ def get_kitchen_unit_margin_data(filters, include_all_sites=False):
 		fields=[
 			"name",
 			"project_name",
+			"project_type",
 			"fk_parent_project",
 			"status",
 			"total_expense_claim",
 			"total_purchase_cost",
 			"total_consumed_material_cost",
 		],
-		order_by="fk_parent_project asc, name asc",
+		order_by="fk_parent_project asc, project_type asc, name asc",
 	)
 	if not units and not include_all_sites:
 		return []
@@ -136,6 +149,7 @@ def get_kitchen_unit_margin_data(filters, include_all_sites=False):
 				"is_site_delayed": 1 if site.name in delayed_sites else 0,
 				"kitchen_unit": unit.name,
 				"kitchen_name": unit.project_name or unit.name,
+				"project_type": unit.project_type or "",
 				"kitchen_status": unit.status or "",
 				"is_kitchen_completed": 1 if unit.status == "Completed" else 0,
 				"tender_configuration": tender.name if tender else "",
@@ -164,18 +178,14 @@ def _get_delayed_site_names(site_names):
 
 
 def _get_kitchen_completion_by_site(site_names):
-	"""Return site names where every kitchen child project has status Completed."""
+	"""Return site names where every child project under the site has status Completed."""
 	if not site_names:
 		return set()
 
 	counts = {}
 	for row in frappe.get_all(
 		"Project",
-		filters={
-			"docstatus": ("<", 2),
-			"project_type": "Kitchen",
-			"fk_parent_project": ("in", site_names),
-		},
+		filters=_site_child_project_filters(site_names),
 		fields=["fk_parent_project", "status"],
 	):
 		site_key = row.fk_parent_project
@@ -392,17 +402,23 @@ def get_columns(filters):
 			"width": 160,
 		},
 		{
-			"label": _("Kitchen Unit"),
+			"label": _("Child Project"),
 			"fieldname": "kitchen_unit",
 			"fieldtype": "Link",
 			"options": "Project",
 			"width": 120,
 		},
 		{
-			"label": _("Kitchen Name"),
+			"label": _("Project Name"),
 			"fieldname": "kitchen_name",
 			"fieldtype": "Data",
 			"width": 180,
+		},
+		{
+			"label": _("Project Type"),
+			"fieldname": "project_type",
+			"fieldtype": "Data",
+			"width": 110,
 		},
 		{
 			"label": _("Tender Configuration"),
