@@ -4,6 +4,9 @@ const METHOD_BASE =
 frappe.ui.form.on("Tender Configuration", {
 	async refresh(frm) {
 		render_top_intro(frm);
+		if (frm.is_new() && !frm.doc.naming_series) {
+			frm.set_value("naming_series", "KC-.YYYY.-.#####");
+		}
 		if (frm.is_new() && !frm.doc.template) {
 			await load_default_template(frm);
 		}

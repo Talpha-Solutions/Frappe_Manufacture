@@ -1,11 +1,12 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:KC-.YYYY.-.#####",
+ "autoname": "naming_series:",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "top_intro",
+  "naming_series",
   "tender_name",
   "template",
   "kitchens_to_tender",
@@ -44,6 +45,14 @@
   {
    "fieldname": "top_intro",
    "fieldtype": "HTML"
+  },
+  {
+   "default": "KC-.YYYY.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "KC-.YYYY.-.#####",
+   "reqd": 1
   },
   {
    "fieldname": "tender_name",
@@ -252,7 +261,7 @@
  "module": "fitzgerald_kitchens",
  "default_print_format": "Kitchen Configuration Tender Summary",
  "name": "Tender Configuration",
- "naming_rule": "Set by user",
+ "naming_rule": "By \"Naming Series\" rule",
  "permissions": [
   {
    "create": 1,

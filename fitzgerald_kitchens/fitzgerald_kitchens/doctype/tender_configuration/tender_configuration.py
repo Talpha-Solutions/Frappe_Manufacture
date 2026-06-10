@@ -13,6 +13,10 @@ STANDARD_SELLING_PRICE_LIST = "Standard Selling"
 
 
 class TenderConfiguration(Document):
+	def before_insert(self):
+		if not self.naming_series:
+			self.naming_series = "KC-.YYYY.-.#####"
+
 	def validate(self):
 		if not self.template:
 			frappe.throw(_("Template is required."))
