@@ -45,6 +45,13 @@ class TestProjectTenderProfitMargin(IntegrationTestCase):
 		self.assertEqual(result["total_cost"], 290)
 		self.assertEqual(result["profit_margin"], 10)
 
+	def test_compute_profit_margin_metrics_zero_cost_zeros_margin(self):
+		result = compute_profit_margin_metrics(0, 0, 0, 0, 300)
+
+		self.assertEqual(result["total_cost"], 0)
+		self.assertEqual(result["profit_margin"], 0)
+		self.assertEqual(result["margin_pct"], 0)
+
 	def test_format_site_project_label(self):
 		self.assertEqual(
 			_format_site_project_label("PROJ-0014", "The Avenue MOCKSITE"),
@@ -127,7 +134,8 @@ class TestProjectTenderProfitMargin(IntegrationTestCase):
 
 		zero_row = next(row for row in data if row["kitchen_unit"] == kitchen_zero_cost.name)
 		self.assertEqual(zero_row["total_cost"], 0)
-		self.assertAlmostEqual(flt(zero_row["profit_margin"]), flt(tender_price), places=2)
+		self.assertEqual(zero_row["profit_margin"], 0)
+		self.assertEqual(zero_row["margin_pct"], 0)
 
 	def test_kitchen_status_fields_included(self):
 		company = self._get_company()

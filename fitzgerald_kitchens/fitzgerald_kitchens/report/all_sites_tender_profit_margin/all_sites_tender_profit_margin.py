@@ -174,9 +174,14 @@ def aggregate_site_margin_rows(unit_rows, all_sites=None):
 
 		total_tender = flt(agg["tender_price"], 2)
 		total_cost = flt(agg["total_cost"], 2)
-		profit_margin = flt(total_tender - total_cost, 2)
-		cost_variance = flt(total_cost - total_tender, 2)
-		margin_pct = flt((profit_margin / total_tender) * 100, 2) if total_tender else 0
+		if not total_cost:
+			profit_margin = 0
+			margin_pct = 0
+			cost_variance = flt(total_cost - total_tender, 2)
+		else:
+			profit_margin = flt(total_tender - total_cost, 2)
+			cost_variance = flt(total_cost - total_tender, 2)
+			margin_pct = flt((profit_margin / total_tender) * 100, 2) if total_tender else 0
 
 		data.append(
 			{

@@ -229,9 +229,13 @@ def compute_profit_margin_metrics(
 		2,
 	)
 	tender_price = flt(tender_price_per_kitchen, 2)
-	profit_margin = flt(tender_price - total_cost, 2)
 	cost_variance = flt(total_cost - tender_price, 2)
-	margin_pct = flt((profit_margin / tender_price) * 100, 2) if tender_price else 0
+	if not total_cost:
+		profit_margin = 0
+		margin_pct = 0
+	else:
+		profit_margin = flt(tender_price - total_cost, 2)
+		margin_pct = flt((profit_margin / tender_price) * 100, 2) if tender_price else 0
 	return {
 		"manufacturing_actual_cost": manufacturing_actual,
 		"task_actual_cost": task_actual_cost,

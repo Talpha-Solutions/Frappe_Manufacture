@@ -554,6 +554,24 @@ function ptpm_is_kitchen_completed(unit) {
 	return cint(unit.is_kitchen_completed ?? unit.row?.is_kitchen_completed) === 1;
 }
 
+function ptpm_unit_status(unit) {
+	return (unit.row?.kitchen_status || unit.kitchen_status || "").trim();
+}
+
+function ptpm_is_unit_not_started(unit) {
+	return ptpm_unit_status(unit) === "Not Started";
+}
+
+function ptpm_display_margin_values(unit) {
+	if (ptpm_is_unit_not_started(unit) || ptpm_unit_total_cost(unit) <= 0) {
+		return { profit_margin: 0, margin_pct: 0 };
+	}
+	return {
+		profit_margin: ptpm_unit_profit_margin(unit),
+		margin_pct: ptpm_unit_margin_pct(unit),
+	};
+}
+
 function ptpm_format_chart_bar_margin_pct(value) {
 	return `${Math.round(flt(value))}%`;
 }
@@ -709,8 +727,9 @@ function ptpm_collect_kpi_data(units) {
 		});
 	});
 	const over_units = units.filter((u) => u.over_tender);
-	const margin_pcts = units.map((u) => u.margin_pct);
-	const margins = units.map((u) => u.profit_margin);
+	const completed_units = units.filter((u) => ptpm_is_kitchen_completed(u));
+	const margin_pcts = completed_units.map((u) => u.margin_pct);
+	const margins = completed_units.map((u) => u.profit_margin);
 	const avg_margin_pct = margin_pcts.length
 		? margin_pcts.reduce((sum, pct) => sum + pct, 0) / margin_pcts.length
 		: 0;
@@ -720,6 +739,7 @@ function ptpm_collect_kpi_data(units) {
 
 	return {
 		unit_count: units.length,
+		completed_count: completed_units.length,
 		site_count: site_names.length,
 		delayed_sites,
 		delayed_count: delayed_sites.length,
@@ -910,7 +930,10 @@ function ptpm_render_kpi_cards($dash, kpi) {
 			label: __("Avg margin %"),
 			value: `${Math.round(kpi.avg_margin_pct)}%`,
 			value_cls: ptpm_margin_value_class(kpi.avg_margin_pct),
-			foot: ptpm_margin_status(kpi.avg_margin_pct),
+			foot:
+				kpi.completed_count > 0
+					? `${kpi.completed_count} ${__("completed")} · ${ptpm_margin_status(kpi.avg_margin_pct)}`
+					: __("completed child projects only"),
 		},
 		{
 			cls: "ptpm-kpi-card--red",
@@ -924,7 +947,10 @@ function ptpm_render_kpi_cards($dash, kpi) {
 			label: __("Avg profit margin"),
 			value: ptpm_format_currency(kpi.avg_profit_margin),
 			value_cls: kpi.avg_profit_margin >= 0 ? "ptpm-kpi-value--orange" : "ptpm-kpi-value--red",
-			foot: __("average per child project"),
+			foot:
+				kpi.completed_count > 0
+					? `${__("average per completed child project")} (${kpi.completed_count})`
+					: __("completed child projects only"),
 		},
 	];
 
@@ -1040,6 +1066,7 @@ async function ptpm_render_dashboard() {
 function ptpm_empty_kpi_data() {
 	return {
 		unit_count: 0,
+		completed_count: 0,
 		site_count: 0,
 		delayed_sites: [],
 		delayed_count: 0,
@@ -1140,7 +1167,7 @@ function ptpm_render_chart($dash, units, site_ctx) {
 			y_cursor = y;
 		});
 
-		const margin_pct = ptpm_unit_margin_pct(unit);
+		const margin_pct = ptpm_display_margin_values(unit).margin_pct;
 		const margin_cls = ptpm_profit_margin_bar_class(margin_pct);
 		const has_bar = total_cost > 0 || stack_total > 0;
 		if (ptpm_is_kitchen_completed(unit)) {
@@ -1251,7 +1278,7 @@ function ptpm_bind_chart_hover($canvas, $tooltip, units, layout) {
 		const tender_price = flt(site_tender_price);
 		const cutoff_y = y_scale(tender_price);
 		const total_cost = ptpm_unit_total_cost(unit);
-		const profit_margin = ptpm_unit_profit_margin(unit);
+		const { profit_margin, margin_pct } = ptpm_display_margin_values(unit);
 		const margin_cls = ptpm_profit_margin_tooltip_class(profit_margin);
 
 		let segments_html = "";
@@ -1282,7 +1309,7 @@ function ptpm_bind_chart_hover($canvas, $tooltip, units, layout) {
 				<span>${__("Profit Margin")}</span><strong>${ptpm_format_currency(profit_margin)}</strong>
 			</div>
 			<div class="ptpm-chart-tooltip-row ${margin_cls}">
-				<span>${__("Margin %")}</span><strong>${unit.margin_pct.toFixed(2)}%</strong>
+				<span>${__("Margin %")}</span><strong>${margin_pct.toFixed(2)}%</strong>
 			</div>
 		`);
 		ptpm_position_chart_tooltip($tooltip, e);

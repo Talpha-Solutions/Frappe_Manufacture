@@ -207,7 +207,7 @@ function astpm_inject_styles() {
 		.astpm-chart-x-label--rotated { text-anchor: end; }
 		.astpm-chart-y-label { fill: #aeb6bf; font-size: 10px; text-anchor: end; }
 		.astpm-table-heading { font-size: 13px; font-weight: 700; color: #1f272e; padding: 18px 0 8px; border-top: 1px solid #eef0f3; margin-top: 8px; }
-	`, "astpm-report-styles-v10");
+	`, "astpm-report-styles-v11");
 }
 
 function astpm_hide_default_chrome() {
@@ -375,8 +375,9 @@ function astpm_collect_kpi_data(sites) {
 		.filter((site) => cint(site.row.is_site_delayed))
 		.map((site) => ({ site: site.site, site_name: site.label }));
 	const over_sites = sites.filter((site) => site.over_tender);
-	const margin_pcts = sites.map((site) => site.margin_pct);
-	const margins = sites.map((site) => site.profit_margin);
+	const completed_sites = sites.filter((site) => astpm_all_kitchens_completed(site));
+	const margin_pcts = completed_sites.map((site) => site.margin_pct);
+	const margins = completed_sites.map((site) => site.profit_margin);
 	const avg_margin_pct = margin_pcts.length
 		? margin_pcts.reduce((sum, pct) => sum + pct, 0) / margin_pcts.length
 		: 0;
@@ -386,6 +387,7 @@ function astpm_collect_kpi_data(sites) {
 
 	return {
 		site_count: sites.length,
+		completed_site_count: completed_sites.length,
 		kitchen_count: sites.reduce((sum, site) => sum + site.kitchen_count, 0),
 		delayed_sites,
 		delayed_count: delayed_sites.length,
@@ -469,7 +471,7 @@ function astpm_render_tender_price_bar_svg(cx, bar_w, tender_price, y_scale) {
 		return { svg: "", top_y: baseline_y, marker_y: baseline_y };
 	}
 
-	let svg = `<rect class="astpm-chart-tender-bar" x="${cx - bar_w / 2}" y="${top_y}" width="${bar_w}" height="${bar_h}" fill="#f1948a" stroke="#e74c3c" stroke-width="1.5" rx="2"></rect>`;
+	let svg = `<rect class="astpm-chart-tender-bar" x="${cx - bar_w / 2}" y="${top_y}" width="${bar_w}" height="${bar_h}" fill="#abebc6" stroke="#27ae60" stroke-width="1.5" rx="2"></rect>`;
 	if (bar_h >= 14) {
 		svg += `<text class="astpm-chart-seg-label" x="${cx}" y="${top_y + bar_h / 2 + 4}">${Math.round(
 			tender_val
@@ -510,7 +512,12 @@ function astpm_render_kpi_cards($dash, kpi) {
 			label: __("Avg margin %"),
 			value: `${Math.round(kpi.avg_margin_pct)}%`,
 			value_cls: astpm_margin_value_class(kpi.avg_margin_pct),
-			foot: astpm_margin_status(kpi.avg_margin_pct),
+			foot:
+				kpi.completed_site_count > 0
+					? `${kpi.completed_site_count} ${__("sites fully completed")} · ${astpm_margin_status(
+							kpi.avg_margin_pct
+					  )}`
+					: __("all child projects completed per site"),
 		},
 		{
 			cls: "astpm-kpi-card--red",
@@ -554,7 +561,7 @@ function astpm_render_legend($dash) {
 	$dash.find(".astpm-legend").html(`
 		${segment_legend}
 		<span class="astpm-legend-item">
-			<span class="astpm-legend-swatch" style="background:#f1948a;border:1px solid #e74c3c"></span>
+			<span class="astpm-legend-swatch" style="background:#abebc6;border:1px solid #27ae60"></span>
 			<span>${__("Tender Price")}</span>
 		</span>
 	`);
