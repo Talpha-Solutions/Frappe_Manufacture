@@ -65,3 +65,4 @@ fitzgerald_kitchens.patches.v1_0.rename_manufacturing_cost_summary_report
 fitzgerald_kitchens.patches.v1_0.fix_tender_configuration_naming
 fitzgerald_kitchens.patches.v1_0.add_project_tender_link
 fitzgerald_kitchens.patches.v1_0.update_project_tender_form_fields
+fitzgerald_kitchens.patches.v1_0.add_project_actual_timeline_sidebar
