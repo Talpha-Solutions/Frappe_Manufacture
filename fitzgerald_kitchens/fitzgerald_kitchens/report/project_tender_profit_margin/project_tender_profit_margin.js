@@ -393,7 +393,7 @@ function ptpm_setup_site_project_filter() {
 }
 
 function ptpm_inject_styles() {
-	if (document.getElementById("ptpm-report-styles-v2")) {
+	if (document.getElementById("ptpm-report-styles-v7")) {
 		return;
 	}
 	frappe.dom.set_style(`
@@ -505,7 +505,7 @@ function ptpm_inject_styles() {
 		.ptpm-chart-x-label--rotated { text-anchor: end; }
 		.ptpm-chart-y-label { fill: #aeb6bf; font-size: 10px; text-anchor: end; }
 		.ptpm-table-heading { font-size: 13px; font-weight: 700; color: #1f272e; padding: 18px 0 8px; border-top: 1px solid #eef0f3; margin-top: 8px; }
-	`, "ptpm-report-styles-v4");
+	`, "ptpm-report-styles-v7");
 }
 
 function ptpm_get_report_rows() {
@@ -538,16 +538,24 @@ function ptpm_profit_margin_tooltip_class(margin) {
 	return flt(margin) >= 0 ? "ptpm-chart-tooltip-row--profit" : "ptpm-chart-tooltip-row--loss";
 }
 
-function ptpm_profit_margin_bar_class(margin) {
-	return flt(margin) >= 0 ? "ptpm-chart-margin-label--profit" : "ptpm-chart-margin-label--loss";
+function ptpm_profit_margin_bar_class(margin_pct) {
+	return flt(margin_pct) >= 0 ? "ptpm-chart-margin-label--profit" : "ptpm-chart-margin-label--loss";
 }
 
 function ptpm_unit_profit_margin(unit) {
 	return flt(unit.profit_margin ?? unit.row?.profit_margin);
 }
 
-function ptpm_format_chart_bar_margin(value) {
-	return Math.round(flt(value));
+function ptpm_unit_margin_pct(unit) {
+	return flt(unit.margin_pct ?? unit.row?.margin_pct);
+}
+
+function ptpm_is_kitchen_completed(unit) {
+	return cint(unit.is_kitchen_completed ?? unit.row?.is_kitchen_completed) === 1;
+}
+
+function ptpm_format_chart_bar_margin_pct(value) {
+	return `${Math.round(flt(value))}%`;
 }
 
 function ptpm_format_currency(value) {
@@ -1020,7 +1028,7 @@ async function ptpm_render_dashboard() {
 		return;
 	}
 
-	const units = ptpm_collect_chart_data(rows).filter((unit) => ptpm_unit_total_cost(unit) > 0);
+	const units = ptpm_collect_chart_data(rows);
 	const kpi = ptpm_collect_kpi_data(units);
 	ptpm_render_kpi_cards($dash, kpi);
 	ptpm_render_legend($dash, units, site_ctx);
@@ -1130,12 +1138,13 @@ function ptpm_render_chart($dash, units, site_ctx) {
 			y_cursor = y;
 		});
 
-		if (total_cost > 0) {
-			const profit_margin = ptpm_unit_profit_margin(unit);
-			const margin_cls = ptpm_profit_margin_bar_class(profit_margin);
-			const label_y = Math.min(y_cursor, y_scale(total_cost)) - 6;
-			bars_svg += `<text class="ptpm-chart-margin-label ${margin_cls}" x="${cx}" y="${label_y}">${ptpm_format_chart_bar_margin(
-				profit_margin
+		const margin_pct = ptpm_unit_margin_pct(unit);
+		const margin_cls = ptpm_profit_margin_bar_class(margin_pct);
+		const has_bar = total_cost > 0 || stack_total > 0;
+		if (ptpm_is_kitchen_completed(unit)) {
+			const label_y = (has_bar ? y_cursor : y_scale(0)) - 3;
+			bars_svg += `<text class="ptpm-chart-margin-label ${margin_cls}" x="${cx}" y="${label_y}">${ptpm_format_chart_bar_margin_pct(
+				margin_pct
 			)}</text>`;
 		}
 

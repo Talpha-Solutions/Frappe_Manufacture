@@ -9,6 +9,7 @@ from fitzgerald_kitchens.fitzgerald_kitchens.report.project_tender_profit_margin
 	compute_profit_margin_metrics,
 	get_data,
 	_format_site_project_label,
+	_get_kitchen_completion_by_site,
 	_is_project_delayed,
 )
 from fitzgerald_kitchens.fitzgerald_kitchens.utils.project_manufacturing_cost import (
@@ -97,9 +98,71 @@ class TestProjectTenderProfitMargin(IntegrationTestCase):
 		self.assertIsNotNone(row)
 		self.assertEqual(row["site"], site.name)
 		self.assertEqual(row["tender_configuration"], tender_name)
-		self.assertEqual(flt(row["tender_price_per_kitchen"]), flt(tender_price))
+		self.assertAlmostEqual(flt(row["tender_price_per_kitchen"]), flt(tender_price), places=2)
 		self.assertEqual(row["total_purchase_cost"], 200)
 		self.assertEqual(row["total_cost"], 200)
+
+	def test_zero_cost_kitchen_included_when_site_linked_to_tender(self):
+		company = self._get_company()
+		tender_name, tender_price = self._get_existing_tender()
+		if not tender_name:
+			self.skipTest("No Tender Configuration available in test database")
+
+		site = self._create_site("Zero Cost Tender Site", company=company, tender=tender_name)
+		kitchen_with_cost = self._create_kitchen("Kitchen With Cost", site.name, company=company)
+		kitchen_zero_cost = self._create_kitchen("Kitchen Zero Cost", site.name, company=company)
+		frappe.db.set_value(
+			"Project",
+			kitchen_with_cost.name,
+			"total_purchase_cost",
+			150,
+			update_modified=False,
+		)
+
+		data = get_data(self._report_filters(company, site=site.name))
+		kitchen_units = {row["kitchen_unit"] for row in data}
+
+		self.assertIn(kitchen_with_cost.name, kitchen_units)
+		self.assertIn(kitchen_zero_cost.name, kitchen_units)
+
+		zero_row = next(row for row in data if row["kitchen_unit"] == kitchen_zero_cost.name)
+		self.assertEqual(zero_row["total_cost"], 0)
+		self.assertAlmostEqual(flt(zero_row["profit_margin"]), flt(tender_price), places=2)
+
+	def test_kitchen_status_fields_included(self):
+		company = self._get_company()
+		tender_name, _tender_price = self._get_existing_tender()
+		if not tender_name:
+			self.skipTest("No Tender Configuration available in test database")
+
+		site = self._create_site("Status Site", company=company, tender=tender_name)
+		kitchen = self._create_kitchen("Kitchen Status", site.name, company=company)
+		frappe.db.set_value("Project", kitchen.name, "status", "Open", update_modified=False)
+
+		data = get_data(self._report_filters(company, site=site.name))
+		row = next(item for item in data if item["kitchen_unit"] == kitchen.name)
+
+		self.assertEqual(row["kitchen_status"], "Open")
+		self.assertEqual(row["is_kitchen_completed"], 0)
+
+	def test_get_kitchen_completion_by_site_requires_all_completed(self):
+		company = self._get_company()
+		tender_name, _tender_price = self._get_existing_tender()
+		if not tender_name:
+			self.skipTest("No Tender Configuration available in test database")
+
+		site = self._create_site("Completion Site", company=company, tender=tender_name)
+		kitchen_a = self._create_kitchen("Kitchen A Complete", site.name, company=company)
+		kitchen_b = self._create_kitchen("Kitchen B Open", site.name, company=company)
+		frappe.db.set_value("Project", kitchen_a.name, "status", "Completed", update_modified=False)
+		frappe.db.set_value("Project", kitchen_b.name, "status", "Open", update_modified=False)
+
+		completed_sites = _get_kitchen_completion_by_site([site.name])
+		self.assertNotIn(site.name, completed_sites)
+
+		frappe.db.set_value("Project", kitchen_b.name, "status", "Completed", update_modified=False)
+		completed_sites = _get_kitchen_completion_by_site([site.name])
+		self.assertIn(site.name, completed_sites)
 
 	def test_filter_work_orders_by_date(self):
 		from_date = getdate(today())

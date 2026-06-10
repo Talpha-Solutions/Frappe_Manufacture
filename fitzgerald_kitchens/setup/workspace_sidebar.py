@@ -108,6 +108,18 @@ PROJECT_TENDER_PROFIT_MARGIN_ITEM = {
 	"show_arrow": 0,
 }
 
+ALL_SITES_TENDER_PROFIT_MARGIN_ITEM = {
+	"label": "All Sites Tender Profit Margin",
+	"link_to": "All Sites Tender Profit Margin",
+	"link_type": "Report",
+	"type": "Link",
+	"child": 1,
+	"collapsible": 1,
+	"indent": 0,
+	"keep_closed": 0,
+	"show_arrow": 0,
+}
+
 CAPACITY_PIPELINE_REPORT_ITEM = {
 	"label": "Capacity Pipeline Report",
 	"link_to": "Capacity Pipeline Report",
@@ -137,6 +149,7 @@ PROJECT_REPORT_SIDEBAR_ITEMS = [
 	PROJECT_PRODUCTION_TIME_SUMMARY_ITEM,
 	MANUFACTURING_COST_SUMMARY_ITEM,
 	PROJECT_TENDER_PROFIT_MARGIN_ITEM,
+	ALL_SITES_TENDER_PROFIT_MARGIN_ITEM,
 ]
 
 

@@ -31,7 +31,16 @@ def get_data(filters):
 	if not filters.site_project:
 		return []
 
-	sites = _get_sites_with_tender(filters)
+	return get_kitchen_unit_margin_data(filters)
+
+
+def get_kitchen_unit_margin_data(filters, include_all_sites=False):
+	"""Per-kitchen margin rows. When include_all_sites is True, all Site projects are included."""
+	filters = frappe._dict(filters or {})
+	if filters.get("site_project"):
+		filters.site_project = _resolve_site_project_filter(filters.site_project)
+
+	sites = _get_all_sites(filters) if include_all_sites else _get_sites_with_tender(filters)
 	if not sites:
 		return []
 
@@ -53,13 +62,14 @@ def get_data(filters):
 			"name",
 			"project_name",
 			"fk_parent_project",
+			"status",
 			"total_expense_claim",
 			"total_purchase_cost",
 			"total_consumed_material_cost",
 		],
 		order_by="fk_parent_project asc, name asc",
 	)
-	if not units:
+	if not units and not include_all_sites:
 		return []
 
 	if filters.get("tender_configuration"):
@@ -69,7 +79,7 @@ def get_data(filters):
 		site_by_name = {row.name: row for row in sites}
 		units = [row for row in units if row.fk_parent_project in site_by_name]
 
-	if not units:
+	if not units and not include_all_sites:
 		return []
 
 	unit_names = [row.name for row in units]
@@ -78,18 +88,20 @@ def get_data(filters):
 		filters.from_date,
 		filters.to_date,
 		status=filters.get("status") or None,
-	)
-	task_costs = get_task_metrics(unit_names, filters.from_date, filters.to_date)
+	) if unit_names else {}
+	task_costs = get_task_metrics(unit_names, filters.from_date, filters.to_date) if unit_names else {}
 
 	tender_names = {site.fk_tender_configuration for site in sites if site.fk_tender_configuration}
-	tender_details = {
-		row.name: row
-		for row in frappe.get_all(
-			"Tender Configuration",
-			filters={"name": ("in", list(tender_names))},
-			fields=["name", "tender_name", "tender_price_per_kitchen"],
-		)
-	}
+	tender_details = {}
+	if tender_names:
+		tender_details = {
+			row.name: row
+			for row in frappe.get_all(
+				"Tender Configuration",
+				filters={"name": ("in", list(tender_names))},
+				fields=["name", "tender_name", "tender_price_per_kitchen"],
+			)
+		}
 	delayed_sites = _get_delayed_site_names(list(site_by_name))
 
 	data = []
@@ -98,11 +110,11 @@ def get_data(filters):
 		if not site:
 			continue
 
-		tender = tender_details.get(site.fk_tender_configuration)
-		if not tender:
+		tender = tender_details.get(site.fk_tender_configuration) if site.fk_tender_configuration else None
+		if not include_all_sites and not tender:
 			continue
 
-		tender_price_per_kitchen = _resolve_tender_price_per_kitchen(site, tender)
+		tender_price_per_kitchen = _resolve_tender_price_per_kitchen(site, tender) if tender else 0
 
 		mfg = manufacturing_costs.get(unit.name, {})
 		manufacturing_actual = flt(mfg.get("actual_cost"), 2)
@@ -116,8 +128,6 @@ def get_data(filters):
 			tender_price_per_kitchen,
 			task_actual_cost=task_actual,
 		)
-		if not metrics["total_cost"]:
-			continue
 
 		data.append(
 			{
@@ -126,8 +136,10 @@ def get_data(filters):
 				"is_site_delayed": 1 if site.name in delayed_sites else 0,
 				"kitchen_unit": unit.name,
 				"kitchen_name": unit.project_name or unit.name,
-				"tender_configuration": tender.name,
-				"tender_name": tender.tender_name or tender.name,
+				"kitchen_status": unit.status or "",
+				"is_kitchen_completed": 1 if unit.status == "Completed" else 0,
+				"tender_configuration": tender.name if tender else "",
+				"tender_name": (tender.tender_name or tender.name) if tender else "",
 				**metrics,
 			}
 		)
@@ -149,6 +161,35 @@ def _get_delayed_site_names(site_names):
 			delayed.add(row.name)
 
 	return delayed
+
+
+def _get_kitchen_completion_by_site(site_names):
+	"""Return site names where every kitchen child project has status Completed."""
+	if not site_names:
+		return set()
+
+	counts = {}
+	for row in frappe.get_all(
+		"Project",
+		filters={
+			"docstatus": ("<", 2),
+			"project_type": "Kitchen",
+			"fk_parent_project": ("in", site_names),
+		},
+		fields=["fk_parent_project", "status"],
+	):
+		site_key = row.fk_parent_project
+		if site_key not in counts:
+			counts[site_key] = {"total": 0, "completed": 0}
+		counts[site_key]["total"] += 1
+		if row.status == "Completed":
+			counts[site_key]["completed"] += 1
+
+	return {
+		site
+		for site, tally in counts.items()
+		if tally["total"] > 0 and tally["completed"] == tally["total"]
+	}
 
 
 def _is_project_delayed(project):
@@ -218,6 +259,25 @@ def _resolve_site_project_filter(site_project):
 	)
 
 
+def _resolve_tender_price_total(site=None, tender=None):
+	"""Tender Price (total) from the Site Project's linked Tender Configuration."""
+	if tender and flt(tender.tender_price_total):
+		return flt(tender.tender_price_total)
+
+	if site and site.fk_tender_configuration:
+		price = flt(
+			frappe.db.get_value(
+				"Tender Configuration",
+				site.fk_tender_configuration,
+				"tender_price_total",
+			)
+		)
+		if price:
+			return price
+
+	return 0
+
+
 def _resolve_tender_price_per_kitchen(site, tender=None):
 	"""Tender Price Per Kitchen from the Site Project's linked Tender Configuration."""
 	if tender and flt(tender.tender_price_per_kitchen):
@@ -239,6 +299,25 @@ def _resolve_tender_price_per_kitchen(site, tender=None):
 		return price
 
 	return 0
+
+
+def _get_all_sites(filters):
+	site_filters = {
+		"docstatus": ("<", 2),
+		"company": filters.company,
+		"project_type": "Site",
+	}
+	if filters.get("site_project"):
+		site_filters["name"] = filters.site_project
+	if filters.get("tender_configuration"):
+		site_filters["fk_tender_configuration"] = filters.tender_configuration
+
+	return frappe.get_all(
+		"Project",
+		filters=site_filters,
+		fields=["name", "project_name", "fk_tender_configuration"],
+		order_by="name asc",
+	)
 
 
 def _get_sites_with_tender(filters):
