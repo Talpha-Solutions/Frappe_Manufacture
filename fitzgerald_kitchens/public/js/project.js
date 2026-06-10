@@ -40,6 +40,7 @@ frappe.ui.form.on("Project", {
 		toggle_download_qr_tab(frm);
 		toggle_parent_unit(frm);
 		setup_parent_project_query(frm);
+		sync_site_tender_from_parent(frm);
 		setup_download_qr_actions(frm);
 		setup_installation_manifest_actions(frm);
 		setup_material_request_actions(frm);
@@ -53,7 +54,14 @@ frappe.ui.form.on("Project", {
 		toggle_parent_unit(frm);
 		apply_default_naming_series(frm);
 		sync_effective_manifest_from_configuration(frm);
+		sync_site_tender_from_parent(frm);
 		render_download_qr_html(frm);
+	},
+	fk_parent_project(frm) {
+		sync_site_tender_from_parent(frm);
+	},
+	fk_tender_configuration(frm) {
+		frm.refresh_field("fk_tender_price_per_kitchen");
 	},
 	fk_unit_configuration(frm) {
 		sync_effective_manifest_from_configuration(frm);
@@ -99,6 +107,15 @@ function setup_parent_project_query(frm) {
 	frm.set_query("fk_parent_unit_project", () => ({
 		filters: { project_type: KITCHEN_PROJECT_TYPE },
 	}));
+}
+
+function sync_site_tender_from_parent(frm) {
+	if (is_site_project(frm)) {
+		return;
+	}
+
+	frm.refresh_field("fk_site_tender_configuration");
+	frm.refresh_field("fk_site_tender_price_per_kitchen");
 }
 
 const KITCHEN_UTILITY_MANIFEST_TYPES = new Set([KITCHEN_PROJECT_TYPE, "Utility"]);

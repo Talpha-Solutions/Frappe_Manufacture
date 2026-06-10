@@ -19,6 +19,7 @@ PARENT_UNIT_DEPENDS_ON = (
 # Main form: Developer on Details; Unit tab after Costing + Monitor sections.
 DEVELOPER_INSERT_AFTER = "department"
 UNIT_TAB_INSERT_AFTER = "message"
+SITE_TENDER_DEPENDS_ON = f"eval:doc.project_type == '{SITE_PROJECT_TYPE}'"
 
 REMOVED_PROJECT_UNIT_FIELDNAMES = (
 	"fk_is_root_project",
@@ -58,6 +59,30 @@ def get_project_unit_custom_fields() -> dict:
 				"insert_after": DEVELOPER_INSERT_AFTER,
 			},
 			{
+				"fieldname": "fk_tender_section",
+				"fieldtype": "Section Break",
+				"label": "Tender",
+				"depends_on": SITE_TENDER_DEPENDS_ON,
+				"insert_after": "fk_developer",
+			},
+			{
+				"fieldname": "fk_tender_configuration",
+				"fieldtype": "Link",
+				"label": "Tender Configuration",
+				"options": "Tender Configuration",
+				"depends_on": SITE_TENDER_DEPENDS_ON,
+				"insert_after": "fk_tender_section",
+			},
+			{
+				"fieldname": "fk_tender_price_per_kitchen",
+				"fieldtype": "Currency",
+				"label": "Tender Price Per Kitchen",
+				"read_only": 1,
+				"fetch_from": "fk_tender_configuration.tender_price_per_kitchen",
+				"depends_on": SITE_TENDER_DEPENDS_ON,
+				"insert_after": "fk_tender_configuration",
+			},
+			{
 				"fieldname": "fk_unit_tab",
 				"fieldtype": "Tab Break",
 				"label": "Unit",
@@ -81,11 +106,37 @@ def get_project_unit_custom_fields() -> dict:
 				"insert_after": "fk_unit_hierarchy_section",
 			},
 			{
+				"fieldname": "fk_site_tender_section",
+				"fieldtype": "Section Break",
+				"label": "Tender",
+				"depends_on": UNIT_TAB_DEPENDS_ON,
+				"insert_after": "fk_parent_project",
+			},
+			{
+				"fieldname": "fk_site_tender_configuration",
+				"fieldtype": "Link",
+				"label": "Tender Configuration",
+				"options": "Tender Configuration",
+				"read_only": 1,
+				"fetch_from": "fk_parent_project.fk_tender_configuration",
+				"depends_on": UNIT_TAB_DEPENDS_ON,
+				"insert_after": "fk_site_tender_section",
+			},
+			{
+				"fieldname": "fk_site_tender_price_per_kitchen",
+				"fieldtype": "Currency",
+				"label": "Tender Price Per Kitchen",
+				"read_only": 1,
+				"fetch_from": "fk_parent_project.fk_tender_price_per_kitchen",
+				"depends_on": UNIT_TAB_DEPENDS_ON,
+				"insert_after": "fk_site_tender_configuration",
+			},
+			{
 				"fieldname": "fk_house_number",
 				"fieldtype": "Data",
 				"label": "House Number",
 				"depends_on": UNIT_TAB_DEPENDS_ON,
-				"insert_after": "fk_parent_project",
+				"insert_after": "fk_site_tender_price_per_kitchen",
 			},
 			{
 				"fieldname": "fk_col_break_hierarchy",
@@ -255,8 +306,24 @@ def _update_unit_field_properties() -> None:
 		if field_def and field_def.get("insert_after"):
 			updates["insert_after"] = field_def["insert_after"]
 
-		if fieldname == "fk_developer":
-			pass
+		if fieldname in (
+			"fk_developer",
+			"fk_tender_section",
+			"fk_tender_configuration",
+			"fk_tender_price_per_kitchen",
+		):
+			if fieldname in (
+				"fk_tender_section",
+				"fk_tender_configuration",
+				"fk_tender_price_per_kitchen",
+			):
+				updates["depends_on"] = SITE_TENDER_DEPENDS_ON
+		elif fieldname in (
+			"fk_site_tender_section",
+			"fk_site_tender_configuration",
+			"fk_site_tender_price_per_kitchen",
+		):
+			updates["depends_on"] = UNIT_TAB_DEPENDS_ON
 		elif fieldname == "fk_parent_unit_project":
 			updates["depends_on"] = PARENT_UNIT_DEPENDS_ON
 			updates["link_filters"] = f'[["Project","project_type","=","{KITCHEN_PROJECT_TYPE}"]]'
