@@ -196,8 +196,7 @@ function astpm_inject_styles() {
 		.astpm-chart-svg { display: block; min-width: 640px; }
 		.astpm-chart-axis { stroke: #e8eaed; stroke-width: 1; }
 		.astpm-chart-cutoff-line { stroke: #e74c3c; stroke-width: 2; stroke-dasharray: 6 4; fill: none; pointer-events: none; }
-		.astpm-chart-margin-line { stroke: #e74c3c; stroke-width: 1.5; stroke-dasharray: 6 4; fill: none; pointer-events: none; }
-		.astpm-chart-margin-dot { fill: #e74c3c; stroke: #fff; stroke-width: 1.5; pointer-events: none; }
+		.astpm-chart-tender-bar { pointer-events: none; }
 		.astpm-chart-cutoff-label { fill: #e74c3c; font-size: 10px; font-weight: 600; pointer-events: none; }
 		.astpm-chart-seg-label { fill: #fff; font-size: 10px; font-weight: 700; text-anchor: middle; pointer-events: none; }
 		.astpm-chart-margin-label { font-size: 11px; font-weight: 700; text-anchor: middle; pointer-events: none; }
@@ -208,7 +207,7 @@ function astpm_inject_styles() {
 		.astpm-chart-x-label--rotated { text-anchor: end; }
 		.astpm-chart-y-label { fill: #aeb6bf; font-size: 10px; text-anchor: end; }
 		.astpm-table-heading { font-size: 13px; font-weight: 700; color: #1f272e; padding: 18px 0 8px; border-top: 1px solid #eef0f3; margin-top: 8px; }
-	`, "astpm-report-styles-v7");
+	`, "astpm-report-styles-v10");
 }
 
 function astpm_hide_default_chrome() {
@@ -441,6 +440,45 @@ function astpm_delayed_foot(delayed_sites) {
 	return `${foot} · ${__("past expected end date")}`;
 }
 
+function astpm_site_tender_price(site) {
+	return flt(
+		site.tender_price ??
+			site.total_tender_budget ??
+			site.row?.tender_price ??
+			site.row?.total_tender_budget
+	);
+}
+
+function astpm_slot_bar_layout(slot_w) {
+	const pair_gap = 6;
+	const max_pair_w = Math.max(slot_w - 8, 16);
+	const bar_w = Math.max(10, Math.min(28, (max_pair_w - pair_gap) / 2));
+	return { bar_w, pair_gap };
+}
+
+function astpm_render_tender_price_bar_svg(cx, bar_w, tender_price, y_scale) {
+	const tender_val = flt(tender_price);
+	const baseline_y = y_scale(0);
+	if (tender_val <= 0) {
+		return { svg: "", top_y: baseline_y, marker_y: baseline_y };
+	}
+
+	const top_y = y_scale(tender_val);
+	const bar_h = baseline_y - top_y;
+	if (bar_h < 1) {
+		return { svg: "", top_y: baseline_y, marker_y: baseline_y };
+	}
+
+	let svg = `<rect class="astpm-chart-tender-bar" x="${cx - bar_w / 2}" y="${top_y}" width="${bar_w}" height="${bar_h}" fill="#f1948a" stroke="#e74c3c" stroke-width="1.5" rx="2"></rect>`;
+	if (bar_h >= 14) {
+		svg += `<text class="astpm-chart-seg-label" x="${cx}" y="${top_y + bar_h / 2 + 4}">${Math.round(
+			tender_val
+		)}</text>`;
+	}
+
+	return { svg, top_y, marker_y: top_y };
+}
+
 function astpm_chart_layout(sites) {
 	const axis_labels = sites.map((site) => site.axis_label || site.label);
 	const max_label_width = Math.max(...axis_labels.map((label) => astpm_estimate_label_width(label)), 48);
@@ -515,7 +553,10 @@ function astpm_render_legend($dash) {
 
 	$dash.find(".astpm-legend").html(`
 		${segment_legend}
-		<span class="astpm-legend-cutoff">— — — ${__("Profit Margin Line")}</span>
+		<span class="astpm-legend-item">
+			<span class="astpm-legend-swatch" style="background:#f1948a;border:1px solid #e74c3c"></span>
+			<span>${__("Tender Price")}</span>
+		</span>
 	`);
 }
 
@@ -536,34 +577,29 @@ function astpm_render_chart($dash, sites) {
 
 	const layout = astpm_chart_layout(sites);
 	let { width, height, pad, chart_h, slot_w } = layout;
-	let bar_w = Math.max(8, Math.min(42, slot_w - 12));
+	const { bar_w, pair_gap } = astpm_slot_bar_layout(slot_w);
 
 	const max_cost = Math.max(...sites.map((site) => astpm_site_total_cost(site)), 0);
-	const max_tender = Math.max(
-		...sites.map((site) => flt(site.tender_price || site.total_tender_budget)),
-		0
-	);
-	const margin_values = sites.map((site) => astpm_site_profit_margin(site));
-	const max_margin = Math.max(...margin_values, 0);
-	const min_margin = Math.min(...margin_values, 0);
-	const y_top = Math.max(max_cost, max_tender, max_margin, 1);
-	const y_bottom = Math.min(min_margin, 0);
+	const max_tender = Math.max(...sites.map((site) => astpm_site_tender_price(site)), 0);
+	const y_top = Math.max(max_cost, max_tender, 1);
+	const y_bottom = 0;
 	const y_range = y_top - y_bottom || 1;
 	const y_scale = astpm_chart_y_scale(pad, chart_h, y_bottom, y_range);
+	const baseline_y = y_scale(0);
 
 	let bars_svg = "";
-	let margin_points = "";
+	const tender_bar_positions = [];
 
 	sites.forEach((site, idx) => {
 		const cx = pad.left + slot_w * idx + slot_w / 2;
+		const cost_cx = cx - (bar_w + pair_gap) / 2;
+		const tender_cx = cx + (bar_w + pair_gap) / 2;
 		let y_cursor = pad.top + chart_h;
 		const total_cost = astpm_site_total_cost(site);
 		const stack_total = site.segments.reduce((sum, seg) => sum + seg.value, 0);
 		const bar_total = total_cost > 0 ? total_cost : stack_total;
-		const profit_margin = astpm_site_profit_margin(site);
-		const margin_y = y_scale(profit_margin);
-
-		margin_points += `${cx},${margin_y} `;
+		const tender_price = astpm_site_tender_price(site);
+		let chart_top_y = baseline_y;
 
 		site.segments.forEach((seg) => {
 			if (!seg.value) {
@@ -576,27 +612,39 @@ function astpm_render_chart($dash, sites) {
 				return;
 			}
 			const y = y_cursor - seg_h;
-			bars_svg += `<rect x="${cx - bar_w / 2}" y="${y}" width="${bar_w}" height="${seg_h}" fill="${seg.color}" rx="2"></rect>`;
+			bars_svg += `<rect x="${cost_cx - bar_w / 2}" y="${y}" width="${bar_w}" height="${seg_h}" fill="${seg.color}" rx="2"></rect>`;
 			if (seg_h >= 12 && seg.value > 0) {
-				bars_svg += `<text class="astpm-chart-seg-label" x="${cx}" y="${y + seg_h / 2 + 4}">${Math.round(
+				bars_svg += `<text class="astpm-chart-seg-label" x="${cost_cx}" y="${y + seg_h / 2 + 4}">${Math.round(
 					seg.value
 				)}</text>`;
 			}
 			y_cursor = y;
+			chart_top_y = Math.min(chart_top_y, y);
 		});
+
+		let tender_marker_y = baseline_y;
+		if (tender_price > 0) {
+			const tender_bar = astpm_render_tender_price_bar_svg(tender_cx, bar_w, tender_price, y_scale);
+			bars_svg += tender_bar.svg;
+			if (tender_bar.top_y !== undefined) {
+				chart_top_y = Math.min(chart_top_y, tender_bar.top_y);
+			}
+			tender_marker_y = tender_bar.marker_y ?? baseline_y;
+		}
 
 		if (
 			astpm_all_kitchens_completed(site) &&
-			(total_cost > 0 || profit_margin || flt(site.total_tender_budget))
+			(total_cost > 0 || tender_price > 0 || Math.abs(astpm_site_profit_margin(site)) > 0.001)
 		) {
 			const margin_pct = astpm_unit_margin_pct(site);
 			const margin_cls = astpm_profit_margin_bar_class(margin_pct);
-			const has_bar = total_cost > 0 || stack_total > 0;
-			const label_y = (has_bar ? y_cursor : y_scale(0)) - 3;
+			const label_y = chart_top_y - 3;
 			bars_svg += `<text class="astpm-chart-margin-label ${margin_cls}" x="${cx}" y="${label_y}">${astpm_format_chart_bar_margin_pct(
 				margin_pct
 			)}</text>`;
 		}
+
+		tender_bar_positions.push({ cx, tender_cx, tender_marker_y });
 
 		bars_svg += astpm_render_x_axis_label(cx, height - 10, site.axis_label || site.label, layout);
 	});
@@ -610,17 +658,11 @@ function astpm_render_chart($dash, sites) {
 		grid_svg += `<text class="astpm-chart-y-label" x="${pad.left - 6}" y="${y + 4}">${val}</text>`;
 	}
 
-	const margin_line_svg =
-		sites.length > 0
-			? `<polyline class="astpm-chart-margin-line" points="${margin_points.trim()}" />`
-			: "";
-
 	const svg = `
 		<svg class="astpm-chart-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"
 			preserveAspectRatio="xMinYMin meet" role="img" aria-label="${__("Site cost vs tender budget")}">
 			${grid_svg}
 			${bars_svg}
-			${margin_line_svg}
 			<g class="astpm-chart-hover-layer"></g>
 		</svg>`;
 
@@ -638,6 +680,7 @@ function astpm_render_chart($dash, sites) {
 		chart_h,
 		height,
 		y_scale,
+		tender_bar_positions,
 	});
 }
 
@@ -660,7 +703,7 @@ function astpm_position_chart_tooltip($tooltip, e) {
 }
 
 function astpm_bind_chart_hover($canvas, $tooltip, sites, layout) {
-	const { pad, slot_w, chart_h, y_scale } = layout;
+	const { pad, slot_w, chart_h, tender_bar_positions } = layout;
 
 	$canvas.off("mousemove.astpm-chart mouseleave.astpm-chart");
 	$canvas.on("mousemove.astpm-chart", "svg", function (e) {
@@ -677,12 +720,14 @@ function astpm_bind_chart_hover($canvas, $tooltip, sites, layout) {
 		}
 
 		const site = sites[idx];
-		const cx = pad.left + slot_w * idx + slot_w / 2;
+		const bar_pos = tender_bar_positions?.[idx] || {};
+		const cx = bar_pos.cx ?? pad.left + slot_w * idx + slot_w / 2;
+		const tender_cx = bar_pos.tender_cx ?? cx;
 		const total_cost = astpm_site_total_cost(site);
 		const profit_margin = astpm_site_profit_margin(site);
 		const margin_cls = astpm_profit_margin_tooltip_class(profit_margin);
-		const tender_budget = flt(site.tender_price || site.total_tender_budget);
-		const margin_y = y_scale(profit_margin);
+		const tender_budget = astpm_site_tender_price(site);
+		const tender_marker_y = bar_pos.tender_marker_y ?? pad.top + chart_h;
 
 		let segments_html = "";
 		site.segments.forEach((seg) => {
@@ -728,7 +773,7 @@ function astpm_bind_chart_hover($canvas, $tooltip, sites, layout) {
 		if (hover_layer) {
 			hover_layer.innerHTML = `
 				<line class="astpm-chart-hover-line" x1="${cx}" y1="${pad.top}" x2="${cx}" y2="${pad.top + chart_h}" />
-				<circle class="astpm-chart-hover-cutoff" cx="${cx}" cy="${margin_y}" r="4" />
+				<circle class="astpm-chart-hover-cutoff" cx="${tender_cx}" cy="${tender_marker_y}" r="4" />
 			`;
 		}
 	});
