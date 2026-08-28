@@ -1071,7 +1071,7 @@ def _has_job_card_activity_any(project_names, from_date, to_date):
                     (
                         jc.status = 'Completed'
                         AND COALESCE(jc.actual_end_date, jc.posting_date) >= %(from_datetime)s
-                        AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
+                                AND COALESCE(jc.actual_end_date, jc.posting_date) <= %(to_datetime)s
                         AND ({actual_mins}) > 0
                     )
                     OR (

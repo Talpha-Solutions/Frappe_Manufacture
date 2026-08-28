@@ -312,6 +312,34 @@ fixtures = [
 		"dt": "Desktop Icon",
 		"filters": [["name", "=", "My Tasks"]],
 	},
+	{
+		"dt": "Task",
+		# Prefixed so this fixture file always imports before project_template.json —
+		# Project Template's task rows link to these Task records.
+		"prefix": "1",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"TASK-2026-00015",
+					"TASK-2026-00016",
+					"TASK-2026-00017",
+					"TASK-2026-00018",
+					"TASK-2026-00019",
+					"TASK-2026-00020",
+					"TASK-2026-00021",
+					"TASK-2026-00022",
+					"TASK-2026-00023",
+				],
+			]
+		],
+	},
+	{
+		"dt": "Project Template",
+		"prefix": "2",
+		"filters": [["name", "=", "Main Development Template"]],
+	},
 	# Pages live under fitzgerald_kitchens/page/* and are synced via
 	# ensure_my_tasks_pages() — not fixtures (Page insert requires developer_mode).
 ]

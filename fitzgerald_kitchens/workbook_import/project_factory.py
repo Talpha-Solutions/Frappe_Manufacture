@@ -143,15 +143,33 @@ class WorkbookProjectFactory:
 		return {}
 
 	def _maybe_apply_project_template(self, project_name: str, project_type: str) -> bool:
-		"""Apply template tasks to a unit project that has no tasks yet (e.g. on re-import)."""
+		"""Apply template tasks to a unit project that has no tasks yet (e.g. on re-import).
+
+		ERPNext marks project_template (From Template) as set_only_once, so it cannot be
+		assigned on doc.save() for existing projects. Set via db.set_value first, then
+		save so validate() runs copy_from_template() without changing that field.
+		"""
 		template_fields = self._project_template_fields(project_type)
 		if not template_fields:
 			return False
 		if frappe.db.get_all("Task", {"project": project_name}, limit=1):
 			return False
 
+		template_name = template_fields["project_template"]
+		current_template = frappe.db.get_value("Project", project_name, "project_template")
+		if current_template and current_template != template_name:
+			return False
+
+		if not current_template:
+			frappe.db.set_value(
+				"Project",
+				project_name,
+				"project_template",
+				template_name,
+				update_modified=False,
+			)
+
 		doc = frappe.get_doc("Project", project_name)
-		doc.project_template = template_fields["project_template"]
 		doc.save(ignore_permissions=True)
 		self.stats.tasks_from_template_applied += 1
 		if self._run_stats:
