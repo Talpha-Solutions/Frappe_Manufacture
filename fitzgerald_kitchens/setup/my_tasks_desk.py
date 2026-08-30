@@ -183,7 +183,7 @@ def patch_desktop_icon_external_permission():
 	if getattr(DesktopIcon, "_fk_my_tasks_icon_patched", False):
 		return
 
-	original = DesktopIcon.is_permitted
+	original = getattr(DesktopIcon, "is_permitted", None)
 
 	def is_permitted(self, bootinfo):
 		if self.link_type == "External" and self.link and self.link.startswith("/app/my-tasks"):
@@ -191,7 +191,9 @@ def patch_desktop_icon_external_permission():
 			if allowed_roles and not set(allowed_roles).intersection(frappe.get_roles()):
 				return False
 			return True
-		return original(self, bootinfo)
+		if original:
+			return original(self, bootinfo)
+		return True
 
 	DesktopIcon.is_permitted = is_permitted
 	DesktopIcon._fk_my_tasks_icon_patched = True
