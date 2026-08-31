@@ -340,6 +340,40 @@ fixtures = [
 		"prefix": "2",
 		"filters": [["name", "=", "Main Development Template"]],
 	},
+	{
+		"dt": "Item Group",
+		# Prefixed so this fixture file always imports before item.json —
+		# these Items link to these Item Groups.
+		"prefix": "3",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"Raw Material",
+					"Cabinet Components",
+					"Manufactured Cabinets",
+					"Bought-in Items",
+				],
+			]
+		],
+	},
+	{
+		"dt": "Item",
+		"prefix": "4",
+		"filters": [
+			[
+				"item_code",
+				"in",
+				[
+					"B60",
+					"Levanto Utility Worktop",
+					"Robe Side Panel",
+					"Bosch Dishwasher SMV2HTX02G",
+				],
+			]
+		],
+	},
 	# Pages live under fitzgerald_kitchens/page/* and are synced via
 	# ensure_my_tasks_pages() — not fixtures (Page insert requires developer_mode).
 ]
