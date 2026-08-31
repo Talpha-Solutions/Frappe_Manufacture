@@ -32,6 +32,28 @@ from fitzgerald_kitchens.setup.manifest_line_labels import (
 from fitzgerald_kitchens.workbook_import.type_mapping import TypeManifestSheets
 from fitzgerald_kitchens.workbook_import.workbook_reader import WorkbookReader
 
+# PUC field that stores the effective manifest code for each manifest kind.
+_MANIFEST_FIELD_BY_KIND = {
+	MANIFEST_KIND_KITCHEN: "kitchen_utility_manifest",
+	MANIFEST_KIND_ROBE: "wardrobe_manifest",
+	MANIFEST_KIND_VANITY: "vanity_unit_manifest",
+	MANIFEST_KIND_PANTRY: "pantry_manifest",
+}
+
+# Manifest sheet attribute + code builder for each manifest kind.
+_MANIFEST_SHEET_ATTR_BY_KIND = {
+	MANIFEST_KIND_KITCHEN: "kitchen_manifest_sheet",
+	MANIFEST_KIND_ROBE: "robe_manifest_sheet",
+	MANIFEST_KIND_VANITY: "vanity_manifest_sheet",
+	MANIFEST_KIND_PANTRY: "pantry_manifest_sheet",
+}
+_MANIFEST_CODE_BUILDER_BY_KIND = {
+	MANIFEST_KIND_KITCHEN: build_kitchen_manifest_code,
+	MANIFEST_KIND_ROBE: build_robe_manifest_code,
+	MANIFEST_KIND_VANITY: build_vanity_manifest_code,
+	MANIFEST_KIND_PANTRY: build_pantry_manifest_code,
+}
+
 
 def ensure_configuration_stubs(scopes: list[SiteTypeScope], stats: ImportRunStats) -> None:
 	for scope in scopes:
@@ -128,6 +150,102 @@ def import_manifests(
 				strict_item_validation=strict_item_validation,
 				stats=stats,
 			)
+
+
+def validate_manifest_items(
+	*,
+	reader: WorkbookReader,
+	scopes: list[SiteTypeScope],
+	quantity_rows: list[dict[str, Any]],
+	manifest_mappings: dict[str, TypeManifestSheets],
+) -> list[str]:
+	"""Pre-import check: does every required manifest sheet have at least one valid Item?
+
+	Mirrors the Phase 1 rule that a Manifest is only created when it has at least
+	one row with an Item that exists in ERPNext. Catching this at Validate time
+	surfaces missing Items before the import ever links a Project Unit Configuration
+	to a Manifest that will never be created.
+	"""
+	errors: list[str] = []
+	sheet_item_cache: dict[str, bool] = {}
+
+	def _sheet_has_valid_item(sheet_name: str) -> bool:
+		if sheet_name not in sheet_item_cache:
+			has_item = False
+			for row in reader.get_sheet_as_dicts(sheet_name):
+				item_code = _get_row_value(row, "Description", "description")
+				if item_code and frappe.db.exists("Item", item_code):
+					has_item = True
+					break
+			sheet_item_cache[sheet_name] = has_item
+		return sheet_item_cache[sheet_name]
+
+	for scope in scopes:
+		type_sheets = manifest_mappings.get(scope.unit_type)
+		if not type_sheets:
+			continue
+
+		required_kinds = requirements_for_scope(quantity_rows, scope.site_name, scope.unit_type)
+		if not required_kinds:
+			continue
+
+		mapping_row = type_sheets.as_mapping_row()
+		for kind, sheet_attr in _MANIFEST_SHEET_ATTR_BY_KIND.items():
+			if kind not in required_kinds:
+				continue
+			sheet_name = getattr(mapping_row, sheet_attr, "")
+			if not sheet_name or _sheet_has_valid_item(sheet_name):
+				continue
+			manifest_code = _MANIFEST_CODE_BUILDER_BY_KIND[kind](scope.unit_type, scope.site_name)
+			errors.append(
+				f"No valid Items found on sheet '{sheet_name}' for manifest {manifest_code} "
+				f"({scope.unit_type} / {scope.site_name}). Every row's Item code (Description "
+				f"column) is missing from this site's Item list, so the Manifest will not be "
+				f"created and the import will fail. Create these Items before importing."
+			)
+
+	return errors
+
+
+def validate_manifest_links(
+	scopes: list[SiteTypeScope], quantity_rows: list[dict[str, Any]]
+) -> list[str]:
+	"""Fail-fast check: does every manifest a PUC now links to actually exist?
+
+	Phase 2 always stamps the expected manifest code onto the Project Unit
+	Configuration, even when Phase 1 skipped creating that Manifest (e.g. every
+	row's Item was missing on this site). Left unchecked, Phase 3 only surfaces
+	this deep inside Project creation as a confusing "Could not find Effective
+	Manifest" error, after part of the import has already happened.
+	"""
+	errors: list[str] = []
+	for scope in scopes:
+		required_kinds = requirements_for_scope(quantity_rows, scope.site_name, scope.unit_type)
+		if not required_kinds:
+			continue
+
+		config_code = build_configuration_code(scope.unit_type, scope.site_name)
+		puc_fields = frappe.db.get_value(
+			"Project Unit Configuration",
+			config_code,
+			list(_MANIFEST_FIELD_BY_KIND.values()),
+			as_dict=True,
+		)
+		if not puc_fields:
+			continue
+
+		for kind, field_name in _MANIFEST_FIELD_BY_KIND.items():
+			if kind not in required_kinds:
+				continue
+			manifest_code = puc_fields.get(field_name)
+			if manifest_code and not frappe.db.exists("Manifest", manifest_code):
+				errors.append(
+					f"Configuration {config_code} expects {field_name} = '{manifest_code}', "
+					f"but that Manifest was never created. Check the Phase 1 import log for "
+					f"missing Items on the related manifest sheet."
+				)
+
+	return errors
 
 
 def _import_manifest_sheet(

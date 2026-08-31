@@ -132,6 +132,13 @@ def run_import(import_name: str) -> None:
 		doc.save(ignore_permissions=True)
 		frappe.db.commit()
 
+	except WorkbookParseError as exc:
+		doc.import_status = "Failed"
+		doc.error_log = str(exc)
+		doc.import_summary = ""
+		doc.save(ignore_permissions=True)
+		frappe.db.commit()
+		raise
 	except Exception:
 		doc.import_status = "Failed"
 		doc.error_log = frappe.get_traceback()

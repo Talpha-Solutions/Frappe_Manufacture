@@ -9,7 +9,12 @@ import frappe
 
 from fitzgerald_kitchens.workbook_import.import_log import ImportRunStats, WorkbookImportLogEntry
 from fitzgerald_kitchens.workbook_import.import_messages import project_factory_kwargs, validate_template_options
-from fitzgerald_kitchens.workbook_import.manifest_importer import ensure_configuration_stubs, import_manifests
+from fitzgerald_kitchens.workbook_import.manifest_importer import (
+	ensure_configuration_stubs,
+	import_manifests,
+	validate_manifest_items,
+	validate_manifest_links,
+)
 from fitzgerald_kitchens.workbook_import.naming import apply_site_scoped_configuration_codes
 from fitzgerald_kitchens.workbook_import.parser import WorkbookParseError, parse_workbook_file
 from fitzgerald_kitchens.workbook_import.project_factory import WorkbookProjectFactory
@@ -49,6 +54,14 @@ def validate_full_workbook(doc) -> tuple[list[str], dict[str, Any]]:
 		manifest_mappings = discover_manifest_sheet_mappings(reader)
 		required_by_type = requirements_by_type(quantity_rows)
 		errors.extend(validation_errors_for_manifest_sheets(manifest_mappings, required_by_type))
+		errors.extend(
+			validate_manifest_items(
+				reader=reader,
+				scopes=scopes,
+				quantity_rows=quantity_rows,
+				manifest_mappings=manifest_mappings,
+			)
+		)
 
 		qty_errors, qty_preview = validate_workbook_rows(
 			quantity_rows,
@@ -100,6 +113,10 @@ def run_full_workbook_import(doc) -> ImportRunStats:
 		unit_types=unique_unit_types(scopes),
 		stats=stats,
 	)
+
+	link_errors = validate_manifest_links(scopes, quantity_rows)
+	if link_errors:
+		raise WorkbookParseError("\n".join(link_errors))
 
 	factory = WorkbookProjectFactory(**project_factory_kwargs(doc), run_stats=stats)
 	factory.import_rows(quantity_rows)
