@@ -313,6 +313,29 @@ fixtures = [
 		"filters": [["name", "=", "My Tasks"]],
 	},
 	{
+		"dt": "Task Type",
+		# Prefixed so this fixture file always imports before 1_task.json — each
+		# fixture Task's `type` field links to one of these Task Type records.
+		"prefix": "0",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"Survey",
+					"Drawing",
+					"Export",
+					"Manufacturing",
+					"Assembly",
+					"Despatch",
+					"Fitting",
+					"Handover",
+					"Delivery",
+				],
+			]
+		],
+	},
+	{
 		"dt": "Task",
 		# Prefixed so this fixture file always imports before project_template.json —
 		# Project Template's task rows link to these Task records.

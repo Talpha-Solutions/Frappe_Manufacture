@@ -1,0 +1,74 @@
+[
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Task Type",
+  "modified": "2026-08-31 00:00:00.000000",
+  "name": "Survey",
+  "weight": 0.0
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Task Type",
+  "modified": "2026-08-31 00:00:00.000000",
+  "name": "Drawing",
+  "weight": 0.0
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Task Type",
+  "modified": "2026-08-31 00:00:00.000000",
+  "name": "Export",
+  "weight": 0.0
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Task Type",
+  "modified": "2026-08-31 00:00:00.000000",
+  "name": "Manufacturing",
+  "weight": 0.0
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Task Type",
+  "modified": "2026-08-31 00:00:00.000000",
+  "name": "Assembly",
+  "weight": 0.0
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Task Type",
+  "modified": "2026-08-31 00:00:00.000000",
+  "name": "Despatch",
+  "weight": 0.0
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Task Type",
+  "modified": "2026-08-31 00:00:00.000000",
+  "name": "Fitting",
+  "weight": 0.0
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Task Type",
+  "modified": "2026-08-31 00:00:00.000000",
+  "name": "Handover",
+  "weight": 0.0
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Task Type",
+  "modified": "2026-08-31 00:00:00.000000",
+  "name": "Delivery",
+  "weight": 0.0
+ }
+]
