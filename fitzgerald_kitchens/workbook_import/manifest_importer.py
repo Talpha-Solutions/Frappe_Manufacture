@@ -93,6 +93,11 @@ def import_manifests(
 	strict_item_validation: bool,
 	stats: ImportRunStats,
 ) -> None:
+	# Shared across every sheet/scope in this run so a repeated Item code (the
+	# common case — the same cabinet appears on many manifest rows) is only
+	# looked up / created / logged once, however many times it recurs.
+	item_cache: dict[str, dict[str, Any]] = {}
+
 	for scope in scopes:
 		type_sheets = manifest_mappings.get(scope.unit_type)
 		if not type_sheets:
@@ -116,6 +121,7 @@ def import_manifests(
 				manifest_category="Kitchen",
 				strict_item_validation=strict_item_validation,
 				stats=stats,
+				item_cache=item_cache,
 			)
 
 		if MANIFEST_KIND_ROBE in required_kinds and mapping_row.robe_manifest_sheet:
@@ -127,6 +133,7 @@ def import_manifests(
 				manifest_category="Robe",
 				strict_item_validation=strict_item_validation,
 				stats=stats,
+				item_cache=item_cache,
 			)
 
 		if MANIFEST_KIND_VANITY in required_kinds and mapping_row.vanity_manifest_sheet:
@@ -138,6 +145,7 @@ def import_manifests(
 				manifest_category="Vanity",
 				strict_item_validation=strict_item_validation,
 				stats=stats,
+				item_cache=item_cache,
 			)
 
 		if MANIFEST_KIND_PANTRY in required_kinds and mapping_row.pantry_manifest_sheet:
@@ -149,36 +157,36 @@ def import_manifests(
 				manifest_category="Pantry",
 				strict_item_validation=strict_item_validation,
 				stats=stats,
+				item_cache=item_cache,
 			)
 
 
-def validate_manifest_items(
+def preview_manifest_sheets(
 	*,
 	reader: WorkbookReader,
 	scopes: list[SiteTypeScope],
 	quantity_rows: list[dict[str, Any]],
 	manifest_mappings: dict[str, TypeManifestSheets],
-) -> list[str]:
-	"""Pre-import check: does every required manifest sheet have at least one valid Item?
+	strict_item_validation: bool = False,
+) -> tuple[list[str], dict[str, Any]]:
+	"""Read-only Phase 1 preview across every required Manifest sheet.
 
-	Mirrors the Phase 1 rule that a Manifest is only created when it has at least
-	one row with an Item that exists in ERPNext. Catching this at Validate time
-	surfaces missing Items before the import ever links a Project Unit Configuration
-	to a Manifest that will never be created.
+	Only performs `exists()`/`get_value()` reads — no Item or Manifest is created
+	or modified here. Returns (blocking_errors, preview) where `preview` reports
+	the counts requested for the Validate step, and `blocking_errors` only
+	contains failures that would stop the whole import (currently: a required
+	sheet has zero usable rows while Strict Item Validation is enabled).
 	"""
 	errors: list[str] = []
-	sheet_item_cache: dict[str, bool] = {}
-
-	def _sheet_has_valid_item(sheet_name: str) -> bool:
-		if sheet_name not in sheet_item_cache:
-			has_item = False
-			for row in reader.get_sheet_as_dicts(sheet_name):
-				item_code = _get_row_value(row, "Description", "description")
-				if item_code and frappe.db.exists("Item", item_code):
-					has_item = True
-					break
-			sheet_item_cache[sheet_name] = has_item
-		return sheet_item_cache[sheet_name]
+	sheets_seen: set[str] = set()
+	total_rows = 0
+	invalid_rows = 0
+	unique_item_codes: set[str] = set()
+	item_descriptions: dict[str, set[str]] = {}
+	existing_items: set[str] = set()
+	missing_items: set[str] = set()
+	manifests_to_create: set[str] = set()
+	manifests_to_update: set[str] = set()
 
 	for scope in scopes:
 		type_sheets = manifest_mappings.get(scope.unit_type)
@@ -194,17 +202,82 @@ def validate_manifest_items(
 			if kind not in required_kinds:
 				continue
 			sheet_name = getattr(mapping_row, sheet_attr, "")
-			if not sheet_name or _sheet_has_valid_item(sheet_name):
+			if not sheet_name:
 				continue
-			manifest_code = _MANIFEST_CODE_BUILDER_BY_KIND[kind](scope.unit_type, scope.site_name)
-			errors.append(
-				f"No valid Items found on sheet '{sheet_name}' for manifest {manifest_code} "
-				f"({scope.unit_type} / {scope.site_name}). Every row's Item code (Description "
-				f"column) is missing from this site's Item list, so the Manifest will not be "
-				f"created and the import will fail. Create these Items before importing."
-			)
+			sheets_seen.add(sheet_name)
 
-	return errors
+			manifest_code = _MANIFEST_CODE_BUILDER_BY_KIND[kind](scope.unit_type, scope.site_name)
+			sheet_has_usable_row = False
+
+			for row in reader.get_sheet_as_dicts(sheet_name):
+				if not _row_has_any_data(row):
+					continue  # blank padding row — not a data row
+
+				item_code = _get_row_value(row, "Description", "description")
+				if not item_code:
+					invalid_rows += 1
+					continue
+
+				total_rows += 1
+				unique_item_codes.add(item_code)
+				item_description = _get_row_value(row, "Item Description", "item description")
+				if item_description:
+					item_descriptions.setdefault(item_code, set()).add(item_description)
+
+				if frappe.db.exists("Item", item_code):
+					existing_items.add(item_code)
+					sheet_has_usable_row = True
+				else:
+					missing_items.add(item_code)
+					if not strict_item_validation:
+						sheet_has_usable_row = True
+
+			if not sheet_has_usable_row:
+				if strict_item_validation:
+					errors.append(
+						f"No valid Items found on sheet '{sheet_name}' for manifest {manifest_code} "
+						f"({scope.unit_type} / {scope.site_name}). Every row's Item code "
+						f"(Description column) is missing from this site's Item list, and Strict "
+						f"Item Validation is enabled, so the Manifest will not be created. Create "
+						f"these Items before importing, or disable Strict Item Validation to "
+						f"auto-create them from the workbook."
+					)
+				continue
+
+			if frappe.db.exists("Manifest", manifest_code):
+				manifests_to_update.add(manifest_code)
+			else:
+				manifests_to_create.add(manifest_code)
+
+	items_to_create = set() if strict_item_validation else set(missing_items)
+	items_to_update = {
+		code
+		for code in existing_items
+		if item_descriptions.get(code)
+		and not (frappe.db.get_value("Item", code, "description") or "").strip()
+	}
+	conflicting_items = {
+		code: sorted(descriptions)
+		for code, descriptions in item_descriptions.items()
+		if len(descriptions) > 1
+	}
+
+	preview = {
+		"manifest_sheets_found": sorted(sheets_seen),
+		"manifest_sheet_count": len(sheets_seen),
+		"total_manifest_rows": total_rows,
+		"unique_item_codes": len(unique_item_codes),
+		"existing_items": len(existing_items),
+		"missing_items": len(missing_items),
+		"items_to_create": len(items_to_create),
+		"items_to_update": len(items_to_update),
+		"conflicting_items": conflicting_items,
+		"invalid_rows": invalid_rows,
+		"manifests_to_create": len(manifests_to_create),
+		"manifests_to_update": len(manifests_to_update),
+	}
+
+	return errors, preview
 
 
 def validate_manifest_links(
@@ -257,9 +330,10 @@ def _import_manifest_sheet(
 	manifest_category: str,
 	strict_item_validation: bool,
 	stats: ImportRunStats,
+	item_cache: dict[str, dict[str, Any]],
 ) -> None:
 	rows = reader.get_sheet_as_dicts(sheet_name)
-	items = _build_manifest_items(rows, strict_item_validation, stats, sheet_name)
+	items = _build_manifest_items(rows, strict_item_validation, stats, sheet_name, item_cache)
 
 	if not items:
 		stats.log.append(
@@ -314,38 +388,37 @@ def _build_manifest_items(
 	strict_item_validation: bool,
 	stats: ImportRunStats,
 	sheet_name: str,
+	item_cache: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
 	items: list[dict[str, Any]] = []
 
 	for row in rows:
+		row_number = int(row.get("row_number") or 0)
 		item_code = _get_row_value(row, "Description", "description")
 		if not item_code:
-			continue
-
-		if not frappe.db.exists("Item", item_code):
-			message = f"Item '{item_code}' not found (sheet {sheet_name}, row {row.get('row_number')})."
-			if strict_item_validation:
+			if _row_has_any_data(row):
 				stats.log.append(
 					WorkbookImportLogEntry(
 						phase="Phase 1",
 						document_type="Manifest Item",
-						document_code=item_code,
+						document_code="",
 						action="Failed",
-						row_number=int(row.get("row_number") or 0),
-						message=message,
+						row_number=row_number,
+						message=f"Blank Item Code (Description column) on sheet {sheet_name}.",
 					)
 				)
-				continue
-			stats.log.append(
-				WorkbookImportLogEntry(
-					phase="Phase 1",
-					document_type="Manifest Item",
-					document_code=item_code,
-					action="Skipped",
-					row_number=int(row.get("row_number") or 0),
-					message=message,
-				)
-			)
+			continue
+
+		item_description = _get_row_value(row, "Item Description", "item description")
+		if not _upsert_item(
+			item_code=item_code,
+			item_description=item_description,
+			create_missing=not strict_item_validation,
+			stats=stats,
+			sheet_name=sheet_name,
+			row_number=row_number,
+			item_cache=item_cache,
+		):
 			continue
 
 		qty = flt(_get_row_value(row, "Qty", "qty") or 1) or 1
@@ -353,7 +426,7 @@ def _build_manifest_items(
 		items.append(
 			{
 				"item_code": item_code,
-				"description": _get_row_value(row, "Item Description", "item description") or None,
+				"description": item_description or None,
 				"qty": qty,
 				"width": _float_or_none(_get_row_value(row, "Width", "width")),
 				"height": _float_or_none(_get_row_value(row, "Height", "height")),
@@ -365,6 +438,171 @@ def _build_manifest_items(
 		)
 
 	return items
+
+
+def _row_has_any_data(row: dict[str, Any]) -> bool:
+	for key, value in row.items():
+		if key == "row_number":
+			continue
+		if str(value or "").strip():
+			return True
+	return False
+
+
+def _upsert_item(
+	*,
+	item_code: str,
+	item_description: str,
+	create_missing: bool,
+	stats: ImportRunStats,
+	sheet_name: str,
+	row_number: int,
+	item_cache: dict[str, dict[str, Any]],
+) -> bool:
+	"""Ensure `item_code` exists as an Item, auto-creating it from the workbook row if missing.
+
+	Each item_code is only resolved (looked up / created) once per import run —
+	item_cache remembers the outcome — even though the same cabinet/component
+	typically appears on many manifest rows across several sheets (e.g. B60 on
+	T1/T1V/T2/T3 Manifest). Returns True if the Manifest line should include
+	this item.
+
+	Dimensions (width/height/depth) are never written here — they belong to the
+	Manifest Item child row the caller builds, not the Item master, so a
+	different width for the same item_code on another sheet (e.g. Robe Top
+	Panel) cannot corrupt shared Item data. A differing Item Description text
+	for an already-resolved code is only reported as a Conflict log entry —
+	the Item master keeps whatever description it was first resolved with.
+	"""
+	cached = item_cache.get(item_code)
+	if cached is not None:
+		if (
+			item_description
+			and cached.get("description")
+			and item_description != cached["description"]
+		):
+			stats.log.append(
+				WorkbookImportLogEntry(
+					phase="Phase 1",
+					document_type="Item",
+					document_code=item_code,
+					action="Conflict",
+					row_number=row_number,
+					message=(
+						f"Sheet {sheet_name} lists Item Description '{item_description}' for "
+						f"{item_code}, but '{cached['description']}' was already used to resolve "
+						f"this Item earlier in the import. The Item master is unchanged; only the "
+						f"first description encountered is used."
+					),
+				)
+			)
+		return cached["ok"]
+
+	if frappe.db.exists("Item", item_code):
+		changed = _backfill_item_description_if_blank(item_code, item_description)
+		action = "Updated" if changed else "Reused"
+		if changed:
+			stats.items_updated += 1
+		item_cache[item_code] = {"ok": True, "description": item_description or None}
+		stats.log.append(
+			WorkbookImportLogEntry(
+				phase="Phase 1",
+				document_type="Item",
+				document_code=item_code,
+				action=action,
+				row_number=row_number,
+				message=f"Matched existing Item from sheet {sheet_name}.",
+			)
+		)
+		return True
+
+	if not create_missing:
+		item_cache[item_code] = {"ok": False, "description": item_description or None}
+		stats.items_skipped += 1
+		stats.log.append(
+			WorkbookImportLogEntry(
+				phase="Phase 1",
+				document_type="Item",
+				document_code=item_code,
+				action="Skipped",
+				row_number=row_number,
+				message=(
+					f"Item '{item_code}' not found (sheet {sheet_name}, row {row_number}). "
+					f"Strict Item Validation is enabled so it was not auto-created."
+				),
+			)
+		)
+		return False
+
+	savepoint = "manifest_item_upsert"
+	frappe.db.savepoint(savepoint)
+	try:
+		doc = frappe.get_doc(
+			{
+				"doctype": "Item",
+				"item_code": item_code,
+				"item_name": (item_description or item_code)[:140],
+				"item_group": _default_item_group(),
+				"stock_uom": _default_stock_uom(),
+				"is_stock_item": 1,
+				"description": item_description or None,
+			}
+		)
+		doc.insert(ignore_permissions=True)
+	except Exception as exc:
+		frappe.db.rollback(save_point=savepoint)
+		item_cache[item_code] = {"ok": False, "description": item_description or None}
+		stats.items_errors += 1
+		stats.log.append(
+			WorkbookImportLogEntry(
+				phase="Phase 1",
+				document_type="Item",
+				document_code=item_code,
+				action="Failed",
+				row_number=row_number,
+				message=f"Could not auto-create Item from sheet {sheet_name}: {exc}",
+			)
+		)
+		return False
+
+	item_cache[item_code] = {"ok": True, "description": item_description or None}
+	stats.items_created += 1
+	stats.log.append(
+		WorkbookImportLogEntry(
+			phase="Phase 1",
+			document_type="Item",
+			document_code=item_code,
+			action="Created",
+			row_number=row_number,
+			message=f"Auto-created from sheet {sheet_name} (Description column = Item Code).",
+		)
+	)
+	return True
+
+
+def _backfill_item_description_if_blank(item_code: str, item_description: str) -> bool:
+	"""Fill in a blank Item.description from the workbook row; never overwrite an existing one."""
+	if not item_description:
+		return False
+	current_description = frappe.db.get_value("Item", item_code, "description")
+	if (current_description or "").strip():
+		return False
+	frappe.db.set_value("Item", item_code, "description", item_description, update_modified=True)
+	return True
+
+
+def _default_item_group() -> str:
+	group = frappe.db.get_single_value("Stock Settings", "item_group")
+	if group and frappe.db.exists("Item Group", group):
+		return group
+	return "All Item Groups"
+
+
+def _default_stock_uom() -> str:
+	uom = frappe.db.get_single_value("Stock Settings", "stock_uom")
+	if uom and frappe.db.exists("UOM", uom):
+		return uom
+	return "Nos"
 
 
 def _get_row_value(row: dict, *keys: str) -> str:

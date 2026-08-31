@@ -61,20 +61,56 @@ def validate_template_options(doc) -> None:
 
 
 def format_validation_summary(preview: dict) -> str:
-	return frappe._(
-		"Validation passed.\n"
-		"• {0} site project(s)\n"
-		"• {1} configuration(s) (site and type)\n"
-		"• {2} apartment row(s)\n"
-		"• {3} unit project(s) planned\n"
-		"• {4} manifest(s) planned"
-	).format(
-		preview.get("site_count", 0),
-		preview.get("configuration_count", 0),
-		preview.get("plot_count", 0),
-		preview.get("unit_project_count", 0),
-		preview.get("manifest_count", 0),
-	)
+	lines = [
+		frappe._("Validation passed."),
+		frappe._("• {0} site project(s)").format(preview.get("site_count", 0)),
+		frappe._("• {0} configuration(s) (site and type)").format(
+			preview.get("configuration_count", 0)
+		),
+		frappe._("• {0} apartment row(s)").format(preview.get("plot_count", 0)),
+		frappe._("• {0} unit project(s) planned").format(preview.get("unit_project_count", 0)),
+		frappe._("• {0} manifest(s) planned").format(preview.get("manifest_count", 0)),
+	]
+
+	if "manifest_sheet_count" in preview:
+		lines.append(
+			frappe._(
+				"• Manifest sheets: {0} found, {1} row(s), {2} unique Item code(s)"
+			).format(
+				preview.get("manifest_sheet_count", 0),
+				preview.get("total_manifest_rows", 0),
+				preview.get("unique_item_codes", 0),
+			)
+		)
+		lines.append(
+			frappe._("• Items: {0} existing, {1} to create, {2} to update").format(
+				preview.get("existing_items", 0),
+				preview.get("items_to_create", 0),
+				preview.get("items_to_update", 0),
+			)
+		)
+		lines.append(
+			frappe._("• Manifests: {0} to create, {1} to update").format(
+				preview.get("manifests_to_create", 0),
+				preview.get("manifests_to_update", 0),
+			)
+		)
+		if preview.get("invalid_rows"):
+			lines.append(
+				frappe._("• {0} row(s) with a blank Item Code will be skipped").format(
+					preview.get("invalid_rows", 0)
+				)
+			)
+		if preview.get("conflicting_items"):
+			codes = ", ".join(sorted(preview["conflicting_items"])[:10])
+			lines.append(
+				frappe._(
+					"• {0} Item code(s) list more than one Item Description across sheets "
+					"(first one seen wins, master is not changed): {1}"
+				).format(len(preview["conflicting_items"]), codes)
+			)
+
+	return "\n".join(lines)
 
 
 def format_import_summary(stats: ImportRunStats, *, template_label: str = "") -> str:
@@ -91,6 +127,9 @@ def format_import_summary(stats: ImportRunStats, *, template_label: str = "") ->
 		),
 		frappe._("• Manifests: {0} created, {1} updated").format(
 			stats.manifests_created, stats.manifests_updated
+		),
+		frappe._("• Items: {0} created, {1} updated, {2} skipped, {3} error(s)").format(
+			stats.items_created, stats.items_updated, stats.items_skipped, stats.items_errors
 		),
 	]
 	if template_label:

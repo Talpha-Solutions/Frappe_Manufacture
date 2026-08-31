@@ -12,7 +12,7 @@ from fitzgerald_kitchens.workbook_import.import_messages import project_factory_
 from fitzgerald_kitchens.workbook_import.manifest_importer import (
 	ensure_configuration_stubs,
 	import_manifests,
-	validate_manifest_items,
+	preview_manifest_sheets,
 	validate_manifest_links,
 )
 from fitzgerald_kitchens.workbook_import.naming import apply_site_scoped_configuration_codes
@@ -54,14 +54,14 @@ def validate_full_workbook(doc) -> tuple[list[str], dict[str, Any]]:
 		manifest_mappings = discover_manifest_sheet_mappings(reader)
 		required_by_type = requirements_by_type(quantity_rows)
 		errors.extend(validation_errors_for_manifest_sheets(manifest_mappings, required_by_type))
-		errors.extend(
-			validate_manifest_items(
-				reader=reader,
-				scopes=scopes,
-				quantity_rows=quantity_rows,
-				manifest_mappings=manifest_mappings,
-			)
+		item_errors, item_preview = preview_manifest_sheets(
+			reader=reader,
+			scopes=scopes,
+			quantity_rows=quantity_rows,
+			manifest_mappings=manifest_mappings,
+			strict_item_validation=bool(doc.strict_item_validation),
 		)
+		errors.extend(item_errors)
 
 		qty_errors, qty_preview = validate_workbook_rows(
 			quantity_rows,
@@ -79,6 +79,7 @@ def validate_full_workbook(doc) -> tuple[list[str], dict[str, Any]]:
 			"site_count": count_unique_sites(quantity_rows),
 			"unit_project_count": qty_preview.get("unit_project_count", 0),
 			"sheets": reader.sheet_names(),
+			**item_preview,
 		}
 	except WorkbookParseError as exc:
 		errors.append(str(exc))

@@ -33,4 +33,8 @@ class ImportRunStats:
 	units_updated: int = 0
 	configurations_linked: int = 0
 	tasks_from_template_applied: int = 0
+	items_created: int = 0
+	items_updated: int = 0
+	items_skipped: int = 0
+	items_errors: int = 0
 	log: list[WorkbookImportLogEntry] = field(default_factory=list)

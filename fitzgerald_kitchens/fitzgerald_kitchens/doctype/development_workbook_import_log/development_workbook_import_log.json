@@ -71,7 +71,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Action",
-   "options": "Created\nUpdated\nSkipped\nFailed"
+   "options": "Created\nUpdated\nReused\nConflict\nSkipped\nFailed"
   },
   {
    "fieldname": "project",
@@ -86,7 +86,7 @@
   }
  ],
  "istable": 1,
- "modified": "2026-06-02 12:46:00.000000",
+ "modified": "2026-08-31 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Development Workbook Import Log",
