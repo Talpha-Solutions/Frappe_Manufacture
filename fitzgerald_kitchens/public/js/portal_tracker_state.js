@@ -3,6 +3,17 @@
 	const STORAGE_SEARCH = "fk_tracker_focused_search";
 	const TRACKER_PATH = "/project";
 
+	function syncNavbarHeightVar() {
+		const navbar = document.querySelector(".navbar");
+		if (!navbar) {
+			return;
+		}
+		const height = navbar.getBoundingClientRect().height;
+		if (height > 0) {
+			document.documentElement.style.setProperty("--navbar-height", height + "px");
+		}
+	}
+
 	function normalizePath(pathname) {
 		if (!pathname) {
 			return "";
@@ -211,5 +222,8 @@
 
 	document.addEventListener("DOMContentLoaded", function () {
 		window.fkTrackerState.syncSidebarLinks();
+		syncNavbarHeightVar();
 	});
+	window.addEventListener("load", syncNavbarHeightVar);
+	window.addEventListener("resize", syncNavbarHeightVar);
 })();
