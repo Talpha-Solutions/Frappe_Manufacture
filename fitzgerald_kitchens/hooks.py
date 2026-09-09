@@ -417,19 +417,10 @@ patch_project_website_list()
 patch_project_website_tasks()
 
 # Website Portal Sidebar
+# Only list routes here that ERPNext's own `standard_portal_menu_items` doesn't
+# already provide (see erpnext/hooks.py) — Frappe's sidebar builder appends both
+# lists without deduping by route, so re-declaring a standard route here shows
+# it twice in the portal sidebar.
 portal_menu_items = [
-	{"title": "Projects Overview", "route": "/project", "role": "Customer"},
 	{"title": "Projects Photos", "route": "/project_photos", "role": "Customer"},
-	{"title": "Request for Quotations", "route": "/rfq", "role": "Supplier"},
-	{"title": "Supplier Quotation", "route": "/supplier-quotations", "role": "Supplier"},
-	{"title": "Purchase Orders", "route": "/purchase-orders", "role": "Supplier"},
-	{"title": "Purchase Invoices", "route": "/purchase-invoices", "role": "Supplier"},
-	{"title": "Quotations", "route": "/quotations", "role": "Customer"},
-	{"title": "Orders", "route": "/orders", "role": "Customer"},
-	{"title": "Invoices", "route": "/invoices", "role": "Customer"},
-	{"title": "Shipments", "route": "/shipments", "role": "Customer"},
-	{"title": "Issues", "route": "/issues", "role": "Customer"},
-	{"title": "Addresses", "route": "/addresses", "role": "Customer"},
-	{"title": "Timesheets", "route": "/timesheets", "role": "Customer"},
-	{"title": "Material Request", "route": "/material-requests", "role": "Customer"},
 ]
