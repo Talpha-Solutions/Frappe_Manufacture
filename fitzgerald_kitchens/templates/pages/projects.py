@@ -2,20 +2,33 @@
 import frappe
 import json
 from erpnext.templates.pages.projects import get_timesheets, get_attachments
+from erpnext.controllers.website_list_for_contact import get_parents_for_user
 
 def get_context(context):
+    if frappe.session.user == "Guest":
+        raise frappe.PermissionError
+
+    project = frappe.get_doc("Project", frappe.form_dict.project)
+
     project_user = frappe.db.get_value(
         "Project User",
-        {"parent": frappe.form_dict.project, "user": frappe.session.user},
+        {"parent": project.name, "user": frappe.session.user},
         ["user", "view_attachments", "hide_timesheets"],
         as_dict=True,
     )
-    if frappe.session.user != "Administrator" and (not project_user or frappe.session.user == "Guest"):
+
+    # Same customer-portal-user allow-list used by Orders/Invoices/Quotations,
+    # so a user linked to the project's customer doesn't need a per-project row too.
+    is_linked_customer = bool(
+        project.customer and project.customer in get_parents_for_user("Customer")
+    )
+    is_system_user = frappe.db.get_value("User", frappe.session.user, "user_type") == "System User"
+
+    if not (is_system_user or project_user or is_linked_customer):
         raise frappe.PermissionError
 
     context.no_cache = 1
     context.show_sidebar = True
-    project = frappe.get_doc("Project", frappe.form_dict.project)
     project.has_permission("read")
 
     # Fetch tasks using custom query function below that grabs attachments
