@@ -9,7 +9,7 @@
  "icon_type": "Link",
  "idx": 8,
  "label": "My Tasks",
- "link": "/app/my-tasks",
+ "link": "/desk/my-tasks",
  "link_type": "External",
  "modified": "2026-06-05 07:20:40.579471",
  "modified_by": "Administrator",

@@ -1,11 +1,14 @@
 # Copyright (c) 2026, talpha solutions and contributors
 # For license information, please see license.txt
 
+import json
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import now_datetime
 
+from fitzgerald_kitchens.fitzgerald_kitchens.offline_engine.validation import assert_not_stale
 from fitzgerald_kitchens.fitzgerald_kitchens.utils.stage_tracking import (
 	apply_stage_row_update,
 	get_stage_rows_for_unit,
@@ -80,3 +83,41 @@ def get_stages_for_qr_scan(development_unit: str):
 		frappe.throw(_("Development Unit {0} does not exist").format(development_unit))
 
 	return get_stage_rows_for_unit(development_unit)
+
+
+@frappe.whitelist()
+def submit_qr_scan(
+	development_unit: str,
+	scan_lines: list | str,
+	based_on_modified: str | None = None,
+) -> dict:
+	"""Offline-friendly wrapper around the submit-only Development Unit QR
+	Scan doctype: builds and submits it server-side in one call so an
+	offline client never has to construct/submit the child-table document
+	itself — it just sends the resolved scan lines
+	(`[{"stage_row_name", "updated_status", "remarks"}, ...]`).
+	"""
+	if isinstance(scan_lines, str):
+		scan_lines = json.loads(scan_lines)
+
+	du = frappe.get_doc("Development Unit", development_unit)
+	assert_not_stale(du, based_on_modified)
+
+	doc = frappe.get_doc(
+		{
+			"doctype": "Development Unit QR Scan",
+			"development_unit": development_unit,
+			"scan_lines": scan_lines,
+		}
+	)
+	doc.insert(ignore_permissions=True)
+	doc.submit()
+
+	du.reload()
+	return {
+		"qr_scan": doc.name,
+		"development_unit": du.name,
+		"current_stage": du.current_stage,
+		"current_stage_progress": du.current_stage_progress,
+		"modified": str(du.modified),
+	}

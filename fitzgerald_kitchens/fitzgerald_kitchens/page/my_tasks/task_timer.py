@@ -190,6 +190,15 @@ def _ensure_timesheet_project(timesheet: frappe.Document, project: str | None) -
 		timesheet.parent_project = project
 
 
+def _resolve_time(client_time: str | None):
+	"""Offline actions carry the real-world moment they happened on the
+	device; replaying them later must record that moment, not the time the
+	sync happened to run. Online callers omit client_time and get server now."""
+	if not client_time:
+		return now_datetime()
+	return get_datetime(client_time)
+
+
 def _timer_elapsed_seconds(from_time) -> int:
 	if not from_time:
 		return 0
@@ -242,7 +251,7 @@ def _apply_task_update(
 	return {"name": task.name, "status": task.status, "progress": flt(task.progress)}
 
 
-def _auto_stop_running_timer_on_other_task(user: str, new_task: str) -> dict | None:
+def _auto_stop_running_timer_on_other_task(user: str, new_task: str, client_time=None) -> dict | None:
 	"""Stop an active timer on another task so a new task can be started."""
 	existing = _get_running_time_log(user)
 	if not existing or existing.task == new_task:
@@ -250,7 +259,7 @@ def _auto_stop_running_timer_on_other_task(user: str, new_task: str) -> dict | N
 
 	_check_task_access(existing.task)
 	timesheet = frappe.get_doc("Timesheet", existing.timesheet_name)
-	result = _close_time_log_row(timesheet, existing.detail_name, submit_after=False)
+	result = _close_time_log_row(timesheet, existing.detail_name, submit_after=False, to_time=client_time)
 	_set_timer_paused(user, existing.task, False)
 	return {"stopped_task": existing.task, "stopped": result}
 
@@ -275,12 +284,14 @@ def _close_open_time_logs_for_task(user: str, task: str) -> None:
 		_close_time_log_row(timesheet, row.detail_name, submit_after=False)
 
 
-def _close_time_log_row(timesheet: frappe.Document, detail_name: str, *, submit_after: bool = False) -> dict:
+def _close_time_log_row(
+	timesheet: frappe.Document, detail_name: str, *, submit_after: bool = False, to_time=None
+) -> dict:
 	row = next((r for r in timesheet.time_logs if r.name == detail_name), None)
 	if not row:
 		frappe.throw(_("Active timer row not found"))
 
-	row.to_time = now_datetime()
+	row.to_time = _resolve_time(to_time)
 	# Do not set row.completed — in ERPNext that flag means "mark task complete"
 	# on timesheet submit (status → Completed, progress → 100%).
 	if row.from_time and row.to_time:
@@ -448,7 +459,7 @@ def _timer_payload(task_name: str, running: dict | None = None) -> dict:
 
 
 @frappe.whitelist()
-def start_task_timer(task: str):
+def start_task_timer(task: str, client_time: str | None = None):
 	_check_task_access(task)
 
 	user = frappe.session.user
@@ -459,7 +470,7 @@ def start_task_timer(task: str):
 			title=_("Employee Required"),
 		)
 
-	auto_stopped = _auto_stop_running_timer_on_other_task(user, task)
+	auto_stopped = _auto_stop_running_timer_on_other_task(user, task, client_time=client_time)
 
 	_close_open_time_logs_for_task(user, task)
 	_set_timer_paused(user, task, False)
@@ -475,7 +486,7 @@ def start_task_timer(task: str):
 	_set_task_working(task)
 
 	expected_hours = flt(task_doc.expected_time) or None
-	from_time = now_datetime()
+	from_time = _resolve_time(client_time)
 	row = timesheet.append(
 		"time_logs",
 		{
@@ -502,14 +513,14 @@ def start_task_timer(task: str):
 
 
 @frappe.whitelist()
-def pause_task_timer(task: str):
+def pause_task_timer(task: str, client_time: str | None = None):
 	_check_task_access(task)
 	running = _get_running_time_log(frappe.session.user, task)
 	if not running:
 		frappe.throw(_("No running timer for this task."))
 
 	timesheet = frappe.get_doc("Timesheet", running.timesheet_name)
-	result = _close_time_log_row(timesheet, running.detail_name, submit_after=False)
+	result = _close_time_log_row(timesheet, running.detail_name, submit_after=False, to_time=client_time)
 	_set_timer_paused(frappe.session.user, task, True)
 	payload = _timer_payload(task)
 	payload["stopped"] = result
@@ -517,7 +528,7 @@ def pause_task_timer(task: str):
 
 
 @frappe.whitelist()
-def stop_task_timer(task: str):
+def stop_task_timer(task: str, client_time: str | None = None):
 	_check_task_access(task)
 	user = frappe.session.user
 	_set_timer_paused(user, task, False)
@@ -525,7 +536,7 @@ def stop_task_timer(task: str):
 
 	if running:
 		timesheet = frappe.get_doc("Timesheet", running.timesheet_name)
-		result = _close_time_log_row(timesheet, running.detail_name, submit_after=False)
+		result = _close_time_log_row(timesheet, running.detail_name, submit_after=False, to_time=client_time)
 		payload = _timer_payload(task)
 		payload["stopped"] = result
 		return payload
@@ -534,8 +545,8 @@ def stop_task_timer(task: str):
 
 
 @frappe.whitelist()
-def resume_task_timer(task: str):
-	return start_task_timer(task)
+def resume_task_timer(task: str, client_time: str | None = None):
+	return start_task_timer(task, client_time=client_time)
 
 
 @frappe.whitelist()

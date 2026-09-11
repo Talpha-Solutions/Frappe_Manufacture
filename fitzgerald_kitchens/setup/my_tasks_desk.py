@@ -21,6 +21,7 @@ PERMISSIONS = [
 	("File", "write"),
 	("File", "create"),
 	("Development Unit", "read"),
+	("Development Unit", "write"),
 	("Development Unit QR Scan", "read"),
 	("Development Unit QR Scan", "write"),
 	("Development Unit QR Scan", "create"),
@@ -37,6 +38,9 @@ PERMISSIONS = [
 	("Stock Entry", "submit"),
 	("Item", "read"),
 	("Warehouse", "read"),
+	("Offline Sync Operation", "read"),
+	("Offline Sync Operation", "write"),
+	("Offline Sync Operation", "create"),
 ]
 
 

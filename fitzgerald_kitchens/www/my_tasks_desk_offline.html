@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>{{ _("My Tasks") }} ({{ _("Offline") }})</title>
+	<meta name="csrf-token" content="{{ csrf_token }}">
+	<meta name="theme-color" content="#1b66ec">
+	<style>
+		:root { --bg:#f1f5f9; --card:#fff; --border:#e2e8f0; --text:#0f172a; --muted:#64748b; --ok:#16a34a; --bad:#dc2626; --warn:#d97706; --accent:#1b66ec; }
+		* { box-sizing: border-box; }
+		body { margin:0; font-family: "Segoe UI", system-ui, sans-serif; background:var(--bg); color:var(--text); }
+		header { position:sticky; top:0; display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:0.85rem 1rem; background:rgba(255,255,255,.95); border-bottom:1px solid var(--border); }
+		h1 { margin:0; font-size:1.05rem; }
+		#pill { font-size:0.78rem; font-weight:600; padding:0.3rem 0.7rem; border-radius:999px; background:#e2e8f0; }
+		#pill.online { background:#dcfce7; color:#166534; }
+		#pill.offline { background:#fee2e2; color:#991b1b; }
+		#pill.syncing { background:#fef3c7; color:#92400e; }
+		#banner { display:none; background:#fef3c7; color:#92400e; padding:0.65rem 1rem; font-size:0.85rem; border-bottom:1px solid #f59e0b; }
+		main { max-width:720px; margin:0 auto; padding:1rem; }
+		.card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1rem; margin-bottom:1rem; }
+		.hint { color:var(--muted); font-size:0.85rem; margin:0 0 0.75rem; }
+		.row { display:flex; justify-content:space-between; gap:0.75rem; align-items:center; padding:0.75rem 0; border-bottom:1px solid var(--border); }
+		.row:last-child { border-bottom:none; }
+		.row strong { display:block; }
+		.row span { display:block; font-size:0.78rem; color:var(--muted); margin-top:0.15rem; }
+		.actions { display:flex; flex-wrap:wrap; gap:0.4rem; }
+		button { font:inherit; border:none; border-radius:8px; padding:0.45rem 0.8rem; background:var(--accent); color:#fff; cursor:pointer; }
+		button.secondary { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+		button:disabled { opacity:0.5; }
+		.empty { color:var(--muted); font-size:0.85rem; }
+	</style>
+</head>
+<body>
+	<header>
+		<h1>{{ _("My Tasks") }}</h1>
+		<div id="pill">{{ _("Checking…") }}</div>
+	</header>
+	<div id="banner"></div>
+	<main>
+		<section class="card">
+			<p class="hint">{{ _("Desk offline fallback — assigned tasks from this device. Complete queues until you are online again.") }}</p>
+			<div class="actions" style="margin-bottom:0.75rem;">
+				<button type="button" class="secondary" id="btn-sync">{{ _("Sync now") }}</button>
+				<button type="button" class="secondary" id="btn-desk" onclick="location.href='/app/my-tasks'">{{ _("Open Desk My Tasks") }}</button>
+			</div>
+			<div id="list"><div class="empty">{{ _("Loading…") }}</div></div>
+		</section>
+	</main>
+	<script src="/assets/fitzgerald_kitchens/offline/db.js"></script>
+	<script src="/assets/fitzgerald_kitchens/offline/sync.js"></script>
+	<script src="/assets/fitzgerald_kitchens/js/my_tasks_offline.js"></script>
+	<script>
+	(function () {
+		var list = document.getElementById("list");
+		var pill = document.getElementById("pill");
+		var banner = document.getElementById("banner");
+		var host = location.hostname;
+		var insecure = location.protocol === "http:" && host !== "localhost" && host !== "127.0.0.1" && !host.endsWith(".localhost");
+
+		function setPill(mode, text) {
+			pill.className = mode || "";
+			pill.id = "pill";
+			pill.classList.add(mode);
+			pill.textContent = text;
+		}
+
+		function updatePill() {
+			if (window.fkOfflineSync && fkOfflineSync.isSyncing && fkOfflineSync.isSyncing()) {
+				setPill("syncing", "Syncing…");
+			} else if (!navigator.onLine) {
+				setPill("offline", "Offline");
+			} else {
+				setPill("online", "Online");
+			}
+		}
+
+		function escapeHtml(v) {
+			var d = document.createElement("div");
+			d.textContent = v == null ? "" : String(v);
+			return d.innerHTML;
+		}
+
+		function render() {
+			updatePill();
+			if (!window.fkDeskMyTasksOffline) {
+				list.innerHTML = '<div class="empty">Offline helpers not loaded.</div>';
+				return;
+			}
+			fkDeskMyTasksOffline.loadDashboard().then(function (dash) {
+				var tasks = [];
+				if (dash && dash.tabs) {
+					Object.keys(dash.tabs).forEach(function (bucket) {
+						if (bucket === "completed") return;
+						(dash.tabs[bucket].tasks || []).forEach(function (t) {
+							if (t.status !== "Completed") tasks.push(t);
+						});
+					});
+				}
+				if (!tasks.length) {
+					list.innerHTML = '<div class="empty">No cached tasks. Open <code>/app/my-tasks</code> once online on <code>127.0.0.1</code>, then return here offline.</div>';
+					return;
+				}
+				list.innerHTML = "";
+				tasks.forEach(function (task) {
+					var row = document.createElement("div");
+					row.className = "row";
+					row.innerHTML = "<div><strong>" + escapeHtml(task.subject || task.name) + "</strong><span>" + escapeHtml(task.name) + (task.project ? " · " + escapeHtml(task.project) : "") + "</span></div>";
+					var actions = document.createElement("div");
+					actions.className = "actions";
+					var btn = document.createElement("button");
+					btn.type = "button";
+					btn.textContent = "Complete";
+					btn.addEventListener("click", function () {
+						btn.disabled = true;
+						fkDeskMyTasksOffline.queueComplete(task.name).then(render);
+					});
+					actions.appendChild(btn);
+					row.appendChild(actions);
+					list.appendChild(row);
+				});
+			});
+		}
+
+		if (insecure) {
+			banner.style.display = "block";
+			banner.innerHTML = "<strong>Service Worker cannot install on http://" + host + "</strong>. Use <code>http://127.0.0.1:8001/app/my-tasks</code> (not manufacture.local) so offline refresh works.";
+		}
+
+		document.getElementById("btn-sync").addEventListener("click", function () {
+			if (!navigator.onLine) {
+				render();
+				return;
+			}
+			updatePill();
+			if (window.fkOfflineSync) {
+				fkOfflineSync.syncNow().then(function () {
+					return fkOfflineSync.pullNow && fkOfflineSync.pullNow();
+				}).finally(render);
+			} else {
+				render();
+			}
+		});
+
+		window.addEventListener("online", function () {
+			updatePill();
+			if (window.fkDeskMyTasksOffline) fkDeskMyTasksOffline.syncOutbox().then(render);
+		});
+		window.addEventListener("offline", updatePill);
+		if (window.fkOfflineSync && fkOfflineSync.onChange) fkOfflineSync.onChange(render);
+
+		if (window.fkDeskMyTasksOffline) fkDeskMyTasksOffline.registerSW();
+		render();
+	})();
+	</script>
+</body>
+</html>

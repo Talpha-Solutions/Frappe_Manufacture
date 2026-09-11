@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>{{ _("Fitzgerald Kitchens — Offline") }}</title>
+	<link rel="manifest" href="/offline_manifest.json">
+	<meta name="csrf-token" content="{{ csrf_token }}">
+	<meta name="theme-color" content="#0f172a">
+	<style>
+		:root {
+			color-scheme: light;
+			--fk-bg: #f8fafc;
+			--fk-card: #ffffff;
+			--fk-border: #e2e8f0;
+			--fk-text: #0f172a;
+			--fk-muted: #64748b;
+			--fk-accent: #1b66ec;
+			--fk-ok: #16a34a;
+			--fk-warn: #d97706;
+			--fk-bad: #dc2626;
+		}
+		* { box-sizing: border-box; }
+		body {
+			margin: 0;
+			background: var(--fk-bg);
+			color: var(--fk-text);
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+			padding-bottom: 4rem;
+		}
+		header.fk-bar {
+			position: sticky;
+			top: 0;
+			z-index: 5;
+			background: var(--fk-card);
+			border-bottom: 1px solid var(--fk-border);
+			padding: 0.85rem 1rem;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.75rem;
+		}
+		header.fk-bar h1 {
+			font-size: 1.05rem;
+			margin: 0;
+		}
+		#fk-sync-status {
+			font-size: 0.8rem;
+			color: var(--fk-muted);
+			display: flex;
+			align-items: center;
+			gap: 0.4rem;
+			white-space: nowrap;
+		}
+		#fk-sync-status .fk-dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: var(--fk-muted);
+		}
+		#fk-sync-status.online .fk-dot { background: var(--fk-ok); }
+		#fk-sync-status.offline .fk-dot { background: var(--fk-bad); }
+		#fk-sync-status.syncing .fk-dot { background: var(--fk-warn); }
+		#fk-sync-status.auth .fk-dot { background: var(--fk-bad); }
+		#fk-sync-status.auth a { color: var(--fk-accent); }
+		main {
+			max-width: 720px;
+			margin: 0 auto;
+			padding: 1rem;
+		}
+		section.fk-panel {
+			background: var(--fk-card);
+			border: 1px solid var(--fk-border);
+			border-radius: 12px;
+			padding: 1rem;
+			margin-bottom: 1rem;
+		}
+		section.fk-panel h2 {
+			font-size: 0.95rem;
+			margin: 0 0 0.75rem 0;
+		}
+		.fk-task-row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.75rem;
+			padding: 0.65rem 0;
+			border-bottom: 1px solid var(--fk-border);
+		}
+		.fk-task-row:last-child { border-bottom: none; }
+		.fk-task-name { font-weight: 600; font-size: 0.9rem; }
+		.fk-task-sub { font-size: 0.78rem; color: var(--fk-muted); }
+		.fk-badge {
+			font-size: 0.7rem;
+			padding: 0.15rem 0.5rem;
+			border-radius: 999px;
+			background: #f1f5f9;
+			color: var(--fk-muted);
+			white-space: nowrap;
+		}
+		.fk-badge.pending { background: #fff7e6; color: var(--fk-warn); }
+		.fk-badge.synced { background: #f0fdf4; color: var(--fk-ok); }
+		.fk-badge.failed { background: #fef2f2; color: var(--fk-bad); }
+		.fk-badge.conflict { background: #fef2f2; color: var(--fk-bad); font-weight: 600; }
+		.fk-unit-card {
+			border: 1px solid var(--fk-border);
+			border-radius: 10px;
+			padding: 0.75rem;
+			margin-bottom: 0.75rem;
+		}
+		.fk-unit-card:last-child { margin-bottom: 0; }
+		.fk-unit-title { font-weight: 650; font-size: 0.92rem; }
+		.fk-unit-sub { font-size: 0.78rem; color: var(--fk-muted); margin-bottom: 0.5rem; }
+		.fk-stage-row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.5rem;
+			padding: 0.4rem 0;
+			border-top: 1px dashed var(--fk-border);
+		}
+		.fk-stage-row:first-of-type { border-top: none; }
+		.fk-stage-name { font-size: 0.85rem; }
+		.fk-stage-actions { display: flex; gap: 0.4rem; align-items: center; }
+		.fk-stage-actions button.fk-small,
+		.fk-unit-actions button.fk-small {
+			padding: 0.3rem 0.55rem;
+			font-size: 0.75rem;
+		}
+		.fk-unit-actions {
+			display: flex;
+			gap: 0.4rem;
+			flex-wrap: wrap;
+			margin-top: 0.6rem;
+			padding-top: 0.6rem;
+			border-top: 1px solid var(--fk-border);
+		}
+		.fk-conflict-note {
+			font-size: 0.78rem;
+			color: var(--fk-bad);
+			background: #fef2f2;
+			border-radius: 6px;
+			padding: 0.4rem 0.6rem;
+			margin: 0.4rem 0;
+		}
+		.fk-inline-form {
+			display: none;
+			flex-direction: column;
+			gap: 0.4rem;
+			margin-top: 0.5rem;
+			padding-top: 0.5rem;
+			border-top: 1px dashed var(--fk-border);
+		}
+		.fk-inline-form.open { display: flex; }
+		.fk-inline-form input, .fk-inline-form select, .fk-inline-form textarea {
+			font: inherit;
+			padding: 0.45rem 0.6rem;
+			border: 1px solid var(--fk-border);
+			border-radius: 6px;
+			width: 100%;
+		}
+		button {
+			font: inherit;
+			border: none;
+			border-radius: 8px;
+			padding: 0.5rem 0.9rem;
+			background: var(--fk-accent);
+			color: #fff;
+			cursor: pointer;
+		}
+		button:disabled { opacity: 0.5; cursor: default; }
+		button.fk-secondary {
+			background: transparent;
+			color: var(--fk-accent);
+			border: 1px solid var(--fk-accent);
+		}
+		input[type="text"] {
+			font: inherit;
+			padding: 0.55rem 0.75rem;
+			border: 1px solid var(--fk-border);
+			border-radius: 8px;
+			width: 100%;
+		}
+		.fk-scan-row { display: flex; gap: 0.5rem; }
+		.fk-scan-row input { flex: 1; }
+		.fk-empty { color: var(--fk-muted); font-size: 0.85rem; padding: 0.5rem 0; }
+		#fk-outbox-list .fk-out-row {
+			display: flex;
+			justify-content: space-between;
+			font-size: 0.82rem;
+			padding: 0.4rem 0;
+			gap: 0.5rem;
+		}
+		#fk-outbox-list .fk-out-wrap {
+			border-bottom: 1px solid var(--fk-border);
+			padding-bottom: 0.5rem;
+			margin-bottom: 0.35rem;
+		}
+		#fk-outbox-list .fk-out-wrap:last-child { border-bottom: none; }
+		#fk-outbox-list .fk-out-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.4rem;
+			margin-top: 0.35rem;
+		}
+		button.fk-small {
+			font-size: 0.75rem;
+			padding: 0.3rem 0.55rem;
+			border-radius: 6px;
+		}
+		.fk-conflict-note {
+			font-size: 0.78rem;
+			color: var(--fk-bad);
+			margin-top: 0.2rem;
+		}
+	</style>
+</head>
+<body>
+	<header class="fk-bar">
+		<h1>{{ _("Fitzgerald Kitchens — Field") }}</h1>
+		<div id="fk-sync-status"><span class="fk-dot"></span><span id="fk-sync-status-text">{{ _("Checking...") }}</span></div>
+	</header>
+	<div id="fk-sw-banner" style="display:none;background:#fef3c7;color:#92400e;padding:0.65rem 1rem;font-size:0.85rem;border-bottom:1px solid #f59e0b;"></div>
+
+	<main>
+		<section class="fk-panel" id="fk-panel-tasks" data-ui-section="tasks">
+			<h2>{{ _("My Tasks") }}</h2>
+			<div id="fk-tasks-list"><div class="fk-empty">{{ _("Loading...") }}</div></div>
+			<button type="button" class="fk-secondary" id="fk-refresh-tasks" style="margin-top: 0.75rem;">
+				{{ _("Refresh from server") }}
+			</button>
+		</section>
+
+		<section class="fk-panel" id="fk-panel-label-scan" data-ui-section="label_scan">
+			<h2>{{ _("Scan Label") }}</h2>
+			<div class="fk-scan-row">
+				<input type="text" id="fk-scan-task" placeholder="{{ _('Task name, e.g. TASK-2026-00001') }}">
+			</div>
+			<div class="fk-scan-row" style="margin-top: 0.5rem;">
+				<input type="text" id="fk-scan-qr" placeholder="{{ _('Scanned QR / label text') }}">
+				<button type="button" id="fk-scan-submit">{{ _("Submit") }}</button>
+			</div>
+		</section>
+
+		<section class="fk-panel" id="fk-panel-units" data-ui-section="development_units">
+			<h2>{{ _("Development Units") }}</h2>
+			<div id="fk-units-list"><div class="fk-empty">{{ _("No units cached yet — connect once online to load your assigned units.") }}</div></div>
+		</section>
+
+		<section class="fk-panel">
+			<h2>{{ _("Sync Queue") }}</h2>
+			<div id="fk-outbox-list"><div class="fk-empty">{{ _("Nothing queued.") }}</div></div>
+			<div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">
+				<button type="button" id="fk-sync-now">{{ _("Sync now") }}</button>
+				<button type="button" class="fk-secondary" id="fk-retry-failed">{{ _("Retry all failed") }}</button>
+			</div>
+		</section>
+	</main>
+
+	<script src="/assets/fitzgerald_kitchens/offline/db.js"></script>
+	<script src="/assets/fitzgerald_kitchens/offline/sync.js"></script>
+	<script src="/assets/fitzgerald_kitchens/offline/app.js"></script>
+	<script>
+		(function () {
+			var banner = document.getElementById("fk-sw-banner");
+			function show(msg) {
+				if (!banner) return;
+				banner.style.display = "block";
+				banner.innerHTML = msg;
+			}
+			var host = location.hostname;
+			var insecureCustomHost =
+				location.protocol === "http:" &&
+				host !== "localhost" &&
+				host !== "127.0.0.1" &&
+				!host.endsWith(".localhost");
+
+			if (insecureCustomHost) {
+				show(
+					"<strong>Offline shell cannot install here.</strong> " +
+						"Service Workers need a secure context. Use " +
+						"<code>http://127.0.0.1:8001/offline_app</code> or " +
+						"<code>http://localhost:8001/offline_app</code> " +
+						"(not <code>http://" + host + "</code>), open once online, then go Offline. " +
+						"Desk My Tasks stays normal online (no redirect). Offline reload of that same URL can show this field UI after the shell is installed."
+				);
+				return;
+			}
+			if (!("serviceWorker" in navigator)) {
+				show("<strong>Service Worker not supported</strong> in this browser.");
+				return;
+			}
+			// Scope "/" so /app/my-tasks and /desk/my-tasks can fall back to /offline_app offline.
+			navigator.serviceWorker
+				.register("/offline_sw.js", { scope: "/" })
+				.then(function (reg) {
+					console.log("FK offline SW registered", reg.scope);
+					if (banner) {
+						banner.style.display = "block";
+						banner.style.background = "#dcfce7";
+						banner.style.color = "#166534";
+						banner.style.borderBottomColor = "#22c55e";
+						banner.textContent =
+							"Offline ready. Online Desk My Tasks is unchanged. Offline reload of My Tasks uses this field UI at the same URL (no redirect).";
+						setTimeout(function () {
+							banner.style.display = "none";
+						}, 7000);
+					}
+				})
+				.catch(function (err) {
+					console.warn("SW registration failed", err);
+					show("<strong>Service Worker failed:</strong> " + (err && err.message ? err.message : err));
+				});
+		})();
+	</script>
+</body>
+</html>

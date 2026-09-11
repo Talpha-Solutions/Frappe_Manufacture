@@ -1,0 +1,9 @@
+{
+  "name": "Offline Sync",
+  "short_name": "Offline",
+  "start_url": "/offline",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "icons": []
+}

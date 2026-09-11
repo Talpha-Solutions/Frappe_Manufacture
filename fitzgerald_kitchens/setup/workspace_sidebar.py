@@ -167,8 +167,8 @@ PROJECT_REPORT_SIDEBAR_ITEMS = [
 
 
 REMOVED_PROJECTS_SIDEBAR_LINKS = (
-	"Development Unit",
-	"Development Unit QR Scan",
+    "Development Unit",
+    "Development Unit QR Scan",
 )
 
 
@@ -386,13 +386,23 @@ def _index_after_reports_section(items):
 
 
 def _remove_projects_sidebar_items(sidebar):
-	items = [_item_dict(row) for row in sidebar.items]
-	filtered = [item for item in items if item.get("link_to") not in REMOVED_PROJECTS_SIDEBAR_LINKS]
-	if len(filtered) == len(items):
-		return False
+    items = [_item_dict(row) for row in sidebar.items]
 
-	_apply_items(sidebar, filtered)
-	return True
+    filtered = [
+        item
+        for item in items
+        if item.get("link_to") not in REMOVED_PROJECTS_SIDEBAR_LINKS
+        and not (
+            item.get("link_to") == "Project"
+            and item.get("link_type") == "Dashboard"
+        )
+    ]
+
+    if len(filtered) == len(items):
+        return False
+
+    _apply_items(sidebar, filtered)
+    return True
 
 
 def _ensure_my_tasks_sidebar_item(sidebar):

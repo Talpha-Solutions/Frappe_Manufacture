@@ -8,8 +8,6 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
-
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
 # 	{
@@ -26,7 +24,10 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/fitzgerald_kitchens/css/fitzgerald_kitchens.css"
-app_include_js = "/assets/fitzgerald_kitchens/js/project_sidebar_highlight.js"
+app_include_js = [
+	"/assets/fitzgerald_kitchens/js/project_sidebar_highlight.js",
+	"/assets/fitzgerald_kitchens/js/offline_route_guard.js",
+]
 
 # include js, css files in header of web template
 web_include_css = "/assets/fitzgerald_kitchens/css/portal_sidebar.css"
@@ -40,7 +41,14 @@ web_include_js = "/assets/fitzgerald_kitchens/js/portal_tracker_state.js"
 # webform_include_css = {"doctype": "public/css/doctype.css"}
 
 # include js in page
-page_js = {"my-tasks": "public/js/task_camera.js"}
+page_js = {
+	"my-tasks": [
+		"public/offline/db.js",
+		"public/offline/sync.js",
+		"public/js/my_tasks_offline.js",
+		"public/js/task_camera.js",
+	]
+}
 
 # include js in doctype views
 doctype_js = {
@@ -102,10 +110,14 @@ update_website_context = [
 
 # before_install = "fitzgerald_kitchens.install.before_install"
 before_migrate = "fitzgerald_kitchens.migrate.before_migrate"
-after_install = "fitzgerald_kitchens.setup.install.after_install"
+after_install = [
+	"fitzgerald_kitchens.setup.install.after_install",
+	"fitzgerald_kitchens.fitzgerald_kitchens.offline_engine.install.after_install",
+]
 after_migrate = [
 	"fitzgerald_kitchens.migrate.after_migrate",
 	"fitzgerald_kitchens.setup.install.after_install",
+	"fitzgerald_kitchens.fitzgerald_kitchens.offline_engine.install.after_migrate",
 ]
 
 # Uninstallation
@@ -147,6 +159,165 @@ after_migrate = [
 # has_permission = {
 # 	"Event": "frappe.desk.doctype.event.event.has_permission",
 # }
+
+permission_query_conditions = {
+	"Offline Sync Operation": "fitzgerald_kitchens.fitzgerald_kitchens.doctype.offline_sync_operation.offline_sync_operation.get_permission_query_conditions",
+}
+
+has_permission = {
+	"Offline Sync Operation": "fitzgerald_kitchens.fitzgerald_kitchens.doctype.offline_sync_operation.offline_sync_operation.has_permission",
+}
+
+# Offline sync engine — this app's own idempotent dispatch/catalog engine
+# (formerly the separate `offline_sync` app, merged in). Any DocType/action
+# registered below is queueable offline via /offline and the outbox in
+# offline_engine/idempotency.py. See offline_engine/registry.py and
+# offline_engine/catalog.py for how these two hooks are read.
+offline_sync_operations = {
+	"task.complete_task": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer.complete_task",
+		"target_doctype": "Task",
+		"target_name_field": "task",
+	},
+	"task.update_task_progress": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer.update_task_progress",
+		"target_doctype": "Task",
+		"target_name_field": "task",
+	},
+	"task.start_timer": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer.start_task_timer",
+		"target_doctype": "Task",
+		"target_name_field": "task",
+	},
+	"task.pause_timer": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer.pause_task_timer",
+		"target_doctype": "Task",
+		"target_name_field": "task",
+	},
+	"task.resume_timer": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer.resume_task_timer",
+		"target_doctype": "Task",
+		"target_name_field": "task",
+	},
+	"task.stop_timer": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer.stop_task_timer",
+		"target_doctype": "Task",
+		"target_name_field": "task",
+	},
+	"label_scan.record_task_label_scan": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.label_scan.record_task_label_scan",
+		"target_doctype": "Task",
+		"target_name_field": "task_name",
+	},
+	"development_unit.start_stage": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.doctype.development_unit.development_unit_offline.start_stage",
+		"target_doctype": "Development Unit",
+		"target_name_field": "development_unit",
+	},
+	"development_unit.complete_stage": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.doctype.development_unit.development_unit_offline.complete_stage",
+		"target_doctype": "Development Unit",
+		"target_name_field": "development_unit",
+	},
+	"development_unit.record_labour_entry": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.doctype.development_unit.development_unit_offline.record_labour_entry",
+		"target_doctype": "Development Unit",
+		"target_name_field": "development_unit",
+	},
+	"development_unit.record_material_usage": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.doctype.development_unit.development_unit_offline.record_material_usage",
+		"target_doctype": "Development Unit",
+		"target_name_field": "development_unit",
+	},
+	"development_unit.add_issue": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.doctype.development_unit.development_unit_offline.add_issue",
+		"target_doctype": "Development Unit",
+		"target_name_field": "development_unit",
+	},
+	"development_unit.add_evidence": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.doctype.development_unit.development_unit_offline.add_evidence",
+		"target_doctype": "Development Unit",
+		"target_name_field": "development_unit",
+	},
+	"qr_scan.submit_qr_scan": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.doctype.development_unit_qr_scan.development_unit_qr_scan.submit_qr_scan",
+		"target_doctype": "Development Unit",
+		"target_name_field": "development_unit",
+	},
+	"despatch.submit_despatch_material_request": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.despatch_material_request.submit_despatch_material_request",
+		"target_doctype": "Task",
+		"target_name_field": "task_name",
+	},
+	# Built-in generic DocType create/update (allowed when Settings has DocType rows).
+	"doc.insert": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.offline_engine.generic_mutations.insert_doc",
+		"target_doctype": "",
+		"target_name_field": "",
+	},
+	"doc.save": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.offline_engine.generic_mutations.save_doc",
+		"target_doctype": "",
+		"target_name_field": "name",
+	},
+}
+
+# Selectable labeled offline items in Offline Sync Settings → Offline Items.
+# Only selected items pull/sync/show in /offline_app.
+offline_sync_catalog = {
+	"generic.doctypes": {
+		"label": "Generic DocTypes (/offline)",
+		"description": "Built-in PWA to browse/create/edit DocTypes listed under Generic DocTypes.",
+		"route": "/offline",
+		"kind": "generic",
+		"ui_section": "generic",
+		"pull_keys": [],
+		"operations": ["doc.insert", "doc.save"],
+	},
+	"fk.my_tasks": {
+		"label": "My Tasks",
+		"description": "Assigned tasks complete/despatch on /offline (unified PWA). Desk /app/my-tasks stays online-only.",
+		"route": "/offline",
+		"kind": "section",
+		"ui_section": "tasks",
+		"pull_keys": ["tasks"],
+		"operations": [
+			"task.complete_task",
+			"task.update_task_progress",
+			"task.start_timer",
+			"task.pause_timer",
+			"task.resume_timer",
+			"task.stop_timer",
+			"despatch.submit_despatch_material_request",
+		],
+	},
+	"fk.label_scan": {
+		"label": "Label Scan",
+		"description": "Scan / record task label QR.",
+		"route": "/offline_app",
+		"kind": "section",
+		"ui_section": "label_scan",
+		"pull_keys": [],
+		"operations": ["label_scan.record_task_label_scan"],
+	},
+	"fk.development_units": {
+		"label": "Development Units",
+		"description": "Stages, labour, material, issues, evidence, QR scan.",
+		"route": "/offline_app",
+		"kind": "section",
+		"ui_section": "development_units",
+		"pull_keys": ["development_units"],
+		"operations": [
+			"development_unit.start_stage",
+			"development_unit.complete_stage",
+			"development_unit.record_labour_entry",
+			"development_unit.record_material_usage",
+			"development_unit.add_issue",
+			"development_unit.add_evidence",
+			"qr_scan.submit_qr_scan",
+		],
+	},
+}
 
 # Document Events
 # ---------------

@@ -9,12 +9,52 @@ frappe.pages["my-tasks"].on_page_load = function (wrapper) {
 	});
 
 	frappe.my_tasks_page = new MyTasksPage(page);
+	fk_warn_insecure_offline_host();
+	// Install SW + precache real Desk My Tasks URL (secure context only).
+	if (window.fkDeskMyTasksOffline) {
+		fkDeskMyTasksOffline.registerSW();
+	} else {
+		fk_register_offline_shell();
+	}
 };
 
-frappe.pages["my-tasks"].on_page_show = function () {
-	if (frappe.my_tasks_page) {
-		frappe.my_tasks_page.refresh();
+function fk_warn_insecure_offline_host() {
+	const host = location.hostname;
+	const insecure =
+		location.protocol === "http:" &&
+		host !== "localhost" &&
+		host !== "127.0.0.1" &&
+		!host.endsWith(".localhost");
+	if (!insecure) {
+		return;
 	}
+	frappe.msgprint({
+		title: __("Offline will not work on this URL"),
+		indicator: "orange",
+		message: __(
+			"<p><b>Stop using</b> <code>http://{0}/desk/task</code> for offline.</p>" +
+				"<ul>" +
+				"<li><code>/desk/task</code> = Task DocType (online only — will always show dinosaur offline)</li>" +
+				"<li>Offline page is <b>My Tasks</b>: <code>/desk/my-tasks</code></li>" +
+				"</ul>" +
+				"<p>Open and log in here (Service Worker can install):</p>" +
+				"<p><a href='http://127.0.0.1:8001/desk/my-tasks' target='_blank'><b>http://127.0.0.1:8001/desk/my-tasks</b></a></p>" +
+				"<p>or <a href='http://manufacture.localhost:8001/desk/my-tasks' target='_blank'><b>http://manufacture.localhost:8001/desk/my-tasks</b></a></p>" +
+				"<p>Then: wait for tasks to load → DevTools Offline → refresh <b>that same My Tasks URL</b>.</p>",
+			[host]
+		),
+	});
+}
+
+frappe.pages["my-tasks"].on_page_show = function () {
+	const me = frappe.my_tasks_page;
+	if (!me) {
+		return;
+	}
+	if (!me.$wrapper.closest(document.documentElement).length) {
+		me.$wrapper.appendTo(me.page.main);
+	}
+	me.refresh();
 };
 
 frappe.pages["my-tasks"].on_page_hide = function () {
@@ -22,6 +62,18 @@ frappe.pages["my-tasks"].on_page_hide = function () {
 		frappe.my_tasks_page.clear_timer_interval();
 	}
 };
+
+/**
+ * Fallback SW registration if my_tasks_offline.js is not loaded yet.
+ */
+function fk_register_offline_shell() {
+	if (!window.isSecureContext || !("serviceWorker" in navigator)) {
+		return;
+	}
+	navigator.serviceWorker.register("/offline_sw.js", { scope: "/" }).catch(function (err) {
+		console.warn("FK offline SW register from Desk failed", err);
+	});
+}
 
 const COLLAPSE_STORAGE_KEY = "my_tasks_card_sections";
 const PROJECT_FILTER_STORAGE_KEY = "my_tasks_project_filter";
@@ -46,11 +98,166 @@ class MyTasksPage {
 		this.data = null;
 		this.scanner_task = null;
 		this._timer_interval = null;
+		this._offline_mode = false;
 		this.$wrapper = $(frappe.render_template("my_tasks")).appendTo(this.page.main);
 		// Legacy timer epoch cache caused stale 4h+ stopwatch displays.
 		localStorage.removeItem("my_tasks_timer_epochs");
 		this.bind_events();
+		this.bind_offline_events();
 		this.refresh();
+	}
+
+	bind_offline_events() {
+		const me = this;
+		window.addEventListener("online", function () {
+			me.update_connection_pill();
+			if (window.fkDeskMyTasksOffline) {
+				fkDeskMyTasksOffline.syncOutbox().then(function () {
+					me.refresh();
+				});
+			} else {
+				me.refresh();
+			}
+		});
+		window.addEventListener("offline", function () {
+			me._offline_mode = true;
+			me.update_connection_pill();
+		});
+		if (window.fkOfflineSync && fkOfflineSync.onChange) {
+			fkOfflineSync.onChange(function () {
+				me.update_connection_pill(fkOfflineSync.isSyncing && fkOfflineSync.isSyncing());
+			});
+		}
+	}
+
+	update_connection_pill(syncing) {
+		if (window.fkDeskMyTasksOffline) {
+			fkDeskMyTasksOffline.updateStatusPill(this.$wrapper, !!syncing, this._offline_mode);
+		}
+		this.refresh_sync_badge();
+	}
+
+	refresh_sync_badge() {
+		if (!window.fkDeskMyTasksOffline) {
+			return;
+		}
+		const me = this;
+		fkDeskMyTasksOffline.getOutboxSummary().then(function (summary) {
+			let $badge = me.$wrapper.find(".my-tasks-sync-badge");
+			if (!summary.total) {
+				$badge.remove();
+				return;
+			}
+			if (!$badge.length) {
+				$badge = $('<span class="my-tasks-sync-badge badge" style="margin-left:6px;cursor:pointer;"></span>');
+				me.$wrapper.find(".my-tasks-header-right").append($badge);
+				$badge.on("click", () => me.show_sync_issues_dialog());
+			}
+			$badge.removeClass("badge-warning badge-danger");
+			if (summary.problem.length) {
+				$badge.addClass("badge-danger").text(__("{0} sync issue(s)", [summary.problem.length]));
+			} else {
+				$badge.addClass("badge-warning").text(__("{0} queued", [summary.pending.length]));
+			}
+		});
+	}
+
+	show_sync_issues_dialog() {
+		if (!window.fkDeskMyTasksOffline) {
+			return;
+		}
+		const me = this;
+		fkDeskMyTasksOffline.getOutboxSummary().then(function (summary) {
+			const items = summary.problem.concat(summary.pending);
+			const rows = items
+				.map((item) => {
+					const label = frappe.utils.escape_html(item.operation);
+					const taskLabel = item.doctype_context?.task
+						? frappe.utils.escape_html(item.doctype_context.task)
+						: "";
+					const statusColor = item.status === "pending" ? "text-muted" : "text-danger";
+					const errorLine = item.error
+						? `<div class="text-danger small">${frappe.utils.escape_html(item.error)}</div>`
+						: "";
+					return `<div class="my-tasks-sync-issue" data-uuid="${item.client_uuid}" style="border-bottom:1px solid var(--border-color);padding:8px 0;">
+						<div><b>${label}</b> ${taskLabel ? `— ${taskLabel}` : ""} <span class="${statusColor}">(${item.status})</span></div>
+						${errorLine}
+						${
+							item.status !== "pending"
+								? `<button type="button" class="btn btn-xs btn-default btn-retry-issue">${__("Retry")}</button>
+									<button type="button" class="btn btn-xs btn-default btn-discard-issue">${__("Discard")}</button>`
+								: `<span class="text-muted small">${__("Waiting to sync…")}</span>`
+						}
+					</div>`;
+				})
+				.join("");
+
+			const authStuck = window.fkOfflineSync && fkOfflineSync.isAuthRequired && fkOfflineSync.isAuthRequired();
+			const authWarning = authStuck
+				? `<div class="text-danger" style="margin-bottom:10px;">
+						${__("Sync is stuck: an earlier request failed as not-logged-in, so all syncing has been paused since then.")}
+						<button type="button" class="btn btn-xs btn-warning btn-clear-auth" style="margin-left:6px;">${__("Clear and retry now")}</button>
+					</div>`
+				: "";
+
+			const lastError = window.fkOfflineSync && fkOfflineSync.getLastSyncError && fkOfflineSync.getLastSyncError();
+			const lastErrorWarning = lastError
+				? `<div class="text-danger" style="margin-bottom:10px;">
+						${__("Last sync attempt failed")} (${frappe.datetime.comment_when(new Date(lastError.at).toISOString())}):
+						<div class="small">${frappe.utils.escape_html(lastError.message)}</div>
+						${
+							lastError.message.indexOf("CSRFTokenError") !== -1
+								? `<div class="small text-muted">${__("This usually means the page has been open a long time. Reload the page, then try Sync now again.")}</div>`
+								: ""
+						}
+					</div>`
+				: "";
+
+			const d = new frappe.ui.Dialog({
+				title: __("Offline sync status"),
+				fields: [
+					{
+						fieldtype: "HTML",
+						fieldname: "issues_html",
+						options: authWarning + lastErrorWarning + (rows || `<div class="text-muted">${__("Nothing queued.")}</div>`),
+					},
+				],
+				primary_action_label: __("Sync now"),
+				primary_action: () => {
+					if (!window.fkDeskMyTasksOffline) {
+						return;
+					}
+					fkDeskMyTasksOffline.syncOutbox().then(() => {
+						d.hide();
+						me.refresh();
+					});
+				},
+			});
+			d.$wrapper.find(".btn-clear-auth").on("click", function () {
+				fkOfflineSync.clearAuthRequired().then(() => {
+					return fkOfflineSync.syncNow();
+				}).then(() => {
+					d.hide();
+					me.refresh_sync_badge();
+					me.refresh();
+				});
+			});
+			d.$wrapper.find(".btn-retry-issue").on("click", function () {
+				const uuid = $(this).closest(".my-tasks-sync-issue").data("uuid");
+				fkOfflineSync.retryOperation(uuid).then(() => {
+					d.hide();
+					me.refresh_sync_badge();
+				});
+			});
+			d.$wrapper.find(".btn-discard-issue").on("click", function () {
+				const uuid = $(this).closest(".my-tasks-sync-issue").data("uuid");
+				fkOfflineSync.discardOperation(uuid).then(() => {
+					d.hide();
+					me.refresh_sync_badge();
+				});
+			});
+			d.show();
+		});
 	}
 
 	get_collapse_state() {
@@ -153,23 +360,96 @@ class MyTasksPage {
 	}
 
 	refresh() {
+		const me = this;
+		this.update_connection_pill(false);
+
+		const apply = (message, from_cache) => {
+			if (!message) {
+				return;
+			}
+			this.data = message;
+			this._offline_mode = !!from_cache;
+			this.render();
+			this.update_connection_pill(false);
+			if (from_cache) {
+				frappe.show_alert({
+					message: __("Showing cached My Tasks (offline)"),
+					indicator: "orange",
+				});
+			}
+		};
+
+		const load_cache = () => {
+			if (!window.fkDeskMyTasksOffline) {
+				frappe.msgprint({
+					title: __("Offline"),
+					message: __("No cached My Tasks. Open this page once while online on http://127.0.0.1 so data can sync."),
+					indicator: "orange",
+				});
+				return;
+			}
+			fkDeskMyTasksOffline.loadDashboard().then((dash) => {
+				if (dash) {
+					apply(dash, true);
+				} else {
+					frappe.msgprint({
+						title: __("Offline"),
+						message: __("No cached My Tasks yet. Connect once online, then try again."),
+						indicator: "orange",
+					});
+				}
+			});
+		};
+
+		if (!navigator.onLine) {
+			load_cache();
+			return;
+		}
+
 		frappe.call({
 			method: "fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.my_tasks.get_my_tasks_dashboard",
 			args: { project: this.project_filter || null },
 			freeze: true,
 			callback: (r) => {
 				if (!r.message) {
+					load_cache();
 					return;
 				}
-				this.data = r.message;
-				this.render();
+				if (window.fkDeskMyTasksOffline) {
+					fkDeskMyTasksOffline.saveDashboard(r.message).then(function () {
+						if (fkDeskMyTasksOffline.precacheDeskAssets) {
+							fkDeskMyTasksOffline.precacheDeskAssets();
+						}
+					});
+					fkDeskMyTasksOffline.syncOutbox();
+				}
+				apply(r.message, false);
 			},
 			error: () => {
-				frappe.msgprint({
-					title: __("Not permitted"),
-					message: __("You do not have access to My Tasks."),
-					indicator: "red",
-				});
+				if (!navigator.onLine) {
+					load_cache();
+					return;
+				}
+				// Prefer cache over hard error when the call fails (e.g. flaky network).
+				if (window.fkDeskMyTasksOffline) {
+					fkDeskMyTasksOffline.loadDashboard().then((dash) => {
+						if (dash) {
+							apply(dash, true);
+						} else {
+							frappe.msgprint({
+								title: __("Not permitted"),
+								message: __("You do not have access to My Tasks."),
+								indicator: "red",
+							});
+						}
+					});
+				} else {
+					frappe.msgprint({
+						title: __("Not permitted"),
+						message: __("You do not have access to My Tasks."),
+						indicator: "red",
+					});
+				}
 			},
 		});
 	}
@@ -327,7 +607,16 @@ class MyTasksPage {
 		const running = task.timer_running;
 		const paused = task.timer_paused;
 		const expected = flt(task.timer_expected_hours);
-		const serverElapsed = running ? flt(task.timer_elapsed_seconds) || 0 : 0;
+		// Prefer the client-tracked start epoch when present (set the same way
+		// whether the timer was started online or offline) so elapsed time
+		// survives an offline reload instead of resetting to whatever was last
+		// cached. timer_started_at_epoch is in SECONDS (matches Python's
+		// datetime.timestamp()) — convert to ms before comparing to Date.now().
+		const serverElapsed = running
+			? task.timer_started_at_epoch
+				? Math.max(0, Math.floor((Date.now() - task.timer_started_at_epoch * 1000) / 1000))
+				: flt(task.timer_elapsed_seconds) || 0
+			: 0;
 		const renderedAt = Date.now();
 		const initialElapsed = running ? this.elapsed_seconds_from_server_base(serverElapsed, renderedAt) : 0;
 		const timerHtml = running
@@ -375,6 +664,57 @@ class MyTasksPage {
 	}
 
 	call_task_update(method, task, extra_args = {}) {
+		// Offline complete/progress: optimistic local update + outbox (no Desk API).
+		const OFFLINE_CAPABLE_METHODS = {
+			complete_task: {
+				queue: (name) => fkDeskMyTasksOffline.queueComplete(name),
+				success_message: () => __("Task marked complete offline — will sync when online"),
+				failure_title: () => __("Offline complete failed"),
+				apply_dash: (dash) => {
+					this.active_tab = "completed";
+				},
+			},
+			update_task_progress: {
+				queue: (name) => fkDeskMyTasksOffline.queueProgress(name, flt(extra_args.progress)),
+				success_message: () => __("Progress updated to {0}% offline — will sync when online", [Math.round(flt(extra_args.progress))]),
+				failure_title: () => __("Offline progress update failed"),
+				apply_dash: () => {},
+			},
+		};
+		const offline_handler = OFFLINE_CAPABLE_METHODS[method];
+
+		if (offline_handler && (!navigator.onLine || this._offline_mode) && window.fkDeskMyTasksOffline) {
+			this.update_connection_pill(true);
+			offline_handler
+				.queue(task.name)
+				.then((dash) => {
+					frappe.show_alert({
+						message: offline_handler.success_message(),
+						indicator: "blue",
+					});
+					if (dash) {
+						this.data = dash;
+						offline_handler.apply_dash(dash);
+						this.render();
+					} else {
+						this.refresh();
+					}
+					this.update_connection_pill(fkOfflineSync && fkOfflineSync.isSyncing && fkOfflineSync.isSyncing());
+					if (navigator.onLine) {
+						fkDeskMyTasksOffline.syncOutbox();
+					}
+				})
+				.catch((err) => {
+					frappe.msgprint({
+						title: offline_handler.failure_title(),
+						message: String(err && err.message ? err.message : err),
+						indicator: "red",
+					});
+					this.update_connection_pill(false);
+				});
+			return;
+		}
+
 		frappe.call({
 			method: `fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer.${method}`,
 			args: { task: task.name, ...extra_args },
@@ -435,6 +775,39 @@ class MyTasksPage {
 	}
 
 	call_timer_action(method, task) {
+		if ((!navigator.onLine || this._offline_mode) && window.fkDeskMyTasksOffline) {
+			this.update_connection_pill(true);
+			fkDeskMyTasksOffline
+				.queueTimerAction(method, task.name)
+				.then((dash) => {
+					const messages = {
+						start_task_timer: __("Timer started offline — will sync when online"),
+						resume_task_timer: __("Timer resumed offline — will sync when online"),
+						pause_task_timer: __("Timer paused offline — will sync when online"),
+						stop_task_timer: __("Timer stopped offline — will sync when online"),
+					};
+					frappe.show_alert({ message: messages[method] || __("Saved offline"), indicator: "blue" });
+					if (dash) {
+						this.data = dash;
+						this.render();
+					} else {
+						this.refresh();
+					}
+					this.update_connection_pill(fkOfflineSync && fkOfflineSync.isSyncing && fkOfflineSync.isSyncing());
+					if (navigator.onLine) {
+						fkDeskMyTasksOffline.syncOutbox();
+					}
+				})
+				.catch((err) => {
+					frappe.msgprint({
+						title: __("Offline timer action failed"),
+						message: String(err && err.message ? err.message : err),
+						indicator: "red",
+					});
+					this.update_connection_pill(false);
+				});
+			return;
+		}
 		frappe.call({
 			method: `fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.task_timer.${method}`,
 			args: { task: task.name },
@@ -475,6 +848,9 @@ class MyTasksPage {
 		this.$wrapper.find(".my-tasks-user-name").text(user.full_name);
 		this.$wrapper.find(".my-tasks-user-dept").text(user.department || "");
 		this.$wrapper.find(".my-tasks-date").text(user.date_label || "");
+		this.update_connection_pill(
+			window.fkOfflineSync && fkOfflineSync.isSyncing && fkOfflineSync.isSyncing()
+		);
 	}
 
 	render_kpis(kpis) {
@@ -608,6 +984,13 @@ class MyTasksPage {
 			`);
 
 			$card.find(".btn-task-details").on("click", () => {
+				if (!navigator.onLine) {
+					frappe.show_alert({
+						message: __("Task details need a network connection."),
+						indicator: "orange",
+					});
+					return;
+				}
 				frappe.set_route("Form", "Task", task.name);
 			});
 			$card.find(".btn-task-start").on("click", () => this.call_timer_action("start_task_timer", task));

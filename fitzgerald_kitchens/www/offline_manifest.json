@@ -1,0 +1,10 @@
+{
+	"name": "Fitzgerald Kitchens Field App",
+	"short_name": "FK Field",
+	"start_url": "/offline_app",
+	"scope": "/offline_app",
+	"display": "standalone",
+	"background_color": "#f8fafc",
+	"theme_color": "#0f172a",
+	"icons": []
+}

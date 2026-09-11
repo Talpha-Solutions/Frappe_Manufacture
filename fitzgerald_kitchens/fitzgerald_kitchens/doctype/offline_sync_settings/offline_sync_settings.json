@@ -1,0 +1,81 @@
+{
+ "actions": [],
+ "creation": "2026-09-11 12:00:00.000000",
+ "doctype": "DocType",
+ "document_type": "Setup",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "help_html",
+  "doctypes_section",
+  "doctypes",
+  "items_section",
+  "features"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "description": "Master switch. Desk stays online-only. Field/offline work uses /offline for the DocTypes below.",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "help_html",
+   "fieldtype": "HTML",
+   "label": "Help",
+   "options": "<p class=\"text-muted\" style=\"margin:0 0 0.75rem 0;\">1) Enable Offline Sync. 2) Add DocTypes to sync. 3) Open <strong>/offline</strong> (use <code>http://127.0.0.1</code> or HTTPS so the Service Worker installs). Advanced app packs (Fitzgerald field UI, etc.) are optional below.</p>"
+  },
+  {
+   "fieldname": "doctypes_section",
+   "fieldtype": "Section Break",
+   "label": "DocTypes Available Offline"
+  },
+  {
+   "description": "Primary setup for any app: pick DocTypes to browse, create, and edit in the /offline PWA (IndexedDB). Saving with rows here auto-enables the Generic DocTypes pack.",
+   "fieldname": "doctypes",
+   "fieldtype": "Table",
+   "label": "DocTypes",
+   "options": "Offline Sync Doctype"
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "eval:!doc.features||!doc.features.length",
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "Advanced app packs (optional)"
+  },
+  {
+   "description": "Optional packs registered by installed apps (e.g. Fitzgerald My Tasks / Label Scan on /offline_app). Not required for generic DocType offline.",
+   "fieldname": "features",
+   "fieldtype": "Table",
+   "label": "App Offline Packs",
+   "options": "Offline Sync Feature"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-09-11 15:50:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Offline Sync Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

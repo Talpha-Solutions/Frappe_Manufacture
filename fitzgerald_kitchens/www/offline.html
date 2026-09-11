@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>{{ _("Offline Sync") }}</title>
+	<link rel="manifest" href="/offline_sync_manifest.json">
+	<meta name="csrf-token" content="{{ csrf_token }}">
+	<meta name="theme-color" content="#0f172a">
+	<link rel="stylesheet" href="/assets/fitzgerald_kitchens/offline_generic/app.css">
+</head>
+<body>
+	<header class="os-bar">
+		<h1>{{ _("Offline Sync") }}</h1>
+		<div id="os-sync-status"><span class="os-dot"></span><span id="os-sync-status-text">{{ _("Checking...") }}</span></div>
+	</header>
+	<div id="os-sw-banner" style="display:none;background:#fef3c7;color:#92400e;padding:0.65rem 1rem;font-size:0.85rem;border-bottom:1px solid #f59e0b;"></div>
+
+	<main>
+		<section class="os-panel" id="os-home-panel">
+			<div class="os-toolbar">
+				<h2>{{ _("Home") }}</h2>
+				<div class="os-actions">
+					<button type="button" class="os-secondary" id="os-refresh">{{ _("Sync") }}</button>
+				</div>
+			</div>
+			<p class="os-hint" id="os-hint">{{ _("Pulling configuration…") }}</p>
+			<div id="os-home-nav"></div>
+			<div id="os-doctype-list"></div>
+		</section>
+
+		<section class="os-panel os-hidden" id="os-list-panel">
+			<div class="os-toolbar">
+				<button type="button" class="os-secondary" id="os-back-home">{{ _("Back") }}</button>
+				<h2 id="os-list-title"></h2>
+				<button type="button" id="os-new-doc" class="os-hidden">{{ _("New") }}</button>
+			</div>
+			<div id="os-doc-list"></div>
+		</section>
+
+		<section class="os-panel os-hidden" id="os-form-panel">
+			<div class="os-toolbar">
+				<button type="button" class="os-secondary" id="os-back-list">{{ _("Back") }}</button>
+				<h2 id="os-form-title"></h2>
+				<button type="button" id="os-save-doc">{{ _("Save") }}</button>
+			</div>
+			<form id="os-form" class="os-form"></form>
+			<p class="os-error os-hidden" id="os-form-error"></p>
+		</section>
+
+		<section class="os-panel">
+			<div class="os-toolbar">
+				<h2>{{ _("Sync Queue") }}</h2>
+				<div class="os-actions">
+					<button type="button" class="os-secondary" id="os-retry-failed">{{ _("Retry all failed") }}</button>
+					<button type="button" id="os-sync-now">{{ _("Sync now") }}</button>
+				</div>
+			</div>
+			<div id="os-outbox-list"><div class="os-empty">{{ _("Nothing queued.") }}</div></div>
+		</section>
+	</main>
+
+	<script src="/assets/fitzgerald_kitchens/offline_generic/db.js"></script>
+	<script src="/assets/fitzgerald_kitchens/offline_generic/sync.js"></script>
+	<script src="/assets/fitzgerald_kitchens/offline_generic/app.js"></script>
+	<script>
+		(function () {
+			var banner = document.getElementById("os-sw-banner");
+			function show(msg) {
+				if (!banner) return;
+				banner.style.display = "block";
+				banner.innerHTML = msg;
+			}
+			var host = location.hostname;
+			var insecureCustomHost =
+				location.protocol === "http:" &&
+				host !== "localhost" &&
+				host !== "127.0.0.1" &&
+				!host.endsWith(".localhost");
+
+			if (insecureCustomHost) {
+				show(
+					"<strong>Offline shell cannot install here.</strong> " +
+						"Service Workers need a secure context. Use " +
+						"<code>http://127.0.0.1:8001/offline</code> or " +
+						"<code>http://localhost:8001/offline</code> " +
+						"(not <code>http://" + host + "</code>), open once online, then go Offline."
+				);
+				return;
+			}
+			if (!("serviceWorker" in navigator)) {
+				show("<strong>Service Worker not supported</strong> in this browser.");
+				return;
+			}
+			navigator.serviceWorker
+				.register("/offline_sync_sw.js", { scope: "/offline" })
+				.then(function (reg) {
+					console.log("Offline Sync SW registered", reg.scope);
+					if (banner) {
+						banner.style.display = "block";
+						banner.style.background = "#dcfce7";
+						banner.style.color = "#166534";
+						banner.style.borderBottomColor = "#22c55e";
+						banner.textContent =
+							"Offline shell ready. After this page loads once online, reload while Offline to use it.";
+						setTimeout(function () {
+							banner.style.display = "none";
+						}, 6000);
+					}
+				})
+				.catch(function (err) {
+					console.warn("SW registration failed", err);
+					show("<strong>Service Worker failed:</strong> " + (err && err.message ? err.message : err));
+				});
+		})();
+	</script>
+</body>
+</html>

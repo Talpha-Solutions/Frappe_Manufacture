@@ -1,0 +1,63 @@
+{
+ "actions": [],
+ "creation": "2026-09-11 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "ref_doctype",
+  "allow_create",
+  "allow_write",
+  "max_records",
+  "title_field"
+ ],
+ "fields": [
+  {
+   "fieldname": "ref_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "DocType",
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_create",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Allow Create"
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_write",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Allow Write"
+  },
+  {
+   "default": "200",
+   "fieldname": "max_records",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Max Records"
+  },
+  {
+   "description": "Optional override for list title. Defaults to the DocType title field.",
+   "fieldname": "title_field",
+   "fieldtype": "Data",
+   "label": "Title Field"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-11 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Offline Sync Doctype",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}
