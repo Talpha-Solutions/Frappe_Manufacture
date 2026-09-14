@@ -264,7 +264,19 @@ def _auto_stop_running_timer_on_other_task(user: str, new_task: str, client_time
 	return {"stopped_task": existing.task, "stopped": result}
 
 
-def _close_open_time_logs_for_task(user: str, task: str) -> None:
+def _close_open_time_logs_for_task(user: str, task: str, client_time=None) -> None:
+	"""Close any dangling open row for this task before starting a new one.
+
+	`client_time` is the moment the *new* start/resume actually happened on
+	the device — not necessarily when this replay runs. Offline actions can
+	be queued long before they sync, so defaulting the closed row's to_time
+	to server "now" (as opposed to threading client_time through, the way
+	_auto_stop_running_timer_on_other_task already does for cross-task
+	stops) recorded a stale row as running until the sync moment rather than
+	until the new session actually began — long enough after the real
+	from_time that it could overlap a second row starting earlier for the
+	same offline-queued sequence, tripping Timesheet's overlap validation.
+	"""
 	rows = frappe.db.sql(
 		"""
 		select td.name as detail_name, td.parent as timesheet
