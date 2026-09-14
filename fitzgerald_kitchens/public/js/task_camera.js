@@ -11,6 +11,16 @@ fitzgerald_kitchens.task_camera = {
 			return;
 		}
 
+		// The attached-file count is just a soft admin cap, not something the
+		// capture flow can function without — skip the round-trip when
+		// offline (it would otherwise never call back and the camera would
+		// silently fail to open), and fail open rather than closed if the
+		// check itself errors out (e.g. a flaky connection).
+		if (!navigator.onLine) {
+			this._open_dialog({ doctype, docname, on_success });
+			return;
+		}
+
 		frappe.call({
 			method: `${TASK_CAMERA_API}.get_attached_files`,
 			args: { doctype, name: docname },
@@ -24,32 +34,80 @@ fitzgerald_kitchens.task_camera = {
 				}
 				this._open_dialog({ doctype, docname, on_success });
 			},
+			error: () => {
+				this._open_dialog({ doctype, docname, on_success });
+			},
 		});
 	},
 
-	save_snapshot({ doctype, docname, base64Data, on_success }) {
-		const filename =
-			"Snapshot_" + frappe.datetime.now_datetime().replace(/[: -]/g, "_") + ".png";
-		frappe.show_alert({ message: __("Uploading captured image..."), indicator: "blue" });
+	save_snapshot({ doctype, docname, blob, on_success }) {
+		const filename = "Snapshot_" + frappe.datetime.now_datetime().replace(/[: -]/g, "_") + ".jpg";
 
-		frappe.call({
-			method: `${TASK_CAMERA_API}.upload_camera_snapshot`,
-			args: {
-				doctype,
-				name: docname,
-				filename,
-				base64_data: base64Data,
-			},
-			callback() {
-				frappe.show_alert({
-					message: __("Photo captured and saved to Gallery!"),
-					indicator: "green",
+		// Offline-capable path: only available where the shared outbox layer is
+		// loaded (the My Tasks desk page — see hooks.py `page_js`). The blob is
+		// queued in IndexedDB immediately and uploaded/linked once online,
+		// reusing the same evidence-photo pipeline as Development Units.
+		if (doctype === "Task" && window.fkDeskMyTasksOffline) {
+			const wasOffline = !navigator.onLine;
+			frappe.show_alert({
+				message: wasOffline
+					? __("Photo saved — will upload when back online")
+					: __("Uploading captured image..."),
+				indicator: "blue",
+			});
+			fitzgerald_kitchens.task_camera
+				._queue_offline(docname, blob, filename)
+				.then(function () {
+					frappe.show_alert({
+						message: wasOffline
+							? __("Photo queued for upload")
+							: __("Photo captured and saved to Gallery!"),
+						indicator: "green",
+					});
+					if (on_success) {
+						on_success();
+					}
+				})
+				.catch(function (err) {
+					frappe.msgprint({
+						title: __("Photo capture failed"),
+						message: String(err && err.message ? err.message : err),
+						indicator: "red",
+					});
 				});
-				if (on_success) {
-					on_success();
-				}
-			},
-		});
+			return;
+		}
+
+		// Fallback (e.g. plain Task form, where the offline layer isn't
+		// loaded): upload straight away via the original base64 JSON path.
+		// Only works while online.
+		frappe.show_alert({ message: __("Uploading captured image..."), indicator: "blue" });
+		const reader = new FileReader();
+		reader.onload = function () {
+			frappe.call({
+				method: `${TASK_CAMERA_API}.upload_camera_snapshot`,
+				args: {
+					doctype,
+					name: docname,
+					filename,
+					base64_data: reader.result,
+				},
+				callback() {
+					frappe.show_alert({
+						message: __("Photo captured and saved to Gallery!"),
+						indicator: "green",
+					});
+					if (on_success) {
+						on_success();
+					}
+				},
+			});
+		};
+		reader.readAsDataURL(blob);
+	},
+
+	_queue_offline(docname, blob, filename) {
+		return fkDeskMyTasksOffline.queueTaskPhoto(docname, blob, filename);
 	},
 
 	_open_dialog({ doctype, docname, on_success }) {
@@ -133,11 +191,18 @@ fitzgerald_kitchens.task_camera = {
 				const context = canvas.getContext("2d");
 				context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-				const dataUrl = canvas.toDataURL("image/png");
-
-				stop_camera();
-				d.hide();
-				me.save_snapshot({ doctype, docname, base64Data: dataUrl, on_success });
+				canvas.toBlob(
+					function (blob) {
+						if (!blob) {
+							return;
+						}
+						stop_camera();
+						d.hide();
+						me.save_snapshot({ doctype, docname, blob, on_success });
+					},
+					"image/jpeg",
+					0.85
+				);
 			});
 		};
 

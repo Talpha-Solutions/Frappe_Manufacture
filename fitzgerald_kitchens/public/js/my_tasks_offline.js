@@ -283,7 +283,72 @@
 		if (!s || !isOnline()) {
 			return Promise.resolve();
 		}
-		return s.syncNow();
+		return Promise.all([s.syncNow(), maybeSyncTaskPhotos()]);
+	}
+
+	/**
+	 * Task photo capture, offline-capable. Reuses the same two-phase pattern
+	 * as Development Unit evidence photos: the blob is stashed in the shared
+	 * `evidence` IndexedDB store immediately (works offline), then — once
+	 * online — uploaded via the ordinary /api/method/upload_file endpoint and
+	 * linked to the Task through a small JSON op pushed through the normal
+	 * outbox/offline_engine pipeline (see hooks.py: task.upload_task_photo).
+	 */
+	function queueTaskPhoto(taskName, blob, filename) {
+		const store = db();
+		const s = sync();
+		if (!store || !s) {
+			return Promise.reject(new Error("Offline sync not loaded"));
+		}
+		const clientUuid = s.genUuid();
+		const row = {
+			client_uuid: clientUuid,
+			task: taskName,
+			blob: blob,
+			mime_type: blob.type,
+			filename: filename || clientUuid + ".jpg",
+			captured_at: Date.now(),
+			upload_status: "pending",
+		};
+		return store.put("evidence", row).then(function () {
+			return maybeSyncTaskPhotos();
+		});
+	}
+
+	function maybeSyncTaskPhotos() {
+		const store = db();
+		const s = sync();
+		if (!store || !s || !isOnline()) {
+			return Promise.resolve();
+		}
+		return store.getAll("evidence").then(function (rows) {
+			const pending = (rows || []).filter(function (r) {
+				return r.upload_status === "pending" && r.task;
+			});
+			return pending.reduce(function (chain, row) {
+				return chain.then(function () {
+					return s
+						.uploadEvidenceFile(row.client_uuid, row.filename, row.blob, null, {
+							doctype: "Task",
+							docname: row.task,
+						})
+						.then(function (fileUrl) {
+							return s
+								.queueOperation(
+									"task.upload_task_photo",
+									{ task: row.task, file_url: fileUrl, filename: row.filename },
+									{ task: row.task }
+								)
+								.then(function () {
+									return store.remove("evidence", row.client_uuid);
+								});
+						})
+						.catch(function (err) {
+							console.warn("Task photo upload failed (will retry):", err);
+						});
+				});
+			}, Promise.resolve());
+		});
 	}
 
 	function updateStatusPill($wrap, syncing, knownOffline) {
@@ -347,6 +412,10 @@
 		});
 	}
 
+	window.addEventListener("online", function () {
+		maybeSyncTaskPhotos();
+	});
+
 	global.fkDeskMyTasksOffline = {
 		isOnline: isOnline,
 		getOutboxSummary: getOutboxSummary,
@@ -357,6 +426,7 @@
 		queueProgress: queueProgress,
 		queueTimerAction: queueTimerAction,
 		queueDespatch: queueDespatch,
+		queueTaskPhoto: queueTaskPhoto,
 		syncOutbox: syncOutbox,
 		updateStatusPill: updateStatusPill,
 		registerSW: registerSW,

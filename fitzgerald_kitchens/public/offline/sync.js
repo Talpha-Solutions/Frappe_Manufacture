@@ -156,6 +156,25 @@
 			return Promise.resolve();
 		}
 
+		// Peek at the outbox before flipping the `syncing` flag: if there is
+		// nothing to push, skip the notify() cycle entirely. Toggling
+		// syncing true->false here even with an empty outbox previously fired
+		// a spurious onChange transition that some listeners (e.g. My Tasks'
+		// "sync just finished, refresh" handler) treated as real sync
+		// activity, causing them to immediately call syncOutbox() again in a
+		// tight infinite loop.
+		return db.getAll("outbox").then(function (peekRows) {
+			const hasPending = peekRows.some(function (r) {
+				return r.status === "pending" && backoffDue(r);
+			});
+			if (!hasPending) {
+				return null;
+			}
+			return syncPending();
+		});
+	}
+
+	function syncPending() {
 		syncing = true;
 		notify();
 
@@ -382,13 +401,20 @@
 		});
 	}
 
-	function uploadEvidenceFile(clientUuid, filename, blob, developmentUnit) {
+	// `attachTo` is optional {doctype, docname} — when given, Frappe's
+	// upload_file endpoint links the uploaded file to that document directly.
+	// Kept as a trailing param (rather than replacing `developmentUnit`) so
+	// existing Development Unit evidence callers don't need to change.
+	function uploadEvidenceFile(clientUuid, filename, blob, developmentUnit, attachTo) {
 		const formData = new FormData();
 		formData.append("file", blob, clientUuid + "_" + filename);
 		formData.append("is_private", "1");
 		if (developmentUnit) {
 			formData.append("doctype", "Development Unit");
 			formData.append("docname", developmentUnit);
+		} else if (attachTo && attachTo.doctype && attachTo.docname) {
+			formData.append("doctype", attachTo.doctype);
+			formData.append("docname", attachTo.docname);
 		}
 
 		return fetch(UPLOAD_URL, {
@@ -527,6 +553,7 @@
 		syncNow: syncNow,
 		pullNow: pullNow,
 		uploadEvidenceFile: uploadEvidenceFile,
+		genUuid: genUuid,
 		fetchStatus: fetchStatus,
 		getDeviceId: getDeviceId,
 		isSyncing: function () {

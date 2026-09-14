@@ -4,7 +4,7 @@
 // /desk/task is the Task DocType — NOT My Tasks — and is not made offline.
 
 const CACHE_PREFIX = "fk-offline-shell-";
-const CACHE_NAME = CACHE_PREFIX + "v10";
+const CACHE_NAME = CACHE_PREFIX + "v13";
 
 const FIELD_SHELL_URLS = [
 	"/offline_app",
@@ -27,11 +27,21 @@ const DESK_PRECACHE_URLS = [
 ];
 
 function cacheUrls(cache, urls) {
+	// cache.add(url) fetches with the default HTTP cache mode, which happily
+	// reuses a still-fresh browser HTTP cache entry (our /assets/*.js files
+	// serve Cache-Control: max-age=43200) instead of hitting the network —
+	// so bumping CACHE_NAME alone can silently re-precache stale bytes.
+	// Force a real network round-trip here so precache always reflects what
+	// the server is actually serving right now.
 	return Promise.all(
 		urls.map(function (url) {
-			return cache.add(url).catch(function (err) {
-				console.warn("SW cache miss:", url, err);
-			});
+			return fetch(url, { cache: "reload" })
+				.then(function (response) {
+					return cache.put(url, response);
+				})
+				.catch(function (err) {
+					console.warn("SW cache miss:", url, err);
+				});
 		})
 	);
 }
@@ -223,8 +233,19 @@ self.addEventListener("fetch", function (event) {
 	// with no way to pick up updates short of bumping CACHE_NAME. Cache is
 	// still updated on every successful fetch, and used only as the offline
 	// fallback when the network request fails.
+	//
+	// A plain fetch(event.request) still honors the *browser's own* HTTP
+	// cache — our /assets/*.js responses serve Cache-Control: max-age=43200
+	// — so "network-first" could silently resolve from a stale 12h-old disk
+	// cache entry without ever reaching the server. Force real revalidation
+	// for our own same-origin GETs so this actually behaves network-first.
+	const networkRequest =
+		url.origin === self.location.origin && event.request.method === "GET"
+			? new Request(event.request, { cache: "no-cache" })
+			: event.request;
+
 	event.respondWith(
-		fetch(event.request)
+		fetch(networkRequest)
 			.then(function (response) {
 				if (response && response.ok && url.origin === self.location.origin) {
 					const clone = response.clone();

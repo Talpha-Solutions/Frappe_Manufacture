@@ -204,6 +204,11 @@ offline_sync_operations = {
 		"target_doctype": "Task",
 		"target_name_field": "task",
 	},
+	"task.upload_task_photo": {
+		"method": "fitzgerald_kitchens.fitzgerald_kitchens.custom.task.attach_task_photo",
+		"target_doctype": "Task",
+		"target_name_field": "task",
+	},
 	"label_scan.record_task_label_scan": {
 		"method": "fitzgerald_kitchens.fitzgerald_kitchens.page.task_scan.label_scan.record_task_label_scan",
 		"target_doctype": "Task",
@@ -288,6 +293,7 @@ offline_sync_catalog = {
 			"task.pause_timer",
 			"task.resume_timer",
 			"task.stop_timer",
+			"task.upload_task_photo",
 			"despatch.submit_despatch_material_request",
 		],
 	},
