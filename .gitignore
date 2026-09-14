@@ -53,3 +53,7 @@ jspm_packages/
 
 # Aider AI Chat
 .aider*
+
+# Windows alternate-data-stream metadata from files copied over network/from downloads
+*:Zone.Identifier
+*Zone.Identifier
