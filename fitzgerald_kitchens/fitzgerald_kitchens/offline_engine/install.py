@@ -27,7 +27,7 @@ def _ensure_desktop_icon():
 				"link_type": "External",
 				"link": "/offline",
 				"icon": "cloud-off",
-				"bg_color": "teal",
+				"bg_color": "blue",
 				"standard": 1,
 				"hidden": 0,
 			}

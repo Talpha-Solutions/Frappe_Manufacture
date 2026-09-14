@@ -9,7 +9,6 @@ frappe.pages["my-tasks"].on_page_load = function (wrapper) {
 	});
 
 	frappe.my_tasks_page = new MyTasksPage(page);
-	fk_warn_insecure_offline_host();
 	// Install SW + precache real Desk My Tasks URL (secure context only).
 	if (window.fkDeskMyTasksOffline) {
 		fkDeskMyTasksOffline.registerSW();
@@ -17,34 +16,6 @@ frappe.pages["my-tasks"].on_page_load = function (wrapper) {
 		fk_register_offline_shell();
 	}
 };
-
-function fk_warn_insecure_offline_host() {
-	const host = location.hostname;
-	const insecure =
-		location.protocol === "http:" &&
-		host !== "localhost" &&
-		host !== "127.0.0.1" &&
-		!host.endsWith(".localhost");
-	if (!insecure) {
-		return;
-	}
-	frappe.msgprint({
-		title: __("Offline will not work on this URL"),
-		indicator: "orange",
-		message: __(
-			"<p><b>Stop using</b> <code>http://{0}/desk/task</code> for offline.</p>" +
-				"<ul>" +
-				"<li><code>/desk/task</code> = Task DocType (online only — will always show dinosaur offline)</li>" +
-				"<li>Offline page is <b>My Tasks</b>: <code>/desk/my-tasks</code></li>" +
-				"</ul>" +
-				"<p>Open and log in here (Service Worker can install):</p>" +
-				"<p><a href='http://127.0.0.1:8001/desk/my-tasks' target='_blank'><b>http://127.0.0.1:8001/desk/my-tasks</b></a></p>" +
-				"<p>or <a href='http://manufacture.localhost:8001/desk/my-tasks' target='_blank'><b>http://manufacture.localhost:8001/desk/my-tasks</b></a></p>" +
-				"<p>Then: wait for tasks to load → DevTools Offline → refresh <b>that same My Tasks URL</b>.</p>",
-			[host]
-		),
-	});
-}
 
 frappe.pages["my-tasks"].on_page_show = function () {
 	const me = frappe.my_tasks_page;
