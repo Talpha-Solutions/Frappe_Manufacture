@@ -281,7 +281,7 @@ def _close_open_time_logs_for_task(user: str, task: str) -> None:
 	)
 	for row in rows:
 		timesheet = frappe.get_doc("Timesheet", row.timesheet)
-		_close_time_log_row(timesheet, row.detail_name, submit_after=False)
+		_close_time_log_row(timesheet, row.detail_name, submit_after=False, to_time=client_time)
 
 
 def _close_time_log_row(
@@ -472,7 +472,7 @@ def start_task_timer(task: str, client_time: str | None = None):
 
 	auto_stopped = _auto_stop_running_timer_on_other_task(user, task, client_time=client_time)
 
-	_close_open_time_logs_for_task(user, task)
+	_close_open_time_logs_for_task(user, task, client_time=client_time)
 	_set_timer_paused(user, task, False)
 
 	task_doc = frappe.get_doc("Task", task)
@@ -507,6 +507,80 @@ def start_task_timer(task: str, client_time: str | None = None):
 	payload = _timer_payload(task, running)
 	payload["timer_started_at_epoch"] = _timer_started_at_epoch(from_time)
 	payload["timer_elapsed_seconds"] = 0
+	if auto_stopped:
+		payload["auto_stopped_task"] = auto_stopped
+	return payload
+
+
+@frappe.whitelist()
+def log_completed_timer_session(
+	task: str, from_client_time: str, to_client_time: str, paused: bool = False
+):
+	"""Log a start+stop (or start+pause) pair that both already happened
+	offline, as a single already-closed row, instead of the normal two-phase
+	start_task_timer / stop_task_timer flow.
+
+	start_task_timer must leave its new row open-ended (to_time unset) since
+	the matching stop/pause is a separate, later offline_engine operation it
+	has no way to see coming. Once synced, that open-ended row gets validated
+	against whatever the employee has *already* logged since — including
+	real sessions that happened, in wall-clock time, after the offline
+	from_time but before the stop/pause synced. ERPNext's Timesheet overlap
+	check does not handle an open `to_time` correctly there and throws a
+	false-positive overlap, even though the full start+stop pair (both ends
+	known) never actually conflicts with anything. Queuing both ends
+	together up front sidesteps the false positive entirely — see
+	my_tasks_offline.js's queueTimerAction, which calls this instead of
+	start_task_timer whenever the matching start is still an unsynced
+	pending outbox operation when stop/pause is queued.
+	"""
+	_check_task_access(task)
+	user = frappe.session.user
+	employee = _get_employee(user)
+	if not employee:
+		frappe.throw(
+			_("Link your user to an Employee record before starting a task timer."),
+			title=_("Employee Required"),
+		)
+
+	from_time = _resolve_time(from_client_time)
+	to_time = _resolve_time(to_client_time)
+	if get_datetime(to_time) <= get_datetime(from_time):
+		frappe.throw(_("Session end must be after its start."))
+
+	auto_stopped = _auto_stop_running_timer_on_other_task(user, task, client_time=from_client_time)
+	_close_open_time_logs_for_task(user, task, client_time=from_client_time)
+
+	task_doc = frappe.get_doc("Task", task)
+	company = _get_company(task, task_doc.project)
+	activity_type = _get_default_activity_type()
+	if not activity_type:
+		frappe.throw(_("Create an Activity Type before starting a task timer."))
+
+	timesheet = _get_or_create_draft_timesheet(user, employee, company, task_doc.project, task)
+	_ensure_timesheet_project(timesheet, task_doc.project)
+	_set_task_working(task)
+
+	expected_hours = flt(task_doc.expected_time) or None
+	timesheet.append(
+		"time_logs",
+		{
+			"activity_type": activity_type,
+			"from_time": from_time,
+			"to_time": to_time,
+			"hours": flt(time_diff_in_hours(get_datetime(to_time), get_datetime(from_time)), 3),
+			"project": task_doc.project,
+			"task": task,
+			"expected_hours": expected_hours,
+			"completed": 0,
+		},
+	)
+
+	timesheet.save(ignore_permissions=True)
+	frappe.db.commit()
+	_set_timer_paused(user, task, bool(paused))
+
+	payload = _timer_payload(task)
 	if auto_stopped:
 		payload["auto_stopped_task"] = auto_stopped
 	return payload

@@ -224,6 +224,43 @@
 		});
 	}
 
+	// An unsynced or already-failed task.start_timer/resume_timer op queued
+	// for this task, if any — most recent first. Used to detect "started and
+	// stopped/paused while offline" so the pair can be merged into one
+	// already-closed session instead of the normal two-phase flow — see
+	// queueTimerAction and task_timer.py's log_completed_timer_session for
+	// why the two-phase flow alone can false-positive on Timesheet's overlap
+	// check in that scenario.
+	//
+	// Deliberately not limited to status === "pending": the device can flip
+	// online and sync the bare start (marking it Rejected, since it's the
+	// exact same false-positive) *before* the matching stop/pause even gets
+	// queued, e.g. via the periodic background sync or a brief connectivity
+	// blip — the start doesn't have to still be waiting locally for the
+	// pairing to be worth doing, it just has to have never actually
+	// succeeded server-side.
+	function findUnresolvedStartOp(taskName) {
+		const store = db();
+		if (!store) {
+			return Promise.resolve(null);
+		}
+		return store.getAll("outbox").then(function (rows) {
+			const matches = (rows || [])
+				.filter(function (r) {
+					return (
+						r.status !== "success" &&
+						(r.operation === "task.start_timer" || r.operation === "task.resume_timer") &&
+						r.doctype_context &&
+						r.doctype_context.task === taskName
+					);
+				})
+				.sort(function (a, b) {
+					return (b.created_at || 0) - (a.created_at || 0);
+				});
+			return matches[0] || null;
+		});
+	}
+
 	function queueTimerAction(method, taskName) {
 		const clientTime = frappe.datetime.now_datetime();
 		const startLike = method === "start_task_timer" || method === "resume_task_timer";
@@ -259,10 +296,35 @@
 			});
 		}
 
-		const opName = method === "pause_task_timer" ? "task.pause_timer" : "task.stop_timer";
-		return queueTaskOperation(opName, taskName, { task: taskName, client_time: clientTime }, function (task) {
-			task.timer_running = false;
-			task.timer_paused = opName === "task.pause_timer";
+		const paused = method === "pause_task_timer";
+		const opName = paused ? "task.pause_timer" : "task.stop_timer";
+		const s = sync();
+
+		return findUnresolvedStartOp(taskName).then(function (pendingStart) {
+			if (pendingStart && s) {
+				const fromClientTime = (pendingStart.payload && pendingStart.payload.client_time) || clientTime;
+				return s.discardOperation(pendingStart.client_uuid).then(function () {
+					return queueTaskOperation(
+						"task.log_completed_session",
+						taskName,
+						{
+							task: taskName,
+							from_client_time: fromClientTime,
+							to_client_time: clientTime,
+							paused: paused,
+						},
+						function (task) {
+							task.timer_running = false;
+							task.timer_paused = paused;
+						}
+					);
+				});
+			}
+
+			return queueTaskOperation(opName, taskName, { task: taskName, client_time: clientTime }, function (task) {
+				task.timer_running = false;
+				task.timer_paused = paused;
+			});
 		});
 	}
 
@@ -315,40 +377,64 @@
 		});
 	}
 
+	// Guards against two overlapping runs (e.g. the `online` listener firing
+	// again while a previous upload is still in flight) each picking up the
+	// same still-`pending` evidence row and uploading/attaching it twice
+	// before either finishes and removes it.
+	let taskPhotoSyncInFlight = false;
+
 	function maybeSyncTaskPhotos() {
 		const store = db();
 		const s = sync();
-		if (!store || !s || !isOnline()) {
+		if (!store || !s || !isOnline() || taskPhotoSyncInFlight) {
 			return Promise.resolve();
 		}
-		return store.getAll("evidence").then(function (rows) {
-			const pending = (rows || []).filter(function (r) {
-				return r.upload_status === "pending" && r.task;
-			});
-			return pending.reduce(function (chain, row) {
-				return chain.then(function () {
-					return s
-						.uploadEvidenceFile(row.client_uuid, row.filename, row.blob, null, {
-							doctype: "Task",
-							docname: row.task,
-						})
-						.then(function (fileUrl) {
-							return s
-								.queueOperation(
-									"task.upload_task_photo",
-									{ task: row.task, file_url: fileUrl, filename: row.filename },
-									{ task: row.task }
-								)
-								.then(function () {
-									return store.remove("evidence", row.client_uuid);
-								});
-						})
-						.catch(function (err) {
-							console.warn("Task photo upload failed (will retry):", err);
-						});
+		taskPhotoSyncInFlight = true;
+		return store
+			.getAll("evidence")
+			.then(function (rows) {
+				const pending = (rows || []).filter(function (r) {
+					return r.upload_status === "pending" && r.task;
 				});
-			}, Promise.resolve());
-		});
+				// Claim each row (mark "uploading") before the async upload starts,
+				// as a second line of defense against a second tab on the same
+				// origin racing this same evidence store.
+				return Promise.all(
+					pending.map(function (row) {
+						row.upload_status = "uploading";
+						return store.put("evidence", row);
+					})
+				).then(function () {
+					return pending.reduce(function (chain, row) {
+						return chain.then(function () {
+							return s
+								.uploadEvidenceFile(row.client_uuid, row.filename, row.blob, null, {
+									doctype: "Task",
+									docname: row.task,
+								})
+								.then(function (fileUrl) {
+									return s
+										.queueOperation(
+											"task.upload_task_photo",
+											{ task: row.task, file_url: fileUrl, filename: row.filename },
+											{ task: row.task }
+										)
+										.then(function () {
+											return store.remove("evidence", row.client_uuid);
+										});
+								})
+								.catch(function (err) {
+									console.warn("Task photo upload failed (will retry):", err);
+									row.upload_status = "pending";
+									return store.put("evidence", row);
+								});
+						});
+					}, Promise.resolve());
+				});
+			})
+			.finally(function () {
+				taskPhotoSyncInFlight = false;
+			});
 	}
 
 	function updateStatusPill($wrap, syncing, knownOffline) {
