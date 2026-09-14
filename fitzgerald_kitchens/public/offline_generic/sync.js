@@ -14,6 +14,19 @@
 	const POLL_INTERVAL_MS = 30000;
 	const MAX_BACKOFF_MS = 5 * 60 * 1000;
 
+	// crypto.randomUUID is only exposed in secure contexts (https, or
+	// localhost/127.0.0.1/*.localhost); fall back to a plain UUID v4 elsewhere.
+	function genUuid() {
+		if (global.crypto && typeof global.crypto.randomUUID === "function") {
+			return global.crypto.randomUUID();
+		}
+		return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+			const r = (Math.random() * 16) | 0;
+			const v = c === "x" ? r : (r & 0x3) | 0x8;
+			return v.toString(16);
+		});
+	}
+
 	let syncing = false;
 	let authRequired = false;
 	const listeners = [];
@@ -90,7 +103,7 @@
 				/* ignore */
 			}
 			if (!id) {
-				id = crypto.randomUUID();
+				id = genUuid();
 			}
 			try {
 				window.localStorage.setItem("os_device_id", id);
@@ -104,7 +117,7 @@
 	}
 
 	function queueOperation(operation, payload) {
-		const clientUuid = crypto.randomUUID();
+		const clientUuid = genUuid();
 		const row = {
 			client_uuid: clientUuid,
 			operation: operation,

@@ -9,6 +9,19 @@
 	const db = window.fkOfflineDB;
 	const sync = window.fkOfflineSync;
 
+	// crypto.randomUUID is only exposed in secure contexts (https, or
+	// localhost/127.0.0.1/*.localhost); fall back to a plain UUID v4 elsewhere.
+	function genUuid() {
+		if (window.crypto && typeof window.crypto.randomUUID === "function") {
+			return window.crypto.randomUUID();
+		}
+		return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+			const r = (Math.random() * 16) | 0;
+			const v = c === "x" ? r : (r & 0x3) | 0x8;
+			return v.toString(16);
+		});
+	}
+
 	const DASHBOARD_URL =
 		"/api/method/fitzgerald_kitchens.fitzgerald_kitchens.page.my_tasks.my_tasks.get_my_tasks_dashboard";
 	const CATALOG_URL =
@@ -590,7 +603,7 @@
 	}
 
 	function saveEvidenceBlob(unit, stage, blob) {
-		const clientUuid = crypto.randomUUID();
+		const clientUuid = genUuid();
 		return db
 			.put("evidence", {
 				client_uuid: clientUuid,

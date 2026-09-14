@@ -5,6 +5,19 @@
 	const db = window.osOfflineDB;
 	const sync = window.osOfflineSync;
 
+	// crypto.randomUUID is only exposed in secure contexts (https, or
+	// localhost/127.0.0.1/*.localhost); fall back to a plain UUID v4 elsewhere.
+	function genUuid() {
+		if (window.crypto && typeof window.crypto.randomUUID === "function") {
+			return window.crypto.randomUUID();
+		}
+		return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+			const r = (Math.random() * 16) | 0;
+			const v = c === "x" ? r : (r & 0x3) | 0x8;
+			return v.toString(16);
+		});
+	}
+
 	const els = {
 		status: document.getElementById("os-sync-status"),
 		statusText: document.getElementById("os-sync-status-text"),
@@ -622,7 +635,7 @@
 		els.formError.classList.add("os-hidden");
 
 		if (isCreate) {
-			const localName = "__local_" + crypto.randomUUID();
+			const localName = "__local_" + genUuid();
 			const localId = db.docId(currentDoctype, localName);
 			const localDoc = Object.assign({}, values, {
 				name: localName,

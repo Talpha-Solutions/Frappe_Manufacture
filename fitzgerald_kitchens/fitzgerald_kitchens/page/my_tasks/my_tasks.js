@@ -81,6 +81,7 @@ class MyTasksPage {
 	bind_offline_events() {
 		const me = this;
 		window.addEventListener("online", function () {
+			me._offline_mode = false;
 			me.update_connection_pill();
 			if (window.fkDeskMyTasksOffline) {
 				fkDeskMyTasksOffline.syncOutbox().then(function () {
@@ -95,8 +96,17 @@ class MyTasksPage {
 			me.update_connection_pill();
 		});
 		if (window.fkOfflineSync && fkOfflineSync.onChange) {
+			let was_syncing = false;
 			fkOfflineSync.onChange(function () {
-				me.update_connection_pill(fkOfflineSync.isSyncing && fkOfflineSync.isSyncing());
+				const is_syncing = !!(fkOfflineSync.isSyncing && fkOfflineSync.isSyncing());
+				me.update_connection_pill(is_syncing);
+				// A background sync just finished (queued actions pushed to the
+				// server) — refresh so the page reflects the result without
+				// needing a manual reload.
+				if (was_syncing && !is_syncing) {
+					me.refresh();
+				}
+				was_syncing = is_syncing;
 			});
 		}
 	}
