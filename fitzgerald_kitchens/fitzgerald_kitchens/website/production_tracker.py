@@ -9,8 +9,10 @@ import json
 from urllib.parse import quote
 
 import frappe
+from erpnext.controllers.website_list_for_contact import get_customers_suppliers
 from frappe import _
 from frappe.utils import formatdate, getdate, today
+from frappe.utils.user import is_website_user
 
 from fitzgerald_kitchens.setup.project_hierarchy_fields import SITE_PARENT_FIELD
 from fitzgerald_kitchens.www.project_photos import (
@@ -144,10 +146,8 @@ def _resolve_focused_project(project_id: str | None) -> dict | None:
 	if not project_id or not frappe.db.exists("Project", project_id):
 		return None
 
-	try:
-		project = frappe.get_doc("Project", project_id)
-		project.has_permission("read")
-	except frappe.PermissionError:
+	project = frappe.get_doc("Project", project_id)
+	if not (project.has_permission("read") or frappe.has_website_permission(project)):
 		return None
 
 	project_type = _get_project_type_label(project)
@@ -216,6 +216,14 @@ def _get_active_projects():
 	if "project_type" in fields:
 		filters["project_type"] = ["not in", list(EXCLUDED_PROJECT_TYPES)]
 
+	ignore_permissions = False
+	if frappe.session.user != "Guest" and is_website_user():
+		customers, _suppliers = get_customers_suppliers("Project", frappe.session.user)
+		if not customers:
+			return []
+		filters["customer"] = ["in", customers]
+		ignore_permissions = True
+
 	try:
 		return frappe.get_list(
 			"Project",
@@ -223,6 +231,7 @@ def _get_active_projects():
 			filters=filters,
 			order_by="creation asc",
 			limit_page_length=500,
+			ignore_permissions=ignore_permissions,
 		)
 	except frappe.PermissionError:
 		return []
