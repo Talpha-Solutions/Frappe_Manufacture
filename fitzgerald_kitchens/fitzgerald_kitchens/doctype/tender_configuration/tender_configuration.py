@@ -29,7 +29,10 @@ class TenderConfiguration(Document):
 		cabinet_prices = _get_template_cabinet_prices(self.template)
 		cabinet_total = _apply_cabinet_costing(self, cabinet_prices)
 		self.cabinets_total = cabinet_total
-		self.total_cost_per_kitchen = cabinet_total + rows_total
+		other_costs = _parse_rows_json(self.other_costs_json)
+		self.other_costs_total = _validate_and_calculate_other_costs(other_costs)
+		self.other_costs_json = json.dumps(other_costs)
+		self.total_cost_per_kitchen = cabinet_total + rows_total + self.other_costs_total
 		self.grand_total_cost = self.total_cost_per_kitchen * flt(self.kitchens_to_tender or 0)
 		_apply_tender_pricing(self)
 		self.config_rows_json = json.dumps(rows)
@@ -74,6 +77,9 @@ class TenderConfiguration(Document):
 				indirect_total += amount
 			else:
 				other_total += amount
+
+		# charges from the Other Costs section (per unit)
+		other_total += flt(self.other_costs_total)
 
 		# Cabinets line = unit pricing + CABINETS builder rows (excluding Hardware)
 		cabinets_total = cabinet_units_total + cabinets_builder_total
@@ -200,6 +206,29 @@ def _validate_and_calculate_rows(rows: list[dict], template_rows: list[dict]) ->
 		total += flt(row["amount"])
 		_apply_item_spec(row)
 
+	return total
+
+
+def _validate_and_calculate_other_costs(charges: list[dict]) -> float:
+	"""Per-unit charges added by the user in the Other Costs section; returns their total."""
+	charges[:] = [c for c in charges if cstr(c.get("description")).strip() or c.get("item_code")]
+	total = 0.0
+	for charge in charges:
+		charge["description"] = cstr(charge.get("description")).strip()
+		charge["remark"] = cstr(charge.get("remark")).strip()
+		item_code = charge.get("item_code") or ""
+		if item_code:
+			item_name = frappe.db.get_value("Item", item_code, "item_name")
+			if not item_name:
+				frappe.throw(_("Item {0} in Other Costs not found.").format(item_code))
+			charge["description"] = charge["description"] or item_name
+		charge["item_code"] = item_code
+		charge["qty"] = flt(charge.get("qty"))
+		charge["rate"] = flt(charge.get("rate"))
+		if charge["qty"] < 0 or charge["rate"] < 0:
+			frappe.throw(_("Qty and rate cannot be negative for {0} in Other Costs.").format(charge["description"]))
+		charge["amount"] = charge["qty"] * charge["rate"]
+		total += charge["amount"]
 	return total
 
 

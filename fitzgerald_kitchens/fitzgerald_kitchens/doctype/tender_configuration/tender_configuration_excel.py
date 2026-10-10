@@ -130,11 +130,13 @@ def _write_bill(ws, doc, header) -> list[tuple[str, str, str]]:
 
 		for ref, line in zip(_refs(), rows):
 			row = _write_item(ws, row, ref, line, unit_count)
+		if not rows:
+			row = _write_wide(ws, row, _("No other costs added."), Font(name=FONT, size=9, italic=True, color="808080"))
 
 		# values, not formulas: openpyxl can't store calculated results, so previews and Excel's
 		# Protected View would show formula totals as blank/0 until the file is recalculated
 		priced = [line for line in rows if not line.get("exclude_from_price")]
-		reference_only = not priced
+		reference_only = bool(rows) and not priced
 		# a section of only spec rows gets a reference total; otherwise only priced lines count
 		counted = rows if reference_only else priced
 		section_per_unit = flt(sum(line["per_unit"] for line in counted), 2)
@@ -193,8 +195,14 @@ def _write_item(ws, row: int, ref: str, line: dict, unit_count: float) -> int:
 def _write_line(ws, row: int, line: dict, unit_count: float) -> int:
 	item = line.get("item_name") or line.get("item_code") or _("Not selected")
 	excluded = bool(line.get("exclude_from_price"))
+	if line.get("is_charge"):
+		# a charge's description is its own wording; show the item only if it adds something
+		item = line.get("item_name") or line.get("item_code") or ""
+		head = line.get("label") if not item or item == line.get("label") else f"{line.get('label')} ({item})"
+	else:
+		head = f"{line.get('label')}: {item}"
 	description = (
-		f"{line.get('label')}: {item}"
+		head
 		+ (" (rate adjusted)" if line.get("rate_override") else "")
 		+ (" (not in tender price)" if excluded else "")
 	)
@@ -319,6 +327,23 @@ def _group_rows(doc) -> list[tuple[str, list[dict]]]:
 	for line in rows:
 		line["item_name"] = item_names.get(line.get("item_code"))
 		grouped.setdefault(line.get("section") or "Items", []).append(line)
+
+	# charges added in the Other Costs section (per unit, priced like any other line); the
+	# section is always shown, like on the form, even when no charges were added
+	charges = json.loads(doc.other_costs_json or "[]")
+	grouped["OTHER COSTS"] = [
+		{
+			"label": charge.get("description") or charge.get("item_code"),
+			"item_code": charge.get("item_code"),
+			"item_name": frappe.db.get_value("Item", charge["item_code"], "item_name") if charge.get("item_code") else None,
+			"qty": charge.get("qty"),
+			"rate": charge.get("rate"),
+			"amount": charge.get("amount"),
+			"remark": charge.get("remark"),
+			"is_charge": 1,
+		}
+		for charge in charges
+	]
 	return list(grouped.items())
 
 

@@ -134,6 +134,13 @@ async function render_builder(frm) {
 			.fk-has-remark .fk-remark-wrap, .fk-remark-open .fk-remark-wrap, .fk-remark-wrap:focus-within { display: flex; }
 			.fk-remark-remove { display: none; }
 			.fk-has-remark .fk-remark-remove { display: flex; }
+			/* charges have a note button next to remove, so their last column is wider */
+			.fk-cols.fk-charge-cols, .fk-row.fk-charge-row { grid-template-columns: 2fr 3.3fr 3fr 0.9fr 1.2fr 60px; }
+			.fk-charge-actions { display: flex; gap: 2px; }
+			.fk-other-empty { padding: var(--padding-sm); color: var(--text-muted); font-size: var(--text-sm); }
+			.fk-other-add { margin-top: var(--margin-sm); }
+			.fk-charge-remove { width: 28px; height: 28px; padding: 0; border: none; border-radius: var(--border-radius); background: transparent; color: var(--text-muted); display: flex; align-items: center; justify-content: center; }
+			.fk-charge-remove:hover { background: var(--fg-hover-color); color: var(--text-color); }
 			.fk-footer { display: flex; justify-content: flex-end; align-items: baseline; gap: var(--margin-sm); margin-top: var(--margin-md); padding: var(--padding-sm) var(--padding-md); border: 1px solid var(--border-color); border-radius: var(--border-radius-md); background: var(--subtle-fg); }
 			.fk-footer .label { color: var(--text-muted); font-size: var(--text-sm); }
 			.fk-footer .value { color: var(--heading-color); font-size: var(--text-lg); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
@@ -195,6 +202,23 @@ async function render_builder(frm) {
 		html += `</div>`;
 	}
 
+	// user-added charges, per unit, counted in the tender price
+	html += `
+		<div class="fk-section-head">${__("Other Costs")}<span class="indicator-pill no-indicator-dot gray">${__("Per unit")}</span></div>
+		<div class="fk-section">
+			<div class="fk-cols fk-charge-cols">
+				<div>${__("Description")}</div>
+				<div>${__("Item (optional)")}</div>
+				<div>${__("Rate")}</div>
+				<div>${__("Qty")}</div>
+				<div class="col-amount">${__("Cost (€)")}</div>
+				<div></div>
+			</div>
+			<div class="fk-other-rows"></div>
+		</div>
+		<div class="fk-other-add"><button type="button" class="btn btn-xs btn-default">${__("+ Add charge")}</button></div>
+	`;
+
 	html += `
 		<div class="fk-footer">
 			<span class="label">${__("Total per Unit")}</span>
@@ -204,6 +228,159 @@ async function render_builder(frm) {
 	wrapper.html(html);
 
 	await bind_row_events(frm, rows, wrapper);
+	render_other_costs(frm, wrapper);
+}
+
+function parse_other_costs(frm) {
+	return parse_rows(frm.doc.other_costs_json);
+}
+
+function save_other_costs(frm, charges) {
+	if (JSON.stringify(charges) !== JSON.stringify(parse_other_costs(frm))) {
+		frm.set_value("other_costs_json", JSON.stringify(charges));
+	}
+	recalculate_totals_from_rows(frm);
+}
+
+// Other Costs section: free rows the user adds, each a per-unit charge
+function render_other_costs(frm, wrapper) {
+	const charges = parse_other_costs(frm);
+	const $rows = wrapper.find(".fk-other-rows").empty();
+	if (!charges.length) {
+		$rows.html(`<div class="fk-other-empty">${__("No other costs. Use + Add charge for anything the template doesn't cover.")}</div>`);
+	}
+
+	charges.forEach((charge, index) => {
+		const $row = $(`
+			<div class="fk-row fk-charge-row${charge.remark ? " fk-has-remark" : ""}">
+				<div class="fk-charge-desc"></div>
+				<div class="fk-charge-item"></div>
+				<div class="fk-charge-rate"></div>
+				<div class="fk-charge-qty"></div>
+				<div class="fk-amount">${format_currency(flt(charge.amount))}</div>
+				<div class="fk-charge-actions">
+					<button type="button" class="fk-remark-btn" title="${__("Add / edit note")}">${frappe.utils.icon("small-message", "sm")}</button>
+					<button type="button" class="fk-charge-remove" title="${__("Remove charge")}">${frappe.utils.icon("close", "sm")}</button>
+				</div>
+				<div class="fk-remark-wrap">
+					<input class="fk-remark form-control" type="text" placeholder="${__("Add a note")}" value="${escape_html(charge.remark || "")}" />
+					<button type="button" class="fk-remark-remove" title="${__("Remove note")}">${frappe.utils.icon("close", "sm")}</button>
+				</div>
+			</div>
+		`).appendTo($rows);
+
+		const update = () => {
+			charge.amount = flt(charge.qty) * flt(charge.rate);
+			$row.find(".fk-amount").text(format_currency(charge.amount));
+			save_other_costs(frm, charges);
+		};
+
+		const descControl = make_row_control($row.find(".fk-charge-desc"), {
+			fieldtype: "Data",
+			fieldname: "description",
+			placeholder: __("e.g. Skip hire, out-of-hours fitting"),
+			change: () => {
+				if (descControl.__fk_silent) return;
+				charge.description = descControl.get_value() || "";
+				save_other_costs(frm, charges);
+			},
+		});
+		const rateControl = make_row_control($row.find(".fk-charge-rate"), {
+			fieldtype: "Currency",
+			fieldname: "rate",
+			non_negative: 1,
+			change: () => {
+				if (rateControl.__fk_silent) return;
+				charge.rate = flt(rateControl.get_value());
+				update();
+			},
+		});
+		const qtyControl = make_row_control($row.find(".fk-charge-qty"), {
+			fieldtype: "Float",
+			fieldname: "qty",
+			non_negative: 1,
+			change: () => {
+				if (qtyControl.__fk_silent) return;
+				charge.qty = flt(qtyControl.get_value());
+				update();
+			},
+		});
+		const itemControl = make_row_control($row.find(".fk-charge-item"), {
+			fieldtype: "Link",
+			fieldname: "item_code",
+			options: "Item",
+			placeholder: __("Optional"),
+			get_query: () => ({ filters: { disabled: 0, has_variants: 0 } }),
+			change: async () => {
+				if (itemControl.__fk_silent) return;
+				charge.item_code = itemControl.get_value() || "";
+				if (charge.item_code) {
+					// fill the description and rate from the item; both stay editable
+					const [item, price] = await Promise.all([
+						frappe.db.get_value("Item", charge.item_code, "item_name"),
+						frappe.db.get_value(
+							"Item Price",
+							{ item_code: charge.item_code, price_list: "Standard Selling" },
+							"price_list_rate"
+						),
+					]);
+					if (!charge.description) {
+						charge.description = item.message?.item_name || charge.item_code;
+						await set_silently(descControl, charge.description);
+					}
+					if (price.message?.price_list_rate != null) {
+						charge.rate = flt(price.message.price_list_rate);
+						await set_silently(rateControl, charge.rate);
+					}
+				}
+				update();
+			},
+		});
+
+		set_silently(descControl, charge.description || "");
+		set_silently(itemControl, charge.item_code || "");
+		set_silently(rateControl, flt(charge.rate));
+		set_silently(qtyControl, flt(charge.qty));
+
+		// note: same behaviour as the remarks on template rows
+		const note = $row.find(".fk-remark");
+		$row.find(".fk-remark-btn").on("click", () => {
+			$row.addClass("fk-remark-open");
+			note.trigger("focus");
+		});
+		note.on("input", (e) => {
+			charge.remark = e.target.value;
+			save_other_costs(frm, charges);
+		});
+		note.on("blur", () => {
+			charge.remark = (charge.remark || "").trim();
+			note.val(charge.remark);
+			$row.removeClass("fk-remark-open").toggleClass("fk-has-remark", !!charge.remark);
+			save_other_costs(frm, charges);
+		});
+		$row.find(".fk-remark-remove").on("click", () => {
+			charge.remark = "";
+			note.val("");
+			$row.removeClass("fk-remark-open fk-has-remark");
+			save_other_costs(frm, charges);
+		});
+
+		$row.find(".fk-charge-remove").on("click", () => {
+			charges.splice(index, 1);
+			save_other_costs(frm, charges);
+			render_other_costs(frm, wrapper);
+		});
+	});
+
+	wrapper
+		.find(".fk-other-add button")
+		.off("click")
+		.on("click", () => {
+			charges.push({ description: "", item_code: "", qty: 1, rate: 0, amount: 0 });
+			save_other_costs(frm, charges);
+			render_other_costs(frm, wrapper);
+			wrapper.find(".fk-other-rows .fk-row:last .fk-charge-desc input").trigger("focus");
+		});
 }
 
 async function load_default_template(frm) {
@@ -744,7 +921,8 @@ function recalculate_totals_from_rows(frm) {
 	const rowsTotal = rows.reduce((sum, row) => sum + (row.exclude_from_price ? 0 : flt(row.amount)), 0);
 	const cabinetPrices = parse_cabinet_prices(frm.doc.cabinet_prices_json);
 	const cabinetTotal = set_cabinet_cost_fields(frm, cabinetPrices);
-	const perKitchen = rowsTotal + cabinetTotal;
+	const otherCosts = parse_rows(frm.doc.other_costs_json).reduce((sum, c) => sum + flt(c.qty) * flt(c.rate), 0);
+	const perKitchen = rowsTotal + cabinetTotal + otherCosts;
 	const kitchens = flt(frm.doc.kitchens_to_tender || 0);
 	const costBase = perKitchen * kitchens;
 	const targetMarginPct = flt(frm.doc.target_margin_pct || 0);
@@ -752,6 +930,7 @@ function recalculate_totals_from_rows(frm) {
 	const tenderPriceTotal = costBase + marginAmount;
 	const tenderPricePerKitchen = kitchens ? tenderPriceTotal / kitchens : 0;
 	set_if_changed(frm, "cabinets_total", cabinetTotal);
+	set_if_changed(frm, "other_costs_total", otherCosts);
 	set_if_changed(frm, "total_cost_per_kitchen", perKitchen);
 	set_if_changed(frm, "grand_total_cost", costBase);
 	set_if_changed(frm, "cost_base", costBase);

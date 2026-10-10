@@ -2,6 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
+ "default_print_format": "Kitchen Configuration Tender Summary",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -33,11 +34,13 @@
   "target_margin_pct",
   "margin_amount",
   "column_break_tender_pricing",
+  "other_costs_total",
   "cost_base",
   "tender_price_total",
   "tender_price_per_kitchen",
   "cabinet_prices_json",
   "config_rows_json",
+  "other_costs_json",
   "total_cost_per_kitchen",
   "grand_total_cost"
  ],
@@ -113,36 +116,36 @@
   {
    "fieldname": "section_break_cabinet_costing",
    "fieldtype": "Section Break",
-   "label": "Cabinet Costing",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Cabinet Costing"
   },
   {
    "fieldname": "base_units_rate",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Base Units Rate",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "base_units_amount",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Base Units Amount",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "wall_units_rate",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Wall Units Rate",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "wall_units_amount",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Wall Units Amount",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "column_break_cabinet_costing",
@@ -151,37 +154,37 @@
   {
    "fieldname": "tall_units_rate",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Tall Units Rate",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "tall_units_amount",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Tall Units Amount",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "drawer_packs_rate",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Drawer Packs Rate",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "drawer_packs_amount",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Drawer Packs Amount",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "cabinets_total",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Cabinets Total",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "section_break_builder",
@@ -213,6 +216,13 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "Charges added in the Other Costs section, per unit",
+   "fieldname": "other_costs_total",
+   "fieldtype": "Currency",
+   "label": "Other Costs per Unit",
+   "read_only": 1
+  },
+  {
    "fieldname": "cost_base",
    "fieldtype": "Currency",
    "label": "Cost Base",
@@ -241,6 +251,11 @@
    "hidden": 1
   },
   {
+   "fieldname": "other_costs_json",
+   "fieldtype": "Long Text",
+   "hidden": 1
+  },
+  {
    "fieldname": "total_cost_per_kitchen",
    "fieldtype": "Currency",
    "hidden": 1,
@@ -258,8 +273,8 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
+ "modified": "2026-10-10 23:37:18.263727",
  "module": "fitzgerald_kitchens",
- "default_print_format": "Kitchen Configuration Tender Summary",
  "name": "Tender Configuration",
  "naming_rule": "By \"Naming Series\" rule",
  "permissions": [
