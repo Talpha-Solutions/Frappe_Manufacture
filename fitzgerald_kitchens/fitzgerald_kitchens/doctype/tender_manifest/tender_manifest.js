@@ -1,11 +1,11 @@
 const METHOD_BASE =
-	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration.tender_configuration";
+	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_manifest.tender_manifest";
 const SPEC_OPTIONS_METHOD =
 	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.item_spec.item_spec.get_spec_options";
 const EXCEL_METHOD =
-	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration.tender_configuration_excel.download_tender_excel";
+	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_manifest.tender_manifest_excel.download_tender_excel";
 
-frappe.ui.form.on("Tender Configuration", {
+frappe.ui.form.on("Tender Manifest", {
 	async refresh(frm) {
 		render_top_intro(frm);
 		add_download_button(frm);

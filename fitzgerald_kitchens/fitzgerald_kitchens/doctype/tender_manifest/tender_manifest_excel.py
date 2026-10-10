@@ -1,7 +1,7 @@
 # Copyright (c) 2026, talpha solutions and contributors
 # For license information, please see license.txt
 
-"""Excel export of a Tender Configuration, laid out like a contractor's trade bill (BoQ)."""
+"""Excel export of a Tender Manifest, laid out like a contractor's trade bill (BoQ)."""
 
 import json
 import math
@@ -41,7 +41,7 @@ CABINET_UNITS = (
 
 @frappe.whitelist()
 def download_tender_excel(name: str):
-	doc = frappe.get_doc("Tender Configuration", name)
+	doc = frappe.get_doc("Tender Manifest", name)
 	doc.check_permission("read")
 
 	wb = Workbook()

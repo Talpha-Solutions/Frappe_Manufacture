@@ -87,7 +87,7 @@ class TestProjectTenderProfitMargin(IntegrationTestCase):
 		company = self._get_company()
 		tender_name, tender_price = self._get_existing_tender()
 		if not tender_name:
-			self.skipTest("No Tender Configuration available in test database")
+			self.skipTest("No Tender Manifest available in test database")
 
 		site = self._create_site("Tender Site", company=company, tender=tender_name)
 		kitchen = self._create_kitchen("Kitchen B", site.name, company=company)
@@ -113,7 +113,7 @@ class TestProjectTenderProfitMargin(IntegrationTestCase):
 		company = self._get_company()
 		tender_name, tender_price = self._get_existing_tender()
 		if not tender_name:
-			self.skipTest("No Tender Configuration available in test database")
+			self.skipTest("No Tender Manifest available in test database")
 
 		site = self._create_site("Zero Cost Tender Site", company=company, tender=tender_name)
 		kitchen_with_cost = self._create_kitchen("Kitchen With Cost", site.name, company=company)
@@ -141,7 +141,7 @@ class TestProjectTenderProfitMargin(IntegrationTestCase):
 		company = self._get_company()
 		tender_name, _tender_price = self._get_existing_tender()
 		if not tender_name:
-			self.skipTest("No Tender Configuration available in test database")
+			self.skipTest("No Tender Manifest available in test database")
 
 		site = self._create_site("Status Site", company=company, tender=tender_name)
 		kitchen = self._create_kitchen("Kitchen Status", site.name, company=company)
@@ -157,7 +157,7 @@ class TestProjectTenderProfitMargin(IntegrationTestCase):
 		company = self._get_company()
 		tender_name, _tender_price = self._get_existing_tender()
 		if not tender_name:
-			self.skipTest("No Tender Configuration available in test database")
+			self.skipTest("No Tender Manifest available in test database")
 
 		site = self._create_site("Completion Site", company=company, tender=tender_name)
 		kitchen_a = self._create_kitchen("Kitchen A Complete", site.name, company=company)
@@ -275,7 +275,7 @@ class TestProjectTenderProfitMargin(IntegrationTestCase):
 
 	def _get_existing_tender(self):
 		row = frappe.get_all(
-			"Tender Configuration",
+			"Tender Manifest",
 			fields=["name", "tender_price_per_kitchen"],
 			limit=1,
 		)
@@ -317,7 +317,7 @@ class TestProjectTenderProfitMargin(IntegrationTestCase):
 		company = self._get_company()
 		tender_name, _tender_price = self._get_existing_tender()
 		if not tender_name:
-			self.skipTest("No Tender Configuration available in test database")
+			self.skipTest("No Tender Manifest available in test database")
 
 		site = self._create_site("Mixed Child Site", company=company, tender=tender_name)
 		kitchen = self._create_kitchen("Kitchen Child", site.name, company=company)

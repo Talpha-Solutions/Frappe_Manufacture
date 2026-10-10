@@ -80,7 +80,7 @@ def get_item_specs(item_code: str):
 
 @frappe.whitelist()
 def get_spec_options(item_codes) -> dict:
-	"""Item Specs per item code, for the SPEC dropdown in the Tender Configuration builder."""
+	"""Item Specs per item code, for the SPEC dropdown in the Tender Manifest builder."""
 	if not frappe.has_permission("Item Spec", "read"):
 		frappe.throw(_("Not permitted"), frappe.PermissionError)
 

@@ -14,7 +14,7 @@ TEMPLATE_ROW_FIELDS = ("tag", "subtitle", "item_group", "qty_label")
 STANDARD_SELLING_PRICE_LIST = "Standard Selling"
 
 
-class TenderConfiguration(Document):
+class TenderManifest(Document):
 	def before_insert(self):
 		if not self.naming_series:
 			self.naming_series = "KC-.YYYY.-.#####"
@@ -316,7 +316,7 @@ def _apply_item_spec(row: dict):
 		row["specification"] = spec.specification if spec else ""
 
 
-def _apply_cabinet_costing(doc: TenderConfiguration, cabinet_prices: dict) -> float:
+def _apply_cabinet_costing(doc: TenderManifest, cabinet_prices: dict) -> float:
 	cabinet_total = 0.0
 	for key in CABINET_KEYS:
 		price_data = cabinet_prices.get(key) or {}
@@ -329,7 +329,7 @@ def _apply_cabinet_costing(doc: TenderConfiguration, cabinet_prices: dict) -> fl
 	return cabinet_total
 
 
-def _apply_tender_pricing(doc: TenderConfiguration):
+def _apply_tender_pricing(doc: TenderManifest):
 	doc.cost_base = flt(doc.grand_total_cost)
 	doc.target_margin_pct = flt(doc.target_margin_pct)
 	doc.margin_amount = flt(doc.cost_base) * (flt(doc.target_margin_pct) / 100.0)
