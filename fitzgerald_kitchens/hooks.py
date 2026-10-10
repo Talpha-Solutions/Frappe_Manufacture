@@ -306,7 +306,21 @@ fixtures = [
 	},
 	{
 		"dt": "Property Setter",
-		"filters": [["doc_type", "=", "Task"], ["property", "in", ["max_attachments", "field_order", "fieldtype"]]],
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"Task-dependencies_tab-fieldtype",
+					"Task-more_info_tab-fieldtype",
+					"Task-main-field_order",
+					"Task-max_attachments",
+					"Task-sb_depends_on-fieldtype",
+					"Task-sb_more_info-fieldtype",
+					"Address-address_type-options",
+				],
+			]
+		],
 	},
 	{
 		"dt": "Desktop Icon",
