@@ -329,6 +329,10 @@ fixtures = [
 		"filters": [["name", "=", "My Tasks"]],
 	},
 	{
+		"dt": "Role",
+		"filters": [["name", "in", ["Tender Manager", "Tender User"]]],
+	},
+	{
 		"dt": "Task Type",
 		# Prefixed so this fixture file always imports before 1_task.json — each
 		# fixture Task's `type` field links to one of these Task Type records.
