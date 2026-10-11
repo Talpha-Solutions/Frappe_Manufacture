@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
- "default_print_format": "Kitchen Configuration Tender Summary",
+ "creation": "2026-10-11 06:21:27.131242",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -92,7 +92,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Template",
-   "options": "Kitchen Configuration Template",
+   "options": "Tender Configuration Template",
    "reqd": 1
   },
   {
@@ -303,10 +303,12 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-11 09:45:31.243075",
+ "modified": "2026-10-11 06:24:36.505908",
+ "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender Manifest",
- "naming_rule": "By \"Naming Series\" rule",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
  "permissions": [
   {
    "create": 1,

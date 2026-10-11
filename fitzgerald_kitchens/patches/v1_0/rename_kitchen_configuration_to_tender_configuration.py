@@ -7,14 +7,6 @@ def execute():
 
 	frappe.rename_doc("DocType", "Kitchen Configuration", "Tender Configuration", force=True)
 
-	frappe.db.set_value(
-		"DocType",
-		"Tender Configuration",
-		"default_print_format",
-		"Kitchen Configuration Tender Summary",
-		update_modified=False,
-	)
-
 	if frappe.db.exists("Print Format", "Kitchen Configuration Tender Summary"):
 		frappe.db.set_value(
 			"Print Format",

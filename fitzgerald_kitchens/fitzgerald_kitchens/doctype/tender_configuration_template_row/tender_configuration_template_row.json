@@ -56,7 +56,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Qty Label",
-   "options": "QTY\nM²\nHRS/KIT",
+   "options": "QTY\nM\u00b2\nHRS/KIT",
    "reqd": 1
   },
   {
@@ -79,7 +79,7 @@
  "istable": 1,
  "modified": "2026-10-07 20:27:57.828801",
  "module": "fitzgerald_kitchens",
- "name": "Kitchen Configuration Template Row",
+ "name": "Tender Configuration Template Row",
  "permissions": [],
  "sort_field": "idx",
  "sort_order": "ASC",

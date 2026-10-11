@@ -110,7 +110,7 @@
    "fieldname": "template",
    "fieldtype": "Link",
    "label": "Template",
-   "options": "Kitchen Configuration Template"
+   "options": "Tender Configuration Template"
   },
   {
    "fieldname": "column_break_defaults",
@@ -193,7 +193,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-11 09:55:57.632209",
+ "modified": "2026-10-11 06:24:37.002201",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender",

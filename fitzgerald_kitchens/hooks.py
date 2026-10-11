@@ -319,6 +319,7 @@ fixtures = [
 					"Task-sb_depends_on-fieldtype",
 					"Task-sb_more_info-fieldtype",
 					"Address-address_type-options",
+					"Tender Manifest-main-default_print_format",
 				],
 			]
 		],

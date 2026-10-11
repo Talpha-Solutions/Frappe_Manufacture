@@ -9,7 +9,7 @@ from frappe.utils import flt
 STANDARD_SELLING_PRICE_LIST = "Standard Selling"
 
 
-class KitchenConfigurationTemplate(Document):
+class TenderConfigurationTemplate(Document):
 	def validate(self):
 		self._validate_cabinet_price_rows()
 
@@ -18,7 +18,7 @@ class KitchenConfigurationTemplate(Document):
 
 		frappe.db.sql(
 			"""
-			update `tabKitchen Configuration Template`
+			update `tabTender Configuration Template`
 			set is_default = 0
 			where name != %s and is_default = 1
 			""",

@@ -19,6 +19,5 @@ def execute():
 
 	if frappe.db.exists("Print Format", PRINT_FORMAT):
 		frappe.db.set_value("Print Format", PRINT_FORMAT, "doc_type", NEW, update_modified=False)
-		frappe.db.set_value("DocType", NEW, "default_print_format", PRINT_FORMAT, update_modified=False)
 
 	frappe.db.commit()

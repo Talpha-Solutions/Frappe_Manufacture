@@ -351,7 +351,7 @@ def _apply_tender_pricing(doc: TenderManifest):
 
 
 def _get_template_cabinet_prices(template: str) -> dict:
-	template_doc = frappe.get_doc("Kitchen Configuration Template", template)
+	template_doc = frappe.get_doc("Tender Configuration Template", template)
 	mapping = {
 		"base_units": template_doc.base_units_price_row,
 		"wall_units": template_doc.wall_units_price_row,
@@ -383,7 +383,7 @@ def _get_template_cabinet_prices(template: str) -> dict:
 @frappe.whitelist()
 def get_default_template():
 	return frappe.db.get_value(
-		"Kitchen Configuration Template",
+		"Tender Configuration Template",
 		{"is_default": 1},
 		"name",
 	)
@@ -405,7 +405,7 @@ def get_template_cabinet_prices(template: str):
 
 def _get_template_rows(template: str) -> list[dict]:
 	rows = frappe.get_all(
-		"Kitchen Configuration Template Row",
+		"Tender Configuration Template Row",
 		filters={"parent": template},
 		fields=[
 			"section",

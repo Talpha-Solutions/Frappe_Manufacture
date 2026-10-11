@@ -3,6 +3,7 @@
 # Read docs to understand patches: https://frappeframework.com/docs/v14/user/en/database-migrations
 fitzgerald_kitchens.patches.v1_0.rename_kitchen_configuration_to_tender_configuration
 fitzgerald_kitchens.patches.v1_0.rename_tender_configuration_to_tender_manifest
+fitzgerald_kitchens.patches.v1_0.rename_kitchen_configuration_template_to_tender_configuration_template
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -68,3 +69,4 @@ fitzgerald_kitchens.patches.v1_0.add_project_tender_link
 fitzgerald_kitchens.patches.v1_0.update_project_tender_form_fields
 fitzgerald_kitchens.patches.v1_0.add_project_actual_timeline_sidebar
 fitzgerald_kitchens.patches.v1_0.set_item_spec_titles
+fitzgerald_kitchens.patches.v1_0.move_tender_manifest_print_format_to_property_setter
