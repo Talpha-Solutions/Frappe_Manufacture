@@ -13,37 +13,37 @@ def execute():
 	_fix_literal_bad_name()
 	_backfill_missing_naming_series()
 	_sync_tender_series_counter()
-	frappe.clear_cache(doctype="Tender Configuration")
+	frappe.clear_cache(doctype="Tender Manifest")
 
 
 def _fix_literal_bad_name() -> None:
-	if not frappe.db.exists("Tender Configuration", LITERAL_BAD_NAME):
+	if not frappe.db.exists("Tender Manifest", LITERAL_BAD_NAME):
 		return
 
-	if not frappe.db.has_column("Tender Configuration", "naming_series"):
+	if not frappe.db.has_column("Tender Manifest", "naming_series"):
 		return
 
 	frappe.db.set_value(
-		"Tender Configuration",
+		"Tender Manifest",
 		LITERAL_BAD_NAME,
 		"naming_series",
 		TENDER_NAMING_SERIES,
 		update_modified=False,
 	)
 
-	doc = frappe.get_doc("Tender Configuration", LITERAL_BAD_NAME)
+	doc = frappe.get_doc("Tender Manifest", LITERAL_BAD_NAME)
 	new_name = make_autoname(TENDER_NAMING_SERIES, doc=doc)
 	if new_name and new_name != LITERAL_BAD_NAME:
-		frappe.rename_doc("Tender Configuration", LITERAL_BAD_NAME, new_name, force=True)
+		frappe.rename_doc("Tender Manifest", LITERAL_BAD_NAME, new_name, force=True)
 
 
 def _backfill_missing_naming_series() -> None:
-	if not frappe.db.has_column("Tender Configuration", "naming_series"):
+	if not frappe.db.has_column("Tender Manifest", "naming_series"):
 		return
 
 	frappe.db.sql(
 		"""
-		update `tabTender Configuration`
+		update `tabTender Manifest`
 		set naming_series = %s
 		where ifnull(naming_series, '') = ''
 		""",
@@ -53,7 +53,7 @@ def _backfill_missing_naming_series() -> None:
 
 def _sync_tender_series_counter() -> None:
 	prefix = NamingSeries(TENDER_NAMING_SERIES).get_prefix()
-	max_existing = _max_numeric_suffix("Tender Configuration", prefix)
+	max_existing = _max_numeric_suffix("Tender Manifest", prefix)
 	current = _get_series_current(prefix)
 	target = max(max_existing, current, 0)
 

@@ -4,7 +4,7 @@
 """Demo / test data for Project Tender Profit Margin on travel.com.
 
 Seeds predictable kitchen-unit cost profiles on selected Site projects only.
-Tender Price Per Kitchen comes from the linked Tender Configuration (saved/calculated).
+Tender Price Per Kitchen comes from the linked Tender Manifest (saved/calculated).
 Each profile can include manufacturing (Job Cards), task cost (Timesheets), and
 project totals for expense / purchase / material.
 
@@ -41,7 +41,7 @@ DEMO_BOM_CANDIDATES = (
 )
 
 # Site → tender link + explicit kitchen unit cost profiles only.
-# Tender Price Per Kitchen comes from the linked Tender Configuration (saved/calculated).
+# Tender Price Per Kitchen comes from the linked Tender Manifest (saved/calculated).
 # Profiles are sized relative to a typical calculated tender (~£1,848 on travel.com).
 DEMO_SITES: dict[str, dict] = {
 	"PROJ-0014": {
@@ -197,7 +197,7 @@ def seed_travel_com_tender_profit_margin_test_data():
 
 
 def restore_travel_com_tender_pricing_from_configuration():
-	"""Recalculate tender prices from Tender Configuration and sync linked Site projects."""
+	"""Recalculate tender prices from Tender Manifest and sync linked Site projects."""
 	_assert_demo_sites_exist()
 	updated = []
 
@@ -217,7 +217,7 @@ def restore_travel_com_tender_pricing_from_configuration():
 		)
 
 	frappe.db.commit()
-	print("\n=== Restore tender pricing from Tender Configuration (travel.com) ===")
+	print("\n=== Restore tender pricing from Tender Manifest (travel.com) ===")
 	for row in updated:
 		print(
 			f"  {row['site']}: {row['tender']} → Tender Price Per Kitchen = {row['tender_price_per_kitchen']}"
@@ -396,8 +396,8 @@ def _ensure_site_tender(site: str, config: dict) -> str:
 	explicit_name = config.get("tender_docname")
 	kitchens = len(config["units"])
 
-	tender = frappe.db.get_value("Tender Configuration", {"tender_name": tender_name}, "name")
-	if not tender and explicit_name and frappe.db.exists("Tender Configuration", explicit_name):
+	tender = frappe.db.get_value("Tender Manifest", {"tender_name": tender_name}, "name")
+	if not tender and explicit_name and frappe.db.exists("Tender Manifest", explicit_name):
 		tender = explicit_name
 	elif not tender and explicit_name:
 		tender = _create_tender_with_name(explicit_name, tender_name, kitchens)
@@ -410,7 +410,7 @@ def _ensure_site_tender(site: str, config: dict) -> str:
 
 def _recalculate_tender_pricing(tender: str, config: dict) -> None:
 	"""Save tender so validate() recalculates Tender Price Per Kitchen from costing."""
-	doc = frappe.get_doc("Tender Configuration", tender)
+	doc = frappe.get_doc("Tender Manifest", tender)
 	doc.tender_name = config["tender_name"]
 	doc.kitchens_to_tender = len(config["units"])
 	doc.save(ignore_permissions=True)
@@ -420,16 +420,16 @@ def _get_linked_tender_price_per_kitchen(site: str) -> float:
 	tender = frappe.db.get_value("Project", site, "fk_tender_configuration")
 	if not tender:
 		return 0
-	return flt(frappe.db.get_value("Tender Configuration", tender, "tender_price_per_kitchen"))
+	return flt(frappe.db.get_value("Tender Manifest", tender, "tender_price_per_kitchen"))
 
 
 def _create_tender_with_name(name: str, tender_name: str, kitchens: int) -> str:
-	reference = frappe.get_all("Tender Configuration", pluck="name", limit=1)
+	reference = frappe.get_all("Tender Manifest", pluck="name", limit=1)
 	if not reference:
-		frappe.throw("No Tender Configuration found to use as reference.")
+		frappe.throw("No Tender Manifest found to use as reference.")
 
-	ref_doc = frappe.get_doc("Tender Configuration", reference[0])
-	doc = frappe.new_doc("Tender Configuration")
+	ref_doc = frappe.get_doc("Tender Manifest", reference[0])
+	doc = frappe.new_doc("Tender Manifest")
 	doc.update(
 		{
 			"template": ref_doc.template,
@@ -449,12 +449,12 @@ def _create_tender_with_name(name: str, tender_name: str, kitchens: int) -> str:
 
 
 def _create_tender_from_reference(tender_name: str, kitchens: int) -> str:
-	reference = frappe.get_all("Tender Configuration", pluck="name", limit=1)
+	reference = frappe.get_all("Tender Manifest", pluck="name", limit=1)
 	if not reference:
-		frappe.throw("No Tender Configuration found to use as reference.")
+		frappe.throw("No Tender Manifest found to use as reference.")
 
-	ref_doc = frappe.get_doc("Tender Configuration", reference[0])
-	doc = frappe.new_doc("Tender Configuration")
+	ref_doc = frappe.get_doc("Tender Manifest", reference[0])
+	doc = frappe.new_doc("Tender Manifest")
 	doc.update(
 		{
 			"template": ref_doc.template,
@@ -475,7 +475,7 @@ def _create_tender_from_reference(tender_name: str, kitchens: int) -> str:
 
 def _link_site_to_tender(site: str, tender: str) -> None:
 	tender_price = flt(
-		frappe.db.get_value("Tender Configuration", tender, "tender_price_per_kitchen")
+		frappe.db.get_value("Tender Manifest", tender, "tender_price_per_kitchen")
 	)
 	frappe.db.set_value(
 		"Project",

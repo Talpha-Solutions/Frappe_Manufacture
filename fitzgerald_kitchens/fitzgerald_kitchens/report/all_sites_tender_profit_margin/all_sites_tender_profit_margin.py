@@ -32,7 +32,7 @@ def execute(filters=None):
 	columns = get_columns(filters)
 	message = _(
 		"Site-level tender profit margin for all Site projects in the selected company, "
-		"whether or not a Tender Configuration is linked. Tender Price uses the linked "
+		"whether or not a Tender Manifest is linked. Tender Price uses the linked "
 		"tender's Tender Price total. Costs are rolled up from all child projects under "
 		"each site (Kitchen, Robe, Utility, and other unit types)."
 	)
@@ -78,7 +78,7 @@ def _get_tender_details_for_sites(sites, unit_rows=None):
 	return {
 		row.name: row
 		for row in frappe.get_all(
-			"Tender Configuration",
+			"Tender Manifest",
 			filters={"name": ("in", list(tender_names))},
 			fields=["name", "tender_name", "tender_price_total", "tender_price_per_kitchen"],
 		)
@@ -220,10 +220,10 @@ def get_columns(filters):
 			"width": 110,
 		},
 		{
-			"label": _("Tender Configuration"),
+			"label": _("Tender Manifest"),
 			"fieldname": "tender_configuration",
 			"fieldtype": "Link",
-			"options": "Tender Configuration",
+			"options": "Tender Manifest",
 			"width": 150,
 		},
 		{

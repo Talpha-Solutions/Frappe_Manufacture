@@ -31,7 +31,7 @@ def execute(filters=None):
 	data = get_data(filters)
 	columns = get_columns(filters)
 	message = _(
-		"Select a Site Project with a linked Tender Configuration. Margin uses Tender Price "
+		"Select a Site Project with a linked Tender Manifest. Margin uses Tender Price "
 		"Per Kitchen from that tender. Costs include all child projects under the site "
 		"(Kitchen, Robe, Utility, and other unit types). Manufacturing and task actual costs "
 		"use the From/To Date filter; expense claims, purchase, and material costs are "
@@ -110,7 +110,7 @@ def get_kitchen_unit_margin_data(filters, include_all_sites=False):
 		tender_details = {
 			row.name: row
 			for row in frappe.get_all(
-				"Tender Configuration",
+				"Tender Manifest",
 				filters={"name": ("in", list(tender_names))},
 				fields=["name", "tender_name", "tender_price_per_kitchen"],
 			)
@@ -274,14 +274,14 @@ def _resolve_site_project_filter(site_project):
 
 
 def _resolve_tender_price_total(site=None, tender=None):
-	"""Tender Price (total) from the Site Project's linked Tender Configuration."""
+	"""Tender Price (total) from the Site Project's linked Tender Manifest."""
 	if tender and flt(tender.tender_price_total):
 		return flt(tender.tender_price_total)
 
 	if site and site.fk_tender_configuration:
 		price = flt(
 			frappe.db.get_value(
-				"Tender Configuration",
+				"Tender Manifest",
 				site.fk_tender_configuration,
 				"tender_price_total",
 			)
@@ -293,14 +293,14 @@ def _resolve_tender_price_total(site=None, tender=None):
 
 
 def _resolve_tender_price_per_kitchen(site, tender=None):
-	"""Tender Price Per Kitchen from the Site Project's linked Tender Configuration."""
+	"""Tender Price Per Kitchen from the Site Project's linked Tender Manifest."""
 	if tender and flt(tender.tender_price_per_kitchen):
 		return flt(tender.tender_price_per_kitchen)
 
 	if site.fk_tender_configuration:
 		price = flt(
 			frappe.db.get_value(
-				"Tender Configuration",
+				"Tender Manifest",
 				site.fk_tender_configuration,
 				"tender_price_per_kitchen",
 			)
@@ -425,10 +425,10 @@ def get_columns(filters):
 			"width": 110,
 		},
 		{
-			"label": _("Tender Configuration"),
+			"label": _("Tender Manifest"),
 			"fieldname": "tender_configuration",
 			"fieldtype": "Link",
-			"options": "Tender Configuration",
+			"options": "Tender Manifest",
 			"width": 150,
 		},
 		{

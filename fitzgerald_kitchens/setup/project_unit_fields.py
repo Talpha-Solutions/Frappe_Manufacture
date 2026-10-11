@@ -68,8 +68,8 @@ def get_project_unit_custom_fields() -> dict:
 			{
 				"fieldname": "fk_tender_configuration",
 				"fieldtype": "Link",
-				"label": "Tender Configuration",
-				"options": "Tender Configuration",
+				"label": "Tender Manifest",
+				"options": "Tender Manifest",
 				"depends_on": SITE_TENDER_DEPENDS_ON,
 				"insert_after": "fk_tender_section",
 			},
@@ -115,8 +115,8 @@ def get_project_unit_custom_fields() -> dict:
 			{
 				"fieldname": "fk_site_tender_configuration",
 				"fieldtype": "Link",
-				"label": "Tender Configuration",
-				"options": "Tender Configuration",
+				"label": "Tender Manifest",
+				"options": "Tender Manifest",
 				"read_only": 1,
 				"fetch_from": "fk_parent_project.fk_tender_configuration",
 				"depends_on": UNIT_TAB_DEPENDS_ON,

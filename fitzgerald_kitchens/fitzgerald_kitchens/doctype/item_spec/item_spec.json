@@ -1,0 +1,165 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "hash",
+ "creation": "2026-10-06 20:55:21.821226",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "item_name",
+  "column_break_item",
+  "item_group",
+  "item_description",
+  "section_break_spec_list",
+  "spec_list",
+  "column_break_spec_list",
+  "spec_reference",
+  "spec_title",
+  "section_break_specification",
+  "specification",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Item Code",
+   "options": "Item",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "item_code.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_item",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "item_code.item_group",
+   "fieldname": "item_group",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Item Group",
+   "options": "Item Group",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "item_code.description",
+   "fieldname": "item_description",
+   "fieldtype": "Text Editor",
+   "label": "Item Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_spec_list",
+   "fieldtype": "Section Break",
+   "label": "Spec List"
+  },
+  {
+   "fieldname": "spec_list",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Spec List",
+   "options": "Spec List",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_spec_list",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Clause in the source specification, e.g. N17 410",
+   "fieldname": "spec_reference",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Spec Reference"
+  },
+  {
+   "description": "Spec list and reference, shown wherever this spec is linked",
+   "fieldname": "spec_title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_specification",
+   "fieldtype": "Section Break",
+   "label": "Specification"
+  },
+  {
+   "fieldname": "specification",
+   "fieldtype": "Text",
+   "label": "Specification",
+   "reqd": 1
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-11 11:05:54.028805",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Item Spec",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "role": "Tender Manager",
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "role": "Tender User",
+   "create": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "item_name,spec_list,spec_reference",
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "spec_title",
+ "track_changes": 1
+}

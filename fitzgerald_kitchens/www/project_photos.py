@@ -2,8 +2,10 @@ import os
 from collections import OrderedDict, defaultdict
 
 import frappe
+from erpnext.controllers.website_list_for_contact import get_customers_suppliers
 from frappe import _
 from frappe.utils import format_datetime, get_datetime, pretty_date
+from frappe.utils.user import is_website_user
 
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".svg"}
@@ -185,13 +187,24 @@ def _get_readable_projects():
 	if meta.has_field("project_type"):
 		fields.append("project_type")
 
+	filters = {"status": ["!=", "Cancelled"]}
+
+	ignore_permissions = False
+	if frappe.session.user != "Guest" and is_website_user():
+		customers, _suppliers = get_customers_suppliers("Project", frappe.session.user)
+		if not customers:
+			return []
+		filters["customer"] = ["in", customers]
+		ignore_permissions = True
+
 	try:
 		return frappe.get_list(
 			"Project",
 			fields=fields,
-			filters={"status": ["!=", "Cancelled"]},
+			filters=filters,
 			order_by="modified desc",
 			limit_page_length=500,
+			ignore_permissions=ignore_permissions,
 		)
 	except frappe.PermissionError:
 		return []

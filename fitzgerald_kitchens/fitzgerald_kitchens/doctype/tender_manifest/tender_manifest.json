@@ -2,14 +2,19 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
+ "creation": "2026-10-11 06:21:27.131242",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "top_intro",
-  "naming_series",
+  "section_break_details",
+  "tender",
   "tender_name",
-  "template",
   "kitchens_to_tender",
+  "column_break_details",
+  "template",
+  "spec_list",
+  "naming_series",
   "section_break_units",
   "base_units",
   "wall_units",
@@ -30,14 +35,16 @@
   "section_break_builder",
   "configuration_builder",
   "section_break_tender_pricing",
-  "target_margin_pct",
-  "margin_amount",
-  "column_break_tender_pricing",
+  "other_costs_total",
   "cost_base",
-  "tender_price_total",
+  "target_margin_pct",
+  "column_break_tender_pricing",
+  "margin_amount",
   "tender_price_per_kitchen",
+  "tender_price_total",
   "cabinet_prices_json",
   "config_rows_json",
+  "other_costs_json",
   "total_cost_per_kitchen",
   "grand_total_cost"
  ],
@@ -47,12 +54,19 @@
    "fieldtype": "HTML"
   },
   {
-   "default": "KC-.YYYY.-.#####",
-   "fieldname": "naming_series",
-   "fieldtype": "Select",
-   "label": "Naming Series",
-   "options": "KC-.YYYY.-.#####",
-   "reqd": 1
+   "fieldname": "section_break_details",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "description": "The tender this manifest is part of",
+   "fieldname": "tender",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Tender",
+   "options": "Tender",
+   "search_index": 1
   },
   {
    "fieldname": "tender_name",
@@ -62,19 +76,38 @@
    "reqd": 1
   },
   {
-   "fieldname": "template",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Template",
-   "options": "Kitchen Configuration Template",
-   "reqd": 1
-  },
-  {
    "default": "1",
    "fieldname": "kitchens_to_tender",
    "fieldtype": "Int",
    "in_list_view": 1,
    "label": "Kitchens to Tender",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_details",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "template",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Template",
+   "options": "Tender Configuration Template",
+   "reqd": 1
+  },
+  {
+   "description": "Specs from this list are picked first when choosing items",
+   "fieldname": "spec_list",
+   "fieldtype": "Link",
+   "label": "Spec List",
+   "options": "Spec List"
+  },
+  {
+   "default": "KC-.YYYY.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "KC-.YYYY.-.#####",
    "reqd": 1
   },
   {
@@ -113,36 +146,36 @@
   {
    "fieldname": "section_break_cabinet_costing",
    "fieldtype": "Section Break",
-   "label": "Cabinet Costing",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Cabinet Costing"
   },
   {
    "fieldname": "base_units_rate",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Base Units Rate",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "base_units_amount",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Base Units Amount",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "wall_units_rate",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Wall Units Rate",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "wall_units_amount",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Wall Units Amount",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "column_break_cabinet_costing",
@@ -151,37 +184,37 @@
   {
    "fieldname": "tall_units_rate",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Tall Units Rate",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "tall_units_amount",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Tall Units Amount",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "drawer_packs_rate",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Drawer Packs Rate",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "drawer_packs_amount",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Drawer Packs Amount",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "cabinets_total",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Cabinets Total",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "section_break_builder",
@@ -197,20 +230,11 @@
    "label": "Tender Pricing"
   },
   {
-   "default": "18",
-   "fieldname": "target_margin_pct",
-   "fieldtype": "Percent",
-   "label": "Target Margin %"
-  },
-  {
-   "fieldname": "margin_amount",
+   "description": "Charges added in the Other Costs section, per unit",
+   "fieldname": "other_costs_total",
    "fieldtype": "Currency",
-   "label": "Margin Amount",
+   "label": "Other Costs per Unit",
    "read_only": 1
-  },
-  {
-   "fieldname": "column_break_tender_pricing",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "cost_base",
@@ -219,9 +243,19 @@
    "read_only": 1
   },
   {
-   "fieldname": "tender_price_total",
+   "default": "18",
+   "fieldname": "target_margin_pct",
+   "fieldtype": "Percent",
+   "label": "Target Margin %"
+  },
+  {
+   "fieldname": "column_break_tender_pricing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "margin_amount",
    "fieldtype": "Currency",
-   "label": "Tender Price",
+   "label": "Margin Amount",
    "read_only": 1
   },
   {
@@ -231,12 +265,23 @@
    "read_only": 1
   },
   {
+   "fieldname": "tender_price_total",
+   "fieldtype": "Currency",
+   "label": "Tender Price",
+   "read_only": 1
+  },
+  {
    "fieldname": "cabinet_prices_json",
    "fieldtype": "Long Text",
    "hidden": 1
   },
   {
    "fieldname": "config_rows_json",
+   "fieldtype": "Long Text",
+   "hidden": 1
+  },
+  {
+   "fieldname": "other_costs_json",
    "fieldtype": "Long Text",
    "hidden": 1
   },
@@ -258,12 +303,15 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
+ "modified": "2026-10-11 11:10:39.052564",
+ "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
- "default_print_format": "Kitchen Configuration Tender Summary",
- "name": "Tender Configuration",
- "naming_rule": "By \"Naming Series\" rule",
+ "name": "Tender Manifest",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
  "permissions": [
   {
+   "role": "System Manager",
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -271,11 +319,11 @@
    "print": 1,
    "read": 1,
    "report": 1,
-   "role": "Manufacturing Manager",
    "share": 1,
    "write": 1
   },
   {
+   "role": "Tender Manager",
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -283,7 +331,17 @@
    "print": 1,
    "read": 1,
    "report": 1,
-   "role": "Manufacturing User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "role": "Tender User",
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
    "share": 1,
    "write": 1
   }

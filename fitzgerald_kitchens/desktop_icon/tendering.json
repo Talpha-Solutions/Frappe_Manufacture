@@ -1,0 +1,21 @@
+{
+ "app": "fitzgerald_kitchens",
+ "bg_color": "blue",
+ "creation": "2026-10-11 10:28:17.355592",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "clipboard-list",
+ "icon_type": "Link",
+ "idx": 9,
+ "label": "Tendering",
+ "link_to": "Tendering",
+ "link_type": "Workspace Sidebar",
+ "modified": "2026-10-11 10:28:17.355592",
+ "modified_by": "Administrator",
+ "name": "Tendering",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}

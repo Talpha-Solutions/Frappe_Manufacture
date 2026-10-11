@@ -49,6 +49,7 @@ doctype_js = {
 	"BOM Cost Calculator": "public/js/bom_cost_configurator.bundle.js",
 	"Production Plan": "public/js/production_plan.js",
 	"Projects Settings": "public/js/projects_settings.js",
+	"Item": "public/js/item.js",
 }
 doctype_list_js = {
 	"Development Stage": "fitzgerald_kitchens/doctype/development_stage/development_stage_list.js",
@@ -302,15 +303,34 @@ fixtures = [
 	},
 	{
 		"dt": "Custom Field",
-		"filters": [["fieldname", "in", ["custom_file_upload", "custom_uploader_target", "custom_label_scans", "custom_label_scans_target"]]],
+		"filters": [["fieldname", "in", ["custom_file_upload", "custom_uploader_target", "custom_label_scans", "custom_label_scans_target", "custom_item_specs_section", "custom_item_specs_html"]]],
 	},
 	{
 		"dt": "Property Setter",
-		"filters": [["doc_type", "=", "Task"], ["property", "in", ["max_attachments", "field_order", "fieldtype"]]],
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"Task-dependencies_tab-fieldtype",
+					"Task-more_info_tab-fieldtype",
+					"Task-main-field_order",
+					"Task-max_attachments",
+					"Task-sb_depends_on-fieldtype",
+					"Task-sb_more_info-fieldtype",
+					"Address-address_type-options",
+					"Tender Manifest-main-default_print_format",
+				],
+			]
+		],
 	},
 	{
 		"dt": "Desktop Icon",
 		"filters": [["name", "=", "My Tasks"]],
+	},
+	{
+		"dt": "Role",
+		"filters": [["name", "in", ["Tender Manager", "Tender User"]]],
 	},
 	{
 		"dt": "Task Type",

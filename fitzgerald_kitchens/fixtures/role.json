@@ -1,0 +1,22 @@
+[
+ {
+  "desk_access": 1,
+  "disabled": 0,
+  "doctype": "Role",
+  "is_custom": 0,
+  "modified": "2026-10-11 11:05:54.028805",
+  "name": "Tender Manager",
+  "role_name": "Tender Manager",
+  "two_factor_auth": 0
+ },
+ {
+  "desk_access": 1,
+  "disabled": 0,
+  "doctype": "Role",
+  "is_custom": 0,
+  "modified": "2026-10-11 11:05:54.028805",
+  "name": "Tender User",
+  "role_name": "Tender User",
+  "two_factor_auth": 0
+ }
+]

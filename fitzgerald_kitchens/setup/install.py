@@ -31,6 +31,7 @@ def after_install():
 		patch_project_website_tasks,
 	)
 	from fitzgerald_kitchens.setup.my_tasks_desk import ensure_my_tasks_desk
+	from fitzgerald_kitchens.setup.tender_roles import ensure_tender_permissions
 	from fitzgerald_kitchens.setup.workspace_sidebar import (
 		ensure_manufacturing_sidebar,
 		ensure_projects_sidebar,
@@ -55,6 +56,7 @@ def after_install():
 	ensure_projects_sidebar()
 	ensure_manufacturing_sidebar()
 	ensure_my_tasks_desk()
+	ensure_tender_permissions()
 	patch_project_website_list()
 	patch_project_website_tasks()
 

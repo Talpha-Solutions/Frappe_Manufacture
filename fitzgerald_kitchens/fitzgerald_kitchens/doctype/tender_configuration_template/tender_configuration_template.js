@@ -1,5 +1,5 @@
 const METHOD_BASE =
-	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.kitchen_configuration_template.kitchen_configuration_template";
+	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template";
 
 const CABINET_PRICE_FIELDS = [
 	"base_units_price_row",
@@ -8,7 +8,7 @@ const CABINET_PRICE_FIELDS = [
 	"drawer_packs_price_row",
 ];
 
-frappe.ui.form.on("Kitchen Configuration Template", {
+frappe.ui.form.on("Tender Configuration Template", {
 	setup(frm) {
 		for (const fieldname of CABINET_PRICE_FIELDS) {
 			frm.set_query(fieldname, () => ({

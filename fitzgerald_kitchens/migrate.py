@@ -19,11 +19,14 @@ def after_migrate():
 	ensure_projects_sidebar()
 	ensure_my_tasks_desk()
 
-	if not hasattr(frappe.flags, "_fitzgerald_restore_developer_mode"):
+	# frappe.flags is a _dict (missing keys return None), so hasattr() is always True;
+	# only restore when before_migrate actually switched dev mode on.
+	if "_fitzgerald_restore_developer_mode" not in frappe.flags:
 		return
 
-	update_site_config("developer_mode", frappe.flags._fitzgerald_restore_developer_mode)
-	frappe.conf.developer_mode = frappe.flags._fitzgerald_restore_developer_mode
+	restore_value = frappe.flags.pop("_fitzgerald_restore_developer_mode")
+	update_site_config("developer_mode", restore_value)
+	frappe.conf.developer_mode = restore_value
 
 
 def _enable_developer_mode_for_migrate():

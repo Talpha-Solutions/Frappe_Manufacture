@@ -90,7 +90,8 @@ frappe.provide("fitzgerald_kitchens.project_sidebar");
 	}
 
 	function is_project_list_route() {
-		const route = frappe.get_route();
+		// get_route() is null while Desk is still starting up
+		const route = frappe.get_route() || [];
 		return (
 			route[0] === "List" &&
 			route[1] === "Project" &&

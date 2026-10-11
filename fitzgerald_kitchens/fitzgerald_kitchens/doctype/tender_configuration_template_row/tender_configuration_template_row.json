@@ -11,7 +11,8 @@
   "subtitle",
   "item_group",
   "qty_label",
-  "default_qty"
+  "default_qty",
+  "exclude_from_price"
  ],
  "fields": [
   {
@@ -19,7 +20,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Section",
-   "options": "CABINETS\nWORKTOPS\nDIRECT LABOUR\nINDIRECT & FIXED COSTS",
+   "options": "CABINETS\nCABINET SPECS\nAPPLIANCES\nWORKTOPS\nDIRECT LABOUR\nINDIRECT & FIXED COSTS",
    "reqd": 1
   },
   {
@@ -27,7 +28,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Tag",
-   "options": "MATERIAL\nLABOUR\nINDIRECT\nFIXED",
+   "options": "MATERIAL\nLABOUR\nINDIRECT\nFIXED\nSPEC",
    "reqd": 1
   },
   {
@@ -55,7 +56,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Qty Label",
-   "options": "QTY\nM²\nHRS/KIT",
+   "options": "QTY\nM\u00b2\nHRS/KIT",
    "reqd": 1
   },
   {
@@ -64,11 +65,21 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Default Qty"
+  },
+  {
+   "columns": 1,
+   "default": "0",
+   "description": "Item and spec are recorded on the tender but not costed into the tender price",
+   "fieldname": "exclude_from_price",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Exclude from Tender Price"
   }
  ],
  "istable": 1,
+ "modified": "2026-10-07 20:27:57.828801",
  "module": "fitzgerald_kitchens",
- "name": "Kitchen Configuration Template Row",
+ "name": "Tender Configuration Template Row",
  "permissions": [],
  "sort_field": "idx",
  "sort_order": "ASC",

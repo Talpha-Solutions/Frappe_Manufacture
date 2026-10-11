@@ -6,13 +6,17 @@ import json
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import cint, cstr, flt
+
+from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender import update_tender_totals
 
 CABINET_KEYS = ("base_units", "wall_units", "tall_units", "drawer_packs")
+# template row details a tender row always follows (its item, qty, spec, etc. are its own)
+TEMPLATE_ROW_FIELDS = ("tag", "subtitle", "item_group", "qty_label")
 STANDARD_SELLING_PRICE_LIST = "Standard Selling"
 
 
-class TenderConfiguration(Document):
+class TenderManifest(Document):
 	def before_insert(self):
 		if not self.naming_series:
 			self.naming_series = "KC-.YYYY.-.#####"
@@ -27,11 +31,24 @@ class TenderConfiguration(Document):
 		cabinet_prices = _get_template_cabinet_prices(self.template)
 		cabinet_total = _apply_cabinet_costing(self, cabinet_prices)
 		self.cabinets_total = cabinet_total
-		self.total_cost_per_kitchen = cabinet_total + rows_total
+		other_costs = _parse_rows_json(self.other_costs_json)
+		self.other_costs_total = _validate_and_calculate_other_costs(other_costs)
+		self.other_costs_json = json.dumps(other_costs)
+		self.total_cost_per_kitchen = cabinet_total + rows_total + self.other_costs_total
 		self.grand_total_cost = self.total_cost_per_kitchen * flt(self.kitchens_to_tender or 0)
 		_apply_tender_pricing(self)
 		self.config_rows_json = json.dumps(rows)
 		self.cabinet_prices_json = json.dumps(cabinet_prices)
+
+	def on_update(self):
+		# keep the tender's totals in step; if the manifest moved, the old tender loses it
+		previous = self.get_doc_before_save()
+		update_tender_totals(self.tender)
+		if previous and previous.tender and previous.tender != self.tender:
+			update_tender_totals(previous.tender)
+
+	def after_delete(self):
+		update_tender_totals(self.tender)
 
 	def get_print_summary(self) -> dict:
 		"""Pre-computed values for custom Print Format (Jinja cannot parse JSON reliably)."""
@@ -52,6 +69,8 @@ class TenderConfiguration(Document):
 		other_total = 0.0
 
 		for row in rows:
+			if row.get("exclude_from_price"):
+				continue
 			amount = flt(row.get("amount"))
 			section = row.get("section") or ""
 			item_group = (row.get("item_group") or "").strip()
@@ -70,6 +89,9 @@ class TenderConfiguration(Document):
 				indirect_total += amount
 			else:
 				other_total += amount
+
+		# charges from the Other Costs section (per unit)
+		other_total += flt(self.other_costs_total)
 
 		# Cabinets line = unit pricing + CABINETS builder rows (excluding Hardware)
 		cabinets_total = cabinet_units_total + cabinets_builder_total
@@ -143,16 +165,33 @@ def _validate_and_calculate_rows(rows: list[dict], template_rows: list[dict]) ->
 	if template_keys != provided_keys:
 		frappe.throw(_("Configuration rows must match the selected template rows."))
 
+	# row details come from the current template, never from the browser or an old copy on the
+	# tender, so editing a template row (e.g. its item group) applies to tenders already using it
+	template_by_key = {(r["section"], r["label"]): r for r in template_rows}
+
 	total = 0.0
 	for row in rows:
+		template_row = template_by_key[(row.get("section"), row.get("label"))]
+		for field in TEMPLATE_ROW_FIELDS:
+			row[field] = template_row.get(field)
+		row["exclude_from_price"] = 1 if template_row.get("exclude_from_price") else 0
+		row["remark"] = cstr(row.get("remark")).strip()
 		row["qty"] = flt(row.get("qty"))
 		if row["qty"] < 0:
 			frappe.throw(_("Qty cannot be negative for row {0}.").format(row.get("label")))
 
+		if row["exclude_from_price"]:
+			# spec-only: any item in the row's group, priced or not. Its cost is worked out for
+			# reference but never added to the tender price.
+			_validate_spec_only_item(row)
+			_apply_reference_price(row)
+			_apply_item_spec(row)
+			continue
+
 		if not row.get("price_row"):
 			row["item_code"] = ""
-			row["rate"] = 0
-			row["amount"] = 0
+			_apply_rate(row, 0)
+			_apply_item_spec(row)
 			continue
 
 		item_price = frappe.db.get_value(
@@ -173,16 +212,123 @@ def _validate_and_calculate_rows(rows: list[dict], template_rows: list[dict]) ->
 			)
 
 		row["item_code"] = item_price.item_code
-		row["rate"] = flt(item_price.price_list_rate)
 		row["currency"] = item_price.currency
 		row["uom"] = item_price.uom
-		row["amount"] = flt(row["qty"]) * flt(row["rate"])
+		_apply_rate(row, item_price.price_list_rate)
 		total += flt(row["amount"])
+		_apply_item_spec(row)
 
 	return total
 
 
-def _apply_cabinet_costing(doc: TenderConfiguration, cabinet_prices: dict) -> float:
+def _validate_and_calculate_other_costs(charges: list[dict]) -> float:
+	"""Per-unit charges added by the user in the Other Costs section; returns their total."""
+	charges[:] = [c for c in charges if cstr(c.get("description")).strip() or c.get("item_code")]
+	total = 0.0
+	for charge in charges:
+		charge["description"] = cstr(charge.get("description")).strip()
+		charge["remark"] = cstr(charge.get("remark")).strip()
+		item_code = charge.get("item_code") or ""
+		if item_code:
+			item_name = frappe.db.get_value("Item", item_code, "item_name")
+			if not item_name:
+				frappe.throw(_("Item {0} in Other Costs not found.").format(item_code))
+			charge["description"] = charge["description"] or item_name
+		charge["item_code"] = item_code
+		charge["qty"] = flt(charge.get("qty"))
+		charge["rate"] = flt(charge.get("rate"))
+		if charge["qty"] < 0 or charge["rate"] < 0:
+			frappe.throw(_("Qty and rate cannot be negative for {0} in Other Costs.").format(charge["description"]))
+		charge["amount"] = charge["qty"] * charge["rate"]
+		total += charge["amount"]
+	return total
+
+
+def _validate_spec_only_item(row: dict):
+	item_code = row.get("item_code")
+	if not item_code:
+		row["item_code"] = ""
+		return
+	item = frappe.db.get_value("Item", item_code, ["item_group", "stock_uom"], as_dict=True)
+	if not item:
+		frappe.throw(_("Item {0} not found for row {1}.").format(item_code, row.get("label")))
+	if row.get("item_group") and item.item_group != row.get("item_group"):
+		frappe.throw(
+			_("Selected item does not belong to Item Group {0} for row {1}.").format(
+				row.get("item_group"), row.get("label")
+			)
+		)
+	row["uom"] = item.stock_uom
+	row["currency"] = ""
+
+
+def _apply_reference_price(row: dict):
+	"""Rate and amount for a spec-only row, from its selling price if it has one (else 0)."""
+	price = None
+	if row.get("item_code") and row.get("price_row"):
+		price = frappe.db.get_value(
+			"Item Price", row["price_row"], ["item_code", "price_list_rate", "currency", "uom"], as_dict=True
+		)
+		if not price or price.item_code != row["item_code"]:
+			price = None
+	row["price_row"] = row.get("price_row") if price else ""
+	if price:
+		row["currency"] = price.currency
+		row["uom"] = price.uom
+	_apply_rate(row, price.price_list_rate if price else 0)
+
+
+def _apply_rate(row: dict, list_rate: float):
+	"""Use the price-list rate, unless the rate was changed on the tender (rate_override)."""
+	row["list_rate"] = flt(list_rate)
+	if cint(row.get("rate_override")) and row.get("item_code"):
+		row["rate"] = flt(row.get("rate"))
+		if row["rate"] < 0:
+			frappe.throw(_("Rate cannot be negative for row {0}.").format(row.get("label")))
+		# set back to the list price = no longer an override
+		row["rate_override"] = 0 if row["rate"] == row["list_rate"] else 1
+	else:
+		row["rate"] = row["list_rate"]
+		row["rate_override"] = 0
+	row["amount"] = flt(row["qty"]) * flt(row["rate"])
+
+
+def _apply_item_spec(row: dict):
+	"""Check the row's Item Spec belongs to its item and set the spec details stored on the row.
+
+	A spec written or edited on the tender (spec_custom) keeps its text as typed; any Item Spec link
+	is kept only to show where it came from. Otherwise the text is refreshed from the Item Spec.
+	"""
+	spec = None
+	if row.get("item_spec") and row.get("item_code"):
+		spec = frappe.db.get_value(
+			"Item Spec",
+			row["item_spec"],
+			["item_code", "spec_list", "spec_reference", "specification"],
+			as_dict=True,
+		)
+		if spec and spec.item_code != row["item_code"]:
+			if not row.get("spec_custom"):
+				frappe.throw(
+					_("Selected spec does not belong to item {0} for row {1}.").format(
+						row["item_code"], row.get("label")
+					)
+				)
+			spec = None
+
+	row["item_spec"] = row.get("item_spec") if spec else ""
+	row["spec_list"] = spec.spec_list if spec else ""
+	row["spec_reference"] = (spec.spec_reference or "") if spec else ""
+
+	if row.get("spec_custom"):
+		row["specification"] = cstr(row.get("specification")).strip()
+		row["spec_custom"] = 1 if row["specification"] else 0
+	else:
+		row["spec_custom"] = 0
+		row["specification"] = spec.specification if spec else ""
+
+
+def _apply_cabinet_costing(doc: TenderManifest, cabinet_prices: dict) -> float:
 	cabinet_total = 0.0
 	for key in CABINET_KEYS:
 		price_data = cabinet_prices.get(key) or {}
@@ -195,7 +341,7 @@ def _apply_cabinet_costing(doc: TenderConfiguration, cabinet_prices: dict) -> fl
 	return cabinet_total
 
 
-def _apply_tender_pricing(doc: TenderConfiguration):
+def _apply_tender_pricing(doc: TenderManifest):
 	doc.cost_base = flt(doc.grand_total_cost)
 	doc.target_margin_pct = flt(doc.target_margin_pct)
 	doc.margin_amount = flt(doc.cost_base) * (flt(doc.target_margin_pct) / 100.0)
@@ -205,7 +351,7 @@ def _apply_tender_pricing(doc: TenderConfiguration):
 
 
 def _get_template_cabinet_prices(template: str) -> dict:
-	template_doc = frappe.get_doc("Kitchen Configuration Template", template)
+	template_doc = frappe.get_doc("Tender Configuration Template", template)
 	mapping = {
 		"base_units": template_doc.base_units_price_row,
 		"wall_units": template_doc.wall_units_price_row,
@@ -237,7 +383,7 @@ def _get_template_cabinet_prices(template: str) -> dict:
 @frappe.whitelist()
 def get_default_template():
 	return frappe.db.get_value(
-		"Kitchen Configuration Template",
+		"Tender Configuration Template",
 		{"is_default": 1},
 		"name",
 	)
@@ -259,7 +405,7 @@ def get_template_cabinet_prices(template: str):
 
 def _get_template_rows(template: str) -> list[dict]:
 	rows = frappe.get_all(
-		"Kitchen Configuration Template Row",
+		"Tender Configuration Template Row",
 		filters={"parent": template},
 		fields=[
 			"section",
@@ -269,11 +415,13 @@ def _get_template_rows(template: str) -> list[dict]:
 			"item_group",
 			"qty_label",
 			"default_qty",
+			"exclude_from_price",
 		],
 		order_by="idx asc",
 	)
 	for row in rows:
-		row["qty"] = flt(row.get("default_qty") or 1)
+		# spec-only rows may default to 0 (fill in if useful); costed rows default to at least 1
+		row["qty"] = flt(row.get("default_qty")) if row.get("exclude_from_price") else flt(row.get("default_qty") or 1)
 	return rows
 
 

@@ -1,0 +1,76 @@
+{
+ "app": "fitzgerald_kitchens",
+ "creation": "2026-10-11 10:28:17.355592",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "clipboard-list",
+ "idx": 0,
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "home",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Home",
+   "link_to": "Tendering",
+   "link_type": "Workspace",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "clipboard-list",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Tender",
+   "link_to": "Tender",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "file-spreadsheet",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Tender Manifest",
+   "link_to": "Tender Manifest",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "settings",
+   "indent": 1,
+   "keep_closed": 1,
+   "label": "Setup",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Section Break"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "icon": "",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Tender Configuration Template",
+   "link_to": "Tender Configuration Template",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-10-11 10:56:41.267154",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Tendering",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "Tendering"
+}
