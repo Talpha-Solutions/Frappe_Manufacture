@@ -7,10 +7,14 @@
  "engine": "InnoDB",
  "field_order": [
   "top_intro",
-  "naming_series",
+  "section_break_details",
+  "tender",
   "tender_name",
-  "template",
   "kitchens_to_tender",
+  "column_break_details",
+  "template",
+  "spec_list",
+  "naming_series",
   "section_break_units",
   "base_units",
   "wall_units",
@@ -31,13 +35,13 @@
   "section_break_builder",
   "configuration_builder",
   "section_break_tender_pricing",
-  "target_margin_pct",
-  "margin_amount",
-  "column_break_tender_pricing",
   "other_costs_total",
   "cost_base",
-  "tender_price_total",
+  "target_margin_pct",
+  "column_break_tender_pricing",
+  "margin_amount",
   "tender_price_per_kitchen",
+  "tender_price_total",
   "cabinet_prices_json",
   "config_rows_json",
   "other_costs_json",
@@ -50,12 +54,19 @@
    "fieldtype": "HTML"
   },
   {
-   "default": "KC-.YYYY.-.#####",
-   "fieldname": "naming_series",
-   "fieldtype": "Select",
-   "label": "Naming Series",
-   "options": "KC-.YYYY.-.#####",
-   "reqd": 1
+   "fieldname": "section_break_details",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "description": "The tender this manifest is part of",
+   "fieldname": "tender",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Tender",
+   "options": "Tender",
+   "search_index": 1
   },
   {
    "fieldname": "tender_name",
@@ -63,6 +74,18 @@
    "in_list_view": 1,
    "label": "Tender Name",
    "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "kitchens_to_tender",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Kitchens to Tender",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_details",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "template",
@@ -73,11 +96,18 @@
    "reqd": 1
   },
   {
-   "default": "1",
-   "fieldname": "kitchens_to_tender",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Kitchens to Tender",
+   "description": "Specs from this list are picked first when choosing items",
+   "fieldname": "spec_list",
+   "fieldtype": "Link",
+   "label": "Spec List",
+   "options": "Spec List"
+  },
+  {
+   "default": "KC-.YYYY.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "KC-.YYYY.-.#####",
    "reqd": 1
   },
   {
@@ -200,22 +230,6 @@
    "label": "Tender Pricing"
   },
   {
-   "default": "18",
-   "fieldname": "target_margin_pct",
-   "fieldtype": "Percent",
-   "label": "Target Margin %"
-  },
-  {
-   "fieldname": "margin_amount",
-   "fieldtype": "Currency",
-   "label": "Margin Amount",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_tender_pricing",
-   "fieldtype": "Column Break"
-  },
-  {
    "description": "Charges added in the Other Costs section, per unit",
    "fieldname": "other_costs_total",
    "fieldtype": "Currency",
@@ -229,15 +243,31 @@
    "read_only": 1
   },
   {
-   "fieldname": "tender_price_total",
+   "default": "18",
+   "fieldname": "target_margin_pct",
+   "fieldtype": "Percent",
+   "label": "Target Margin %"
+  },
+  {
+   "fieldname": "column_break_tender_pricing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "margin_amount",
    "fieldtype": "Currency",
-   "label": "Tender Price",
+   "label": "Margin Amount",
    "read_only": 1
   },
   {
    "fieldname": "tender_price_per_kitchen",
    "fieldtype": "Currency",
    "label": "Tender Price Per Kitchen",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tender_price_total",
+   "fieldtype": "Currency",
+   "label": "Tender Price",
    "read_only": 1
   },
   {
@@ -273,7 +303,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-10 23:37:18.263727",
+ "modified": "2026-10-11 09:45:31.243075",
  "module": "fitzgerald_kitchens",
  "name": "Tender Manifest",
  "naming_rule": "By \"Naming Series\" rule",

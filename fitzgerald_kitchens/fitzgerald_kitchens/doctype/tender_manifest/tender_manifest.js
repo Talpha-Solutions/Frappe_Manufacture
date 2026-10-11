@@ -25,6 +25,20 @@ frappe.ui.form.on("Tender Manifest", {
 		recalculate_totals_from_rows(frm);
 		await render_builder(frm);
 	},
+	async tender(frm) {
+		// a new manifest starts from its tender's defaults; anything already filled in is kept
+		if (!frm.is_new() || !frm.doc.tender) return;
+		const { message: t } = await frappe.db.get_value("Tender", frm.doc.tender, [
+			"tender_name",
+			"template",
+			"target_margin_pct",
+			"spec_list",
+		]);
+		if (!t) return;
+		for (const field of ["tender_name", "template", "target_margin_pct", "spec_list"]) {
+			if (!frm.doc[field] && t[field]) await frm.set_value(field, t[field]);
+		}
+	},
 	kitchens_to_tender(frm) {
 		recalculate_totals_from_rows(frm);
 	},
@@ -489,8 +503,8 @@ async function bind_row_events(frm, rows, wrapper) {
 					// keep text written on the tender, but it no longer belongs to the old item's spec
 					row.item_spec = row.spec_list = row.spec_reference = "";
 				} else {
-					// pick it for the user when the item has only one spec
-					set_row_spec(row, specs.length === 1 ? specs[0] : null);
+					// a different item starts with no spec; the user picks one from the list
+					set_row_spec(row, null);
 					$row.find(".fk-spec-input").val(row.specification);
 				}
 				await fill_spec_control(specControl, specs, row);

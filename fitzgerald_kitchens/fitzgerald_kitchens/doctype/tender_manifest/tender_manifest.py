@@ -8,6 +8,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cint, cstr, flt
 
+from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender import update_tender_totals
+
 CABINET_KEYS = ("base_units", "wall_units", "tall_units", "drawer_packs")
 # template row details a tender row always follows (its item, qty, spec, etc. are its own)
 TEMPLATE_ROW_FIELDS = ("tag", "subtitle", "item_group", "qty_label")
@@ -37,6 +39,16 @@ class TenderManifest(Document):
 		_apply_tender_pricing(self)
 		self.config_rows_json = json.dumps(rows)
 		self.cabinet_prices_json = json.dumps(cabinet_prices)
+
+	def on_update(self):
+		# keep the tender's totals in step; if the manifest moved, the old tender loses it
+		previous = self.get_doc_before_save()
+		update_tender_totals(self.tender)
+		if previous and previous.tender and previous.tender != self.tender:
+			update_tender_totals(previous.tender)
+
+	def after_delete(self):
+		update_tender_totals(self.tender)
 
 	def get_print_summary(self) -> dict:
 		"""Pre-computed values for custom Print Format (Jinja cannot parse JSON reliably)."""
