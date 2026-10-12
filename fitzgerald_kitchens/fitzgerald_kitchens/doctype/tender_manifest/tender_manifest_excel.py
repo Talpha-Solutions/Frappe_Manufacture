@@ -1,7 +1,12 @@
 # Copyright (c) 2026, talpha solutions and contributors
 # For license information, please see license.txt
 
-"""Excel export of a Tender Manifest, laid out like a contractor's trade bill (BoQ)."""
+"""Excel export of a Tender Manifest, laid out like a contractor's trade bill (BoQ).
+
+Two versions: the detailed bill is the internal costing (cost rates, margin, reference-only specs,
+notes); the simplified bill is for the client, priced at tender price with the margin spread over
+every line: item lines only, without specs, notes, cost rates, margin or reference-only lines.
+"""
 
 import json
 import math
@@ -40,34 +45,37 @@ CABINET_UNITS = (
 
 
 @frappe.whitelist()
-def download_tender_excel(name: str):
+def download_tender_excel(name: str, simplified: int | str = 0):
 	doc = frappe.get_doc("Tender Manifest", name)
 	doc.check_permission("read")
+	client = bool(int(simplified or 0))
 
 	wb = Workbook()
 	bill = wb.active
 	bill.title = "Tender Bill"
 	summary = wb.create_sheet("Summary")
 
-	header = _header_lines(doc)
-	section_totals = _write_bill(bill, doc, header)
-	_write_summary(summary, doc, header, section_totals)
+	header = _header_lines(doc, client)
+	section_totals = _write_bill(bill, doc, header, client)
+	_write_summary(summary, doc, header, section_totals, client)
 
 	out = BytesIO()
 	wb.save(out)
-	frappe.response["filename"] = f"{doc.name} - {doc.tender_name or 'Tender'}.xlsx".replace("/", "-")
+	suffix = " (Simplified)" if client else ""
+	frappe.response["filename"] = f"{doc.name} - {doc.tender_name or 'Tender'}{suffix}.xlsx".replace("/", "-")
 	frappe.response["filecontent"] = out.getvalue()
 	frappe.response["type"] = "binary"
 
 
-def _header_lines(doc) -> list[str]:
+def _header_lines(doc, client: bool = False) -> list[str]:
 	company = frappe.defaults.get_user_default("Company") or frappe.db.get_single_value(
 		"Global Defaults", "default_company"
 	)
 	return [
 		f"From: {company}" if company else "",
 		f"Project: {doc.tender_name}",
-		f"Tender: {doc.name} · Template: {doc.template} · Units to tender: {int(flt(doc.kitchens_to_tender))}"
+		f"Tender: {doc.name}{'' if client else f' · Template: {doc.template}'}"
+		f" · Units to tender: {int(flt(doc.kitchens_to_tender))}"
 		f" · Date: {formatdate(nowdate())}",
 	]
 
@@ -89,12 +97,18 @@ def _box_row(ws, row: int, first_col: int, last_col: int, top: Side = GRID, bott
 		ws.cell(row=row, column=col).border = Border(left=GRID, right=GRID, top=top, bottom=bottom)
 
 
-def _write_bill(ws, doc, header) -> list[tuple[str, str, str]]:
-	"""Write the priced bill; returns (section name, € per unit cell, € total cell) for the summary."""
+def _write_bill(
+	ws, doc, header, client: bool = False, title: str = "Tender Bill", with_totals: bool = False
+) -> list[tuple[str, float, float]]:
+	"""Write the priced bill; returns (section name, € per unit, € total) for the summary.
+
+	with_totals adds the cost / margin / tender price lines under the last section, for a bill
+	that has no summary sheet of its own (the Tender's workbook).
+	"""
 	for i, width in enumerate(BILL_WIDTHS, start=1):
 		ws.column_dimensions[get_column_letter(i)].width = width
 
-	row = _write_title(ws, "Tender Bill", header)
+	row = _write_title(ws, title, header)
 
 	# units to tender sits in one cell so every line total refers to it
 	ws.cell(row=row, column=3, value="Units to tender").font = Font(name=FONT, size=10, bold=True)
@@ -118,7 +132,7 @@ def _write_bill(ws, doc, header) -> list[tuple[str, str, str]]:
 	row += 1
 
 	section_totals = []
-	for number, (section, rows) in enumerate(_group_rows(doc), start=1):
+	for number, (section, rows) in enumerate(_group_rows(doc, client), start=1):
 		title = ws.cell(row=row, column=FIRST_COL, value=f"({number}) {section.title()}")
 		title.font = Font(name=FONT, size=11, bold=True)
 		ws.merge_cells(start_row=row, start_column=FIRST_COL, end_row=row, end_column=LAST_COL)
@@ -129,7 +143,7 @@ def _write_bill(ws, doc, header) -> list[tuple[str, str, str]]:
 		row += 1
 
 		for ref, line in zip(_refs(), rows):
-			row = _write_item(ws, row, ref, line, unit_count)
+			row = _write_item(ws, row, ref, line, unit_count, client)
 		if not rows:
 			row = _write_wide(ws, row, _("No other costs added."), Font(name=FONT, size=9, italic=True, color="808080"))
 
@@ -139,8 +153,10 @@ def _write_bill(ws, doc, header) -> list[tuple[str, str, str]]:
 		reference_only = bool(rows) and not priced
 		# a section of only spec rows gets a reference total; otherwise only priced lines count
 		counted = rows if reference_only else priced
-		section_per_unit = flt(sum(line["per_unit"] for line in counted), 2)
-		section_total = flt(sum(line["total"] for line in counted), 2)
+		section_per_unit = sum(line["per_unit"] for line in counted)
+		section_total = sum(line["total"] for line in counted)
+		if not client:
+			section_per_unit, section_total = flt(section_per_unit, 2), flt(section_total, 2)
 		title = f"{section.title()} total" + (" (reference only, not in tender price)" if reference_only else "")
 		label = ws.cell(row=row, column=3, value=title)
 		per_unit = ws.cell(row=row, column=7, value=section_per_unit)
@@ -156,16 +172,21 @@ def _write_bill(ws, doc, header) -> list[tuple[str, str, str]]:
 			section_totals.append((section.title(), section_per_unit, section_total))
 		row += 2
 
+	if with_totals:
+		_write_bill_totals(ws, row, doc, client)
 	_page_setup(ws, header_row, last_column="H")
 	return section_totals
 
 
-def _write_item(ws, row: int, ref: str, line: dict, unit_count: float) -> int:
-	"""One item block: the priced line, then its spec, then its note, each a full-width row under it."""
-	first = row
-	row = _write_line(ws, row, line, unit_count)
+def _write_item(ws, row: int, ref: str, line: dict, unit_count: float, client: bool = False) -> int:
+	"""One item block: the priced line, then its spec, then its note, each a full-width row under it.
 
-	spec = (line.get("specification") or "").strip()
+	The simplified (client) bill has the priced line only.
+	"""
+	first = row
+	row = _write_line(ws, row, line, unit_count, client)
+
+	spec = "" if client else (line.get("specification") or "").strip()
 	if spec:
 		heading = " · ".join(filter(None, [line.get("spec_list"), line.get("spec_reference")]))
 		if heading and line.get("spec_custom"):
@@ -173,7 +194,7 @@ def _write_item(ws, row: int, ref: str, line: dict, unit_count: float) -> int:
 		text = f"Specification{f' ({heading})' if heading else ''}:\n{spec}"
 		row = _write_wide(ws, row, text, Font(name=FONT, size=9, color="404040"))
 
-	note = (line.get("remark") or "").strip()
+	note = "" if client else (line.get("remark") or "").strip()
 	if note:
 		row = _write_wide(ws, row, f"Note: {note}", Font(name=FONT, size=9, italic=True), fill=NOTE_FILL)
 
@@ -192,7 +213,7 @@ def _write_item(ws, row: int, ref: str, line: dict, unit_count: float) -> int:
 	return row
 
 
-def _write_line(ws, row: int, line: dict, unit_count: float) -> int:
+def _write_line(ws, row: int, line: dict, unit_count: float, client: bool = False) -> int:
 	item = line.get("item_name") or line.get("item_code") or _("Not selected")
 	excluded = bool(line.get("exclude_from_price"))
 	if line.get("is_charge"):
@@ -203,13 +224,18 @@ def _write_line(ws, row: int, line: dict, unit_count: float) -> int:
 		head = f"{line.get('label')}: {item}"
 	description = (
 		head
-		+ (" (rate adjusted)" if line.get("rate_override") else "")
+		+ (" (rate adjusted)" if line.get("rate_override") and not client else "")
 		+ (" (not in tender price)" if excluded else "")
 	)
 	# the row amount the server saved on the tender, so the bill matches the form exactly;
 	# spec-only rows show their cost for reference but are left out of the totals
-	line["per_unit"] = flt(line.get("amount"), 2)
-	line["total"] = flt(line["per_unit"] * unit_count, 2)
+	if client:
+		# marked-up values unrounded (the cells show 2dp), so the sections add up to the tender price
+		line["per_unit"] = flt(line.get("amount"))
+		line["total"] = line["per_unit"] * unit_count
+	else:
+		line["per_unit"] = flt(line.get("amount"), 2)
+		line["total"] = flt(line["per_unit"] * unit_count, 2)
 
 	values = {
 		3: description,
@@ -249,7 +275,7 @@ def _write_wide(ws, row: int, text: str, font: Font, fill: PatternFill | None = 
 	return row + 1
 
 
-def _write_summary(ws, doc, header, section_totals):
+def _write_summary(ws, doc, header, section_totals, client: bool = False):
 	for i, width in enumerate([2, 40, 18, 18], start=1):
 		ws.column_dimensions[get_column_letter(i)].width = width
 
@@ -271,20 +297,7 @@ def _write_summary(ws, doc, header, section_totals):
 		_box_row(ws, row, 2, 4)
 		row += 1
 
-	# the tender's own saved figures, unrounded: Excel's 2dp format then shows them exactly as the
-	# form does (half-cents up), whereas flt(x, 2) would apply banker's rounding and be a cent off
-	units = flt(doc.kitchens_to_tender)
-	lines = [
-		("Cost per unit / Cost base", flt(doc.total_cost_per_kitchen), flt(doc.cost_base), True),
-		(
-			f"Margin ({flt(doc.target_margin_pct):g}% on cost)",
-			flt(doc.margin_amount) / units if units else 0,
-			flt(doc.margin_amount),
-			False,
-		),
-		("Tender price", flt(doc.tender_price_per_kitchen), flt(doc.tender_price_total), True),
-	]
-	for label, per_unit, total, bold in lines:
+	for label, per_unit, total, bold in _price_lines(doc, client):
 		ws.cell(row=row, column=2, value=label)
 		ws.cell(row=row, column=3, value=per_unit)
 		ws.cell(row=row, column=4, value=total)
@@ -308,7 +321,52 @@ def _write_summary(ws, doc, header, section_totals):
 	_page_setup(ws, header_row, last_column="D")
 
 
-def _group_rows(doc) -> list[tuple[str, list[dict]]]:
+def _price_lines(doc, client: bool = False) -> list[tuple[str, float, float, bool]]:
+	"""(label, € per unit, € total, bold) for the closing lines: cost and margin, then tender price.
+
+	The tender's own saved figures, unrounded: Excel's 2dp format then shows them exactly as the
+	form does (half-cents up), whereas flt(x, 2) would apply banker's rounding and be a cent off.
+	"""
+	units = flt(doc.kitchens_to_tender)
+	lines = [] if client else [
+		("Cost per unit / Cost base", flt(doc.total_cost_per_kitchen), flt(doc.cost_base), True),
+		(
+			f"Margin ({flt(doc.target_margin_pct):g}% on cost)",
+			flt(doc.margin_amount) / units if units else 0,
+			flt(doc.margin_amount),
+			False,
+		),
+	]
+	lines.append(("Tender price", flt(doc.tender_price_per_kitchen), flt(doc.tender_price_total), True))
+	return lines
+
+
+def _write_bill_totals(ws, row: int, doc, client: bool = False) -> int:
+	"""The closing cost / margin / tender price lines under a bill (used on the Tender's workbook)."""
+	for label, per_unit, total, bold in _price_lines(doc, client):
+		is_price = label == "Tender price"
+		cells = (
+			ws.cell(row=row, column=3, value=label),
+			ws.cell(row=row, column=7, value=per_unit),
+			ws.cell(row=row, column=8, value=total),
+		)
+		for cell in cells:
+			cell.font = Font(name=FONT, size=10, bold=bold)
+		for cell in cells[1:]:
+			cell.number_format = MONEY
+		if is_price:
+			for col in range(FIRST_COL, LAST_COL + 1):
+				ws.cell(row=row, column=col).fill = TOTAL_FILL
+		_box_row(
+			ws, row, FIRST_COL, LAST_COL,
+			top=THIN if is_price or label.startswith("Cost") else GRID,
+			bottom=Side(style="double", color="808080") if is_price else GRID,
+		)
+		row += 1
+	return row
+
+
+def _group_rows(doc, client: bool = False) -> list[tuple[str, list[dict]]]:
 	rows = json.loads(doc.config_rows_json or "[]")
 	item_names = dict(
 		frappe.get_all(
@@ -344,7 +402,27 @@ def _group_rows(doc) -> list[tuple[str, list[dict]]]:
 		}
 		for charge in charges
 	]
-	return list(grouped.items())
+	if not client:
+		return list(grouped.items())
+
+	# simplified (client) version: priced lines only, each at tender price (the margin spread over
+	# every line)
+	markup = _markup(doc)
+	client_groups = []
+	for section, lines in grouped.items():
+		priced = [line for line in lines if not line.get("exclude_from_price")]
+		for line in priced:
+			line["rate"] = flt(line.get("rate")) * markup
+			line["amount"] = flt(line.get("amount")) * markup
+		if priced:
+			client_groups.append((section, priced))
+	return client_groups
+
+
+def _markup(doc) -> float:
+	"""Tender price over cost, so marked-up lines add up to the tender price exactly."""
+	cost = flt(doc.cost_base)
+	return flt(doc.tender_price_total) / cost if cost else 1 + flt(doc.target_margin_pct) / 100
 
 
 def _cabinet_unit_lines(doc) -> list[dict]:

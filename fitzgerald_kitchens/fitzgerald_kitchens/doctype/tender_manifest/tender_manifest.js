@@ -61,14 +61,18 @@ frappe.ui.form.on("Tender Manifest", {
 
 function add_download_button(frm) {
 	if (frm.is_new()) return;
-	frm.add_custom_button(__("Download Excel"), () => {
+	const download = (simplified) => {
 		// the file is built from the saved tender, so unsaved edits would be missing
 		if (frm.is_dirty()) {
 			frappe.msgprint(__("Save the tender first so the Excel matches what you see."));
 			return;
 		}
-		window.open(`/api/method/${EXCEL_METHOD}?name=${encodeURIComponent(frm.doc.name)}`);
-	});
+		const args = `name=${encodeURIComponent(frm.doc.name)}&simplified=${simplified ? 1 : 0}`;
+		window.open(`/api/method/${EXCEL_METHOD}?${args}`);
+	};
+	// detailed: our costing bill; simplified: the client's copy, at tender price
+	frm.add_custom_button(__("Detailed Excel"), () => download(false), __("Download"));
+	frm.add_custom_button(__("Simplified Excel"), () => download(true), __("Download"));
 }
 
 function render_top_intro(frm) {
