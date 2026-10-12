@@ -14,6 +14,8 @@ frappe.ui.form.on("Tender Manifest", {
 		}
 		if (frm.is_new() && !frm.doc.template) {
 			await load_default_template(frm);
+			// setting the template runs the template handler, which loads and renders everything
+			if (frm.doc.template) return;
 		}
 		await load_template_cabinet_prices(frm);
 		recalculate_totals_from_rows(frm);
@@ -92,8 +94,8 @@ function title_case(value) {
 }
 
 async function render_builder(frm) {
-	// refresh can fire twice in quick succession (e.g. the first save, then the route change to
-	// the new name); only the latest render may bind controls, or every row gets them twice
+	// several renders can start together (a new manifest's template being set, then refresh; the
+	// first save, then the route change to the new name); only the latest one is shown
 	const render_id = (frm.__fk_render_id || 0) + 1;
 	frm.__fk_render_id = render_id;
 	const is_current = () => frm.__fk_render_id === render_id;
@@ -250,11 +252,18 @@ async function render_builder(frm) {
 			<span class="fk-total-per-kitchen value">${format_currency(flt(frm.doc.total_cost_per_kitchen || 0))}</span>
 		</div>
 	</div>`;
-	wrapper.html(html);
-
-	await bind_row_events(frm, rows, wrapper, is_current);
+	// built off-screen and swapped in once every control is bound, so the builder appears whole
+	// instead of filling in row by row
+	const $builder = $("<div>").html(html);
+	if (!wrapper.children().length) {
+		wrapper.html(`<div class="text-muted text-center" style="padding: 40px 20px;">${__("Loading...")}</div>`);
+	}
+	await bind_row_events(frm, rows, $builder, is_current);
 	if (!is_current()) return;
-	render_other_costs(frm, wrapper);
+	render_other_costs(frm, $builder);
+	wrapper.empty().append($builder);
+	// spec boxes can only be sized once they're on the page
+	$builder.find(".fk-spec-input").each((_, textarea) => fit_to_text(textarea));
 }
 
 function parse_other_costs(frm) {
@@ -481,25 +490,34 @@ async function load_template_cabinet_prices(frm, forceReload = false) {
 }
 
 async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
-	const specOptions = await fetch_spec_options(rows.map((r) => r.item_code));
+	// one call per item group, all at once, rather than one per row in turn
+	const groups = [...new Set(rows.map((r) => r.item_group).filter(Boolean))];
+	const [specOptions, groupPrices] = await Promise.all([
+		fetch_spec_options(rows.map((r) => r.item_code)),
+		Promise.all(
+			groups.map((item_group) =>
+				frappe
+					.call({ method: `${METHOD_BASE}.get_price_options`, args: { item_group } })
+					.then((r) => r.message || [])
+			)
+		),
+	]);
 	if (!is_current()) return;
+	const pricesByGroup = Object.fromEntries(groups.map((group, i) => [group, groupPrices[i]]));
+
+	// rows don't depend on each other, so they're bound side by side
 	const elements = wrapper.find(".fk-row").toArray();
-	for (const el of elements) {
+	await Promise.all(elements.map((el) => bind_row(el)));
+
+	async function bind_row(el) {
 		const $row = $(el);
 		const key = $row.attr("data-row-key");
 		const row = rows.find((r) => get_row_key(r) === key);
-		if (!row) continue;
+		if (!row) return;
 
 		// spec-only rows: any item in the group, priced for reference but kept out of the tender price
 		const specOnly = !!row.exclude_from_price;
-		const priceOptions =
-			(
-				await frappe.call({
-					method: `${METHOD_BASE}.get_price_options`,
-					args: { item_group: row.item_group },
-				})
-			).message || [];
-		if (!is_current()) return;
+		const priceOptions = pricesByGroup[row.item_group] || [];
 
 		const pricedCodes = [...new Set(priceOptions.map((o) => o.item_code))];
 
