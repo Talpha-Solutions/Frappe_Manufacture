@@ -1,7 +1,7 @@
 {
  "app": "fitzgerald_kitchens",
  "charts": [],
- "content": "[{\"id\":\"tdrHdrShort\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Your Shortcuts</b></span>\",\"col\":12}},{\"id\":\"tdrScTender\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tender\",\"col\":4}},{\"id\":\"tdrScManif\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tender Manifest\",\"col\":4}},{\"id\":\"tdrScTempl\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tender Configuration Template\",\"col\":4}},{\"id\":\"tdrSpacer1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"tdrHdrLinks\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters</b></span>\",\"col\":12}},{\"id\":\"tdrCdTender\",\"type\":\"card\",\"data\":{\"card_name\":\"Tendering\",\"col\":4}},{\"id\":\"tdrCdSetup\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup\",\"col\":4}}]",
+ "content": "[{\"id\":\"tdrHdrShort\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Your Shortcuts</b></span>\",\"col\":12}},{\"id\":\"tdrScTender\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tender\",\"col\":4}},{\"id\":\"tdrScManif\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tender Manifest\",\"col\":4}},{\"id\":\"tdrScTempl\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tender Configuration Template\",\"col\":4}},{\"id\":\"tdrSpacer1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"tdrHdrLinks\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters</b></span>\",\"col\":12}},{\"id\":\"tdrCdTender\",\"type\":\"card\",\"data\":{\"card_name\":\"Tendering\",\"col\":4}},{\"id\":\"tdrCdSetup\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup\",\"col\":4}},{\"id\":\"tdrCdMaster\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}}]",
  "creation": "2026-10-11 10:28:17.355592",
  "custom_blocks": [],
  "docstatus": 0,
@@ -61,9 +61,83 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Masters",
+   "link_count": 6,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Item",
+   "link_count": 0,
+   "link_to": "Item",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Item Group",
+   "link_count": 0,
+   "link_to": "Item Group",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Item Price",
+   "link_count": 0,
+   "link_to": "Item Price",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer",
+   "link_count": 0,
+   "link_to": "Customer",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Spec List",
+   "link_count": 0,
+   "link_to": "Spec List",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Item Spec",
+   "link_count": 0,
+   "link_to": "Item Spec",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-10-11 10:56:41.267154",
+ "modified": "2026-10-12 08:46:55.663688",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tendering",

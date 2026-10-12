@@ -2,15 +2,33 @@
 // For license information, please see license.txt
 
 const TENDER_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender";
+const EXCEL_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender_excel.download_tender_excel";
 
 frappe.ui.form.on("Tender", {
 	refresh(frm) {
-		if (!frm.is_new() && frappe.model.can_create("Tender Manifest")) {
-			frm.add_custom_button(__("New Tender Manifest"), () => new_manifest(frm));
-		}
+		add_download_buttons(frm);
 		render_manifests(frm);
 	},
 });
+
+// detailed: our costing across all tender manifests; simplified: the client's copy, at tender price
+function add_download_buttons(frm) {
+	if (frm.is_new()) return;
+	const download = (simplified) => {
+		if (frm.is_dirty()) {
+			frappe.msgprint(__("Save the tender first so the Excel matches what you see."));
+			return;
+		}
+		if (!frm.doc.manifest_count) {
+			frappe.msgprint(__("Add a tender manifest to this tender before downloading it."));
+			return;
+		}
+		const args = `name=${encodeURIComponent(frm.doc.name)}&simplified=${simplified ? 1 : 0}`;
+		window.open(`/api/method/${EXCEL_METHOD}?${args}`);
+	};
+	frm.add_custom_button(__("Detailed Excel"), () => download(false), __("Download"));
+	frm.add_custom_button(__("Simplified Excel"), () => download(true), __("Download"));
+}
 
 // a manifest for this tender, starting from the tender's defaults
 function new_manifest(frm) {
