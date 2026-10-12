@@ -92,8 +92,15 @@ function title_case(value) {
 }
 
 async function render_builder(frm) {
+	// refresh can fire twice in quick succession (e.g. the first save, then the route change to
+	// the new name); only the latest render may bind controls, or every row gets them twice
+	const render_id = (frm.__fk_render_id || 0) + 1;
+	frm.__fk_render_id = render_id;
+	const is_current = () => frm.__fk_render_id === render_id;
+
 	const wrapper = frm.get_field("configuration_builder").$wrapper;
 	let rows = await load_template_rows(frm, false);
+	if (!is_current()) return;
 	if (!rows.length) {
 		wrapper.html(
 			`<div class="text-muted text-center" style="padding: 40px 20px; border: 1px dashed var(--border-color); border-radius: var(--border-radius-md);">${__(
@@ -245,7 +252,8 @@ async function render_builder(frm) {
 	</div>`;
 	wrapper.html(html);
 
-	await bind_row_events(frm, rows, wrapper);
+	await bind_row_events(frm, rows, wrapper, is_current);
+	if (!is_current()) return;
 	render_other_costs(frm, wrapper);
 }
 
@@ -472,8 +480,9 @@ async function load_template_cabinet_prices(frm, forceReload = false) {
 	}
 }
 
-async function bind_row_events(frm, rows, wrapper) {
+async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 	const specOptions = await fetch_spec_options(rows.map((r) => r.item_code));
+	if (!is_current()) return;
 	const elements = wrapper.find(".fk-row").toArray();
 	for (const el of elements) {
 		const $row = $(el);
@@ -490,6 +499,7 @@ async function bind_row_events(frm, rows, wrapper) {
 					args: { item_group: row.item_group },
 				})
 			).message || [];
+		if (!is_current()) return;
 
 		const pricedCodes = [...new Set(priceOptions.map((o) => o.item_code))];
 
