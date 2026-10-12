@@ -60,13 +60,25 @@ function render_manifests(frm) {
 		args: { tender: requested },
 		callback(r) {
 			if (requested !== frm.doc.name) return;
-			container.html(manifests_html(r.message || []));
+			const { manifests = [], totals = {} } = r.message || {};
+			show_totals(frm, totals);
+			container.html(manifests_html(manifests));
 			container.find(".add-manifest-btn").on("click", () => new_manifest(frm));
 			container.find(".manifest-row").on("click", function () {
 				frappe.set_route("Form", "Tender Manifest", $(this).data("name"));
 			});
 		},
 	});
+}
+
+// the totals are saved by the tender manifests, which don't change the tender's modified time, so a
+// tender already open in the browser can hold old figures; show the ones the server just worked out
+function show_totals(frm, totals) {
+	for (const [field, value] of Object.entries(totals)) {
+		if (flt(frm.doc[field], 2) === flt(value, 2)) continue;
+		frm.doc[field] = value;
+		frm.refresh_field(field);
+	}
 }
 
 function manifests_html(manifests) {

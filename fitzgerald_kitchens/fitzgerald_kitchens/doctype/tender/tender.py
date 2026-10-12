@@ -40,12 +40,22 @@ def _empty_totals() -> dict:
 
 
 @frappe.whitelist()
-def get_tender_manifests(tender: str) -> list[dict]:
-	"""Rows for the manifest summary table on the Tender form."""
-	frappe.get_doc("Tender", tender).check_permission("read")
+def get_tender_manifests(tender: str) -> dict:
+	"""Rows for the manifest summary table on the Tender form, and the tender's totals.
+
+	The totals are recalculated here too and corrected if the stored ones are out of date (e.g. a
+	manifest changed without a save), so the form always shows the same figures as the table.
+	"""
+	doc = frappe.get_doc("Tender", tender)
+	doc.check_permission("read")
 	if not frappe.has_permission("Tender Manifest", "read"):
 		frappe.throw(_("Not permitted"), frappe.PermissionError)
-	return frappe.get_all(
+
+	totals = _calculate_totals(tender)
+	if any(flt(doc.get(field), 2) != flt(value, 2) for field, value in totals.items()):
+		frappe.db.set_value("Tender", tender, totals, update_modified=False)
+
+	manifests = frappe.get_all(
 		"Tender Manifest",
 		filters={"tender": tender},
 		fields=[
@@ -58,3 +68,4 @@ def get_tender_manifests(tender: str) -> list[dict]:
 		],
 		order_by="creation asc",
 	)
+	return {"manifests": manifests, "totals": totals}
