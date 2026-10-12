@@ -6,10 +6,49 @@ const EXCEL_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.ten
 
 frappe.ui.form.on("Tender", {
 	refresh(frm) {
+		add_status_button(frm);
 		add_download_buttons(frm);
 		render_manifests(frm);
 	},
 });
+
+// status is read-only on the form and changed here, like Set Project Status on Project
+function add_status_button(frm) {
+	if (frm.is_new() || !frm.perm[0]?.write) return;
+	frm.add_custom_button(__("Set Tender Status"), () => status_dialog(frm), __("Actions"));
+}
+
+function status_dialog(frm) {
+	if (frm.is_dirty()) {
+		frappe.msgprint(__("Save the tender first."));
+		return;
+	}
+	const options = (frappe.meta.get_docfield("Tender", "status").options || "")
+		.split("\n")
+		.filter((status) => status && status !== frm.doc.status);
+	const dialog = new frappe.ui.Dialog({
+		title: __("Set Tender Status"),
+		fields: [
+			{
+				fieldtype: "HTML",
+				fieldname: "current",
+				options: `<p class="text-muted">${__("Current status: {0}", [`<b>${__(frm.doc.status)}</b>`])}</p>`,
+			},
+			{ fieldname: "status", fieldtype: "Select", label: __("New Status"), reqd: 1, options: options.join("\n") },
+		],
+		primary_action_label: __("Set Status"),
+		primary_action({ status }) {
+			dialog.hide();
+			frappe
+				.xcall(`${TENDER_METHOD}.set_tender_status`, { tender: frm.doc.name, status })
+				.then(() => {
+					frappe.show_alert({ message: __("Tender status set to {0}", [__(status)]), indicator: "green" });
+					frm.reload_doc();
+				});
+		},
+	});
+	dialog.show();
+}
 
 // detailed: our costing across all tender manifests; simplified: the client's copy, at tender price
 function add_download_buttons(frm) {
