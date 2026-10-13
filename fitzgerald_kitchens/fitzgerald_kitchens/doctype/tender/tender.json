@@ -59,7 +59,9 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Draft\nIn Progress\nSubmitted\nWon\nLost\nCancelled"
+   "options": "Draft\nIn Progress\nSubmitted\nWon\nLost\nCancelled",
+   "read_only": 1,
+   "description": "Change it with Actions → Set Tender Status"
   },
   {
    "fieldname": "column_break_details",
@@ -193,7 +195,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-11 11:05:54.028805",
+ "modified": "2026-10-12 22:37:58.126104",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender",
