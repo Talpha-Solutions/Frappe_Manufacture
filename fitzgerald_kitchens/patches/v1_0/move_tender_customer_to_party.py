@@ -2,7 +2,7 @@ import frappe
 
 
 def execute():
-	"""Tender's Customer field became Tender From (Lead / Customer) + Party; carry existing values over.
+	"""Tender's Customer field became Party Type (Lead / Customer) + Party; carry existing values over.
 
 	Runs after model sync: the old customer column is no longer in the doctype but is still in the
 	table (Frappe doesn't drop columns), so it's read with SQL.
@@ -18,7 +18,7 @@ def execute():
 			"Tender",
 			name,
 			{
-				"tender_from": "Customer",
+				"party_type": "Customer",
 				"party_name": customer,
 				"party_title": frappe.db.get_value("Customer", customer, "customer_name") or customer,
 			},

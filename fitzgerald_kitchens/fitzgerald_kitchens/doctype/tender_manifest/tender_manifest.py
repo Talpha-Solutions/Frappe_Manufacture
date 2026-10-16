@@ -9,6 +9,10 @@ from frappe.model.document import Document
 from frappe.utils import cint, cstr, flt
 
 from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender import update_tender_totals
+from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template import (
+	tender_party,
+	validate_template_party,
+)
 
 CABINET_KEYS = ("base_units", "wall_units", "tall_units", "drawer_packs")
 # template row details a tender row always follows (its item, qty, spec, etc. are its own)
@@ -24,6 +28,7 @@ class TenderManifest(Document):
 	def validate(self):
 		if not self.template:
 			frappe.throw(_("Template is required."))
+		validate_template_party(self.template, *tender_party(self.tender))
 
 		rows = _parse_rows_json(self.config_rows_json)
 		template_rows = _get_template_rows(self.template)
@@ -378,15 +383,6 @@ def _get_template_cabinet_prices(template: str) -> dict:
 			"uom": item_price.uom,
 		}
 	return cabinet_prices
-
-
-@frappe.whitelist()
-def get_default_template():
-	return frappe.db.get_value(
-		"Tender Configuration Template",
-		{"is_default": 1},
-		"name",
-	)
 
 
 @frappe.whitelist()

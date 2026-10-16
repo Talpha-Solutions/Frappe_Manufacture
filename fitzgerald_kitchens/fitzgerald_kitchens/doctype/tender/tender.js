@@ -2,17 +2,32 @@
 // For license information, please see license.txt
 
 const TENDER_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender";
+const TEMPLATE_QUERY = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template.template_query";
 const EXCEL_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender_excel.download_tender_excel";
 
 frappe.ui.form.on("Tender", {
 	setup(frm) {
-		frm.set_query("tender_from", () => ({ filters: { name: ["in", ["Lead", "Customer"]] } }));
+		frm.set_query("party_type", () => ({ filters: { name: ["in", ["Lead", "Customer"]] } }));
+		// the customer's own templates if they have any, otherwise those for everyone
+		frm.set_query("template", () => ({
+			query: TEMPLATE_QUERY,
+			filters: { party_type: frm.doc.party_type || "", party_name: frm.doc.party_name || "" },
+		}));
 	},
-	tender_from(frm) {
+	party_type(frm) {
 		// the party belongs to the old type
 		frm.set_value("party_name", "");
 	},
 	refresh(frm) {
+		// "Create a new Tender Configuration Template" from the Template field starts it for this party
+		frm.set_df_property("template", "get_route_options_for_new_doc", () =>
+			frm.doc.party_name ? { party_type: frm.doc.party_type, party_name: frm.doc.party_name } : {}
+		);
+		frm.set_df_property(
+			"template",
+			"filter_description",
+			__("Templates for this tender's Lead or Customer, or for everyone if they don't have their own")
+		);
 		add_status_button(frm);
 		add_download_buttons(frm);
 		render_manifests(frm);

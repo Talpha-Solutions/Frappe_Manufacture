@@ -7,7 +7,12 @@
  "engine": "InnoDB",
  "field_order": [
   "template_name",
-  "is_default",
+  "is_template",
+  "column_break_template",
+  "party_type",
+  "party_name",
+  "party_title",
+  "based_on",
   "section_break_rows",
   "rows",
   "section_break_cabinet_mapping",
@@ -28,10 +33,51 @@
   },
   {
    "default": "0",
-   "fieldname": "is_default",
+   "description": "A base template: copy it for a Lead or Customer with Actions → Create Party Template",
+   "fieldname": "is_template",
    "fieldtype": "Check",
    "in_list_view": 1,
-   "label": "Is Default"
+   "in_standard_filter": 1,
+   "label": "Is Template"
+  },
+  {
+   "fieldname": "column_break_template",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:!doc.is_template",
+   "description": "The Lead or Customer this template is for; only offered on their tenders",
+   "fieldname": "party_type",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Party Type",
+   "options": "DocType"
+  },
+  {
+   "depends_on": "eval:!doc.is_template && doc.party_type",
+   "fieldname": "party_name",
+   "fieldtype": "Dynamic Link",
+   "in_standard_filter": 1,
+   "label": "Party",
+   "options": "party_type",
+   "search_index": 1
+  },
+  {
+   "depends_on": "party_name",
+   "fieldname": "party_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Party Name",
+   "read_only": 1
+  },
+  {
+   "depends_on": "based_on",
+   "description": "The template this one was copied from",
+   "fieldname": "based_on",
+   "fieldtype": "Link",
+   "label": "Based On",
+   "options": "Tender Configuration Template",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_rows",
@@ -84,7 +130,7 @@
   }
  ],
  "links": [],
- "modified": "2026-10-11 11:10:39.052564",
+ "modified": "2026-10-16 19:46:59.277800",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender Configuration Template",
@@ -126,5 +172,6 @@
  "sort_field": "creation",
  "sort_order": "DESC",
  "states": [],
- "title_field": "template_name"
+ "title_field": "template_name",
+ "search_fields": "party_title"
 }

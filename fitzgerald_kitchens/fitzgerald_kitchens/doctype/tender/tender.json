@@ -11,7 +11,7 @@
   "tender_name",
   "status",
   "column_break_details",
-  "tender_from",
+  "party_type",
   "party_name",
   "party_title",
   "site_address",
@@ -72,10 +72,10 @@
   {
    "default": "Lead",
    "description": "A Lead until we've won work from them, then a Customer",
-   "fieldname": "tender_from",
+   "fieldname": "party_type",
    "fieldtype": "Link",
    "in_standard_filter": 1,
-   "label": "Tender From",
+   "label": "Party Type",
    "options": "DocType"
   },
   {
@@ -83,7 +83,7 @@
    "fieldtype": "Dynamic Link",
    "in_standard_filter": 1,
    "label": "Party",
-   "options": "tender_from",
+   "options": "party_type",
    "search_index": 1
   },
   {
@@ -212,7 +212,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-16 17:10:40.777654",
+ "modified": "2026-10-16 19:46:59.277800",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender",

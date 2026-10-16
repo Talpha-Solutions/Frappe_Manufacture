@@ -6,16 +6,27 @@ const EXCEL_METHOD =
 	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_manifest.tender_manifest_excel.download_tender_excel";
 
 frappe.ui.form.on("Tender Manifest", {
+	setup(frm) {
+		// the tender's party's own templates if they have any, otherwise those for everyone
+		frm.set_query("template", () => ({
+			query: "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template.template_query",
+			filters: { tender: frm.doc.tender || "" },
+		}));
+	},
 	async refresh(frm) {
+		// "Create a new Tender Configuration Template" from the Template field starts it for the
+		// tender's party (looked up now, as the option is used without waiting)
+		load_tender_party(frm);
+		frm.set_df_property("template", "get_route_options_for_new_doc", () => ({ ...(frm.__fk_tender_party || {}) }));
+		frm.set_df_property(
+			"template",
+			"filter_description",
+			__("Templates for this tender's Lead or Customer, or for everyone if they don't have their own")
+		);
 		render_top_intro(frm);
 		add_download_button(frm);
 		if (frm.is_new() && !frm.doc.naming_series) {
 			frm.set_value("naming_series", "KC-.YYYY.-.#####");
-		}
-		if (frm.is_new() && !frm.doc.template) {
-			await load_default_template(frm);
-			// setting the template runs the template handler, which loads and renders everything
-			if (frm.doc.template) return;
 		}
 		await load_template_cabinet_prices(frm);
 		recalculate_totals_from_rows(frm);
@@ -28,6 +39,7 @@ frappe.ui.form.on("Tender Manifest", {
 		await render_builder(frm);
 	},
 	async tender(frm) {
+		load_tender_party(frm);
 		// a new manifest starts from its tender's defaults; anything already filled in is kept
 		if (!frm.is_new() || !frm.doc.tender) return;
 		const { message: t } = await frappe.db.get_value("Tender", frm.doc.tender, [
@@ -60,6 +72,15 @@ frappe.ui.form.on("Tender Manifest", {
 		recalculate_totals_from_rows(frm);
 	},
 });
+
+async function load_tender_party(frm) {
+	frm.__fk_tender_party = null;
+	if (!frm.doc.tender) return;
+	const tender = frm.doc.tender;
+	const { message: t } = await frappe.db.get_value("Tender", tender, ["party_type", "party_name"]);
+	if (frm.doc.tender !== tender || !t?.party_name) return;
+	frm.__fk_tender_party = { party_type: t.party_type, party_name: t.party_name };
+}
 
 function add_download_button(frm) {
 	if (frm.is_new()) return;
@@ -416,15 +437,6 @@ function render_other_costs(frm, wrapper) {
 			render_other_costs(frm, wrapper);
 			wrapper.find(".fk-other-rows .fk-row:last .fk-charge-desc input").trigger("focus");
 		});
-}
-
-async function load_default_template(frm) {
-	const r = await frappe.call({
-		method: `${METHOD_BASE}.get_default_template`,
-	});
-	if (r.message) {
-		await frm.set_value("template", r.message);
-	}
 }
 
 async function load_template_rows(frm, forceReload) {
