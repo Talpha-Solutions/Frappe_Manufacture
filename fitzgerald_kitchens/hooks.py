@@ -335,6 +335,21 @@ fixtures = [
 		"filters": [["name", "in", ["Tender Manager", "Tender User"]]],
 	},
 	{
+		"dt": "Workflow State",
+		# Prefixed so these import before workflow.json, which links to them.
+		"prefix": "0",
+		"filters": [["name", "in", ["Draft", "In Progress", "Submitted", "Won", "Lost", "Cancelled"]]],
+	},
+	{
+		"dt": "Workflow Action Master",
+		"prefix": "0",
+		"filters": [["name", "in", ["Start Pricing", "Submit to Client", "Revise", "Mark Won", "Mark Lost", "Reopen", "Cancel"]]],
+	},
+	{
+		"dt": "Workflow",
+		"filters": [["name", "=", "Tender Workflow"]],
+	},
+	{
 		"dt": "Task Type",
 		# Prefixed so this fixture file always imports before 1_task.json — each
 		# fixture Task's `type` field links to one of these Task Type records.

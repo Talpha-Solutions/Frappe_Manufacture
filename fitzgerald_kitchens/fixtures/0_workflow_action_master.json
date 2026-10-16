@@ -1,0 +1,51 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-10-16 21:24:19.576856",
+  "name": "Start Pricing",
+  "workflow_action_name": "Start Pricing"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-10-16 21:24:19.576856",
+  "name": "Submit to Client",
+  "workflow_action_name": "Submit to Client"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-10-16 21:24:19.576856",
+  "name": "Revise",
+  "workflow_action_name": "Revise"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-10-16 21:24:19.576856",
+  "name": "Mark Won",
+  "workflow_action_name": "Mark Won"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-10-16 21:24:19.576856",
+  "name": "Mark Lost",
+  "workflow_action_name": "Mark Lost"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-10-16 21:24:19.576856",
+  "name": "Reopen",
+  "workflow_action_name": "Reopen"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-10-16 21:24:19.576856",
+  "name": "Cancel",
+  "workflow_action_name": "Cancel"
+ }
+]

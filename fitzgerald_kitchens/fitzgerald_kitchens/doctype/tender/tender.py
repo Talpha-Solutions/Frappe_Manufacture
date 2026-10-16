@@ -49,20 +49,6 @@ def _empty_totals() -> dict:
 
 
 @frappe.whitelist()
-def set_tender_status(tender: str, status: str):
-	"""Change a tender's status (the field is read-only on the form; this is the Set Tender Status action)."""
-	doc = frappe.get_doc("Tender", tender)
-	doc.check_permission("write")
-	options = (doc.meta.get_field("status").options or "").split("\n")
-	if status not in options:
-		frappe.throw(_("Status must be one of {0}").format(", ".join(options)))
-	if doc.status == status:
-		return
-	doc.status = status
-	doc.save()
-
-
-@frappe.whitelist()
 def get_tender_manifests(tender: str) -> dict:
 	"""Rows for the manifest summary table on the Tender form, and the tender's totals.
 
