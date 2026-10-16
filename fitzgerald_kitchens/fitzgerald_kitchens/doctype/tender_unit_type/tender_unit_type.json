@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-10-16 17:56:10.323123",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "unit_type",
+  "project_type",
+  "manifest",
+  "qty",
+  "bedrooms",
+  "unit_count"
+ ],
+ "fields": [
+  {
+   "fieldname": "unit_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Unit Type",
+   "reqd": 1,
+   "columns": 1,
+   "description": "Short code, e.g. STD, APT. Units are numbered STD-001, STD-002…"
+  },
+  {
+   "fieldname": "project_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project Type",
+   "options": "Project Type",
+   "reqd": 1,
+   "columns": 2,
+   "description": "Kitchen is the unit itself; other project types are created under each kitchen"
+  },
+  {
+   "fieldname": "manifest",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Manifest",
+   "options": "Tender Manifest",
+   "reqd": 1,
+   "columns": 3
+  },
+  {
+   "default": "1",
+   "fieldname": "qty",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Qty",
+   "non_negative": 1,
+   "columns": 1,
+   "description": "Per unit, e.g. 3 robes"
+  },
+  {
+   "depends_on": "eval:doc.project_type=='Kitchen'",
+   "fieldname": "bedrooms",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Bedrooms",
+   "non_negative": 1,
+   "columns": 1
+  },
+  {
+   "depends_on": "eval:doc.project_type=='Kitchen'",
+   "fieldname": "unit_count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Units",
+   "non_negative": 1,
+   "columns": 1,
+   "description": "How many units of this type (on the Kitchen row)"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-16 22:35:24.409360",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Tender Unit Type",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -35,7 +35,22 @@
   "total_margin",
   "total_tender_price",
   "section_break_notes",
-  "notes"
+  "notes",
+  "units_tab",
+  "section_break_unit_setup",
+  "company",
+  "column_break_unit_setup",
+  "project_template",
+  "section_break_unit_types",
+  "unit_types",
+  "section_break_unit_workbook",
+  "unit_workbook",
+  "units_preview_html",
+  "section_break_unit_projects",
+  "unit_import_status",
+  "project",
+  "column_break_unit_projects",
+  "unit_import_summary"
  ],
  "fields": [
   {
@@ -216,12 +231,100 @@
    "fieldname": "notes",
    "fieldtype": "Text Editor",
    "label": "Notes"
+  },
+  {
+   "depends_on": "eval:doc.status=='Won'",
+   "fieldname": "units_tab",
+   "fieldtype": "Tab Break",
+   "label": "Units"
+  },
+  {
+   "fieldname": "section_break_unit_setup",
+   "fieldtype": "Section Break",
+   "label": "Unit Setup",
+   "description": "One row per unit type: how many units, and which tender manifest each room uses"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_unit_setup",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Tasks added to each unit project",
+   "fieldname": "project_template",
+   "fieldtype": "Link",
+   "label": "Project Template",
+   "options": "Project Template"
+  },
+  {
+   "fieldname": "section_break_unit_types",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "unit_types",
+   "fieldtype": "Table",
+   "label": "Unit Types",
+   "options": "Tender Unit Type"
+  },
+  {
+   "fieldname": "section_break_unit_workbook",
+   "fieldtype": "Section Break",
+   "label": "Workbook",
+   "description": "Download the workbook, adjust unit numbers, names and rooms, then upload it here to preview"
+  },
+  {
+   "fieldname": "unit_workbook",
+   "fieldtype": "Attach",
+   "label": "Unit Workbook"
+  },
+  {
+   "fieldname": "units_preview_html",
+   "fieldtype": "HTML",
+   "label": "Units Preview"
+  },
+  {
+   "fieldname": "section_break_unit_projects",
+   "fieldtype": "Section Break",
+   "label": "Projects"
+  },
+  {
+   "default": "Not Started",
+   "fieldname": "unit_import_status",
+   "fieldtype": "Select",
+   "label": "Unit Projects Status",
+   "options": "Not Started\nReady\nCreating\nCompleted\nFailed",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Site Project",
+   "options": "Project",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_unit_projects",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "unit_import_summary",
+   "fieldtype": "Long Text",
+   "label": "Summary",
+   "read_only": 1,
+   "no_copy": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-16 22:00:56.177978",
+ "modified": "2026-10-16 22:27:51.234760",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender",

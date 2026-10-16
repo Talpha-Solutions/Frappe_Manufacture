@@ -13,12 +13,16 @@ frappe.ui.form.on("Tender", {
 			query: TEMPLATE_QUERY,
 			filters: { party_type: frm.doc.party_type || "", party_name: frm.doc.party_name || "" },
 		}));
+		// Units tab: this tender's manifests, and any project type but Site
+		frm.set_query("manifest", "unit_types", () => ({ filters: { tender: frm.doc.name || "__none__" } }));
+		frm.set_query("project_type", "unit_types", () => ({ filters: { name: ["!=", "Site"] } }));
 	},
 	party_type(frm) {
 		// the party belongs to the old type
 		frm.set_value("party_name", "");
 	},
 	refresh(frm) {
+		set_unit_defaults(frm);
 		// "Create a new Tender Configuration Template" from the Template field starts it for this party
 		frm.set_df_property("template", "get_route_options_for_new_doc", () =>
 			frm.doc.party_name ? { party_type: frm.doc.party_type, party_name: frm.doc.party_name } : {}
@@ -32,6 +36,18 @@ frappe.ui.form.on("Tender", {
 		render_manifests(frm);
 	},
 });
+
+// the Units tab opens once the tender is won; start it with the usual company and task template
+function set_unit_defaults(frm) {
+	if (frm.doc.status !== "Won" || !frm.perm[0]?.write) return;
+	const company = frappe.defaults.get_user_default("Company");
+	if (!frm.doc.company && company) frm.set_value("company", company);
+	if (!frm.doc.project_template) {
+		frappe.db.exists("Project Template", "Main Development Template").then((exists) => {
+			if (exists && !frm.doc.project_template) frm.set_value("project_template", "Main Development Template");
+		});
+	}
+}
 
 // detailed: our costing across all tender manifests; simplified: the client's copy, at tender price
 function add_download_buttons(frm) {

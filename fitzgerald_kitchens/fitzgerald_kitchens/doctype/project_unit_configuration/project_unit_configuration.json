@@ -13,6 +13,7 @@
   "scope",
   "based_on_configuration",
   "based_on_project",
+  "tender_manifest",
   "col_break_after_project",
   "notes",
   "templates_section",
@@ -106,6 +107,14 @@
    "label": "Based On Project",
    "link_filters": "[[\"Project\",\"project_type\",\"!=\",\"Site\"]]",
    "options": "Project"
+  },
+  {
+   "description": "The tender manifest this unit type was created from",
+   "fieldname": "tender_manifest",
+   "fieldtype": "Link",
+   "label": "Tender Manifest",
+   "options": "Tender Manifest",
+   "read_only": 1
   },
   {
    "fieldname": "col_break_after_project",
@@ -396,7 +405,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-02 12:46:00.000000",
+ "modified": "2026-10-16 22:27:51.234760",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Project Unit Configuration",

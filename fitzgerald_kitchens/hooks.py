@@ -305,7 +305,7 @@ fixtures = [
 	},
 	{
 		"dt": "Custom Field",
-		"filters": [["fieldname", "in", ["custom_file_upload", "custom_uploader_target", "custom_label_scans", "custom_label_scans_target", "custom_item_specs_section", "custom_item_specs_html", "custom_section_break_xsobf", "fk_colour", "fk_size", "custom_column_break_0tuuq", "fk_edging_colour", "fk_edging_thickness"]]],
+		"filters": [["fieldname", "in", ["custom_file_upload", "custom_uploader_target", "custom_label_scans", "custom_label_scans_target", "custom_item_specs_section", "custom_item_specs_html", "custom_section_break_xsobf", "fk_colour", "fk_size", "custom_column_break_0tuuq", "fk_edging_colour", "fk_edging_thickness", "fk_tender", "fk_tender_manifest", "fk_tender_manifest_price", "fk_unit_name"]]],
 	},
 	{
 		"dt": "Property Setter",

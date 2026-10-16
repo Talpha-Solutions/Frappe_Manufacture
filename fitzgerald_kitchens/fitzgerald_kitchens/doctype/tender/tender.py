@@ -4,8 +4,9 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
+from fitzgerald_kitchens.setup.project_unit_fields import KITCHEN_PROJECT_TYPE, SITE_PROJECT_TYPE
 from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template import (
 	party_title,
 	validate_party_type,
@@ -26,8 +27,46 @@ class Tender(Document):
 		validate_party_type(self.party_type)
 		self.party_title = party_title(self.party_type, self.party_name)
 		validate_template_party(self.template, self.party_type, self.party_name)
+		self._validate_unit_types()
 		# the totals belong to the manifests; recompute rather than trust what the form sent
 		self.update(_calculate_totals(self.name) if not self.is_new() else _empty_totals())
+
+	def _validate_unit_types(self):
+		"""Units tab: each unit type has one Kitchen row (with its units) and at most one row per
+		project type, all using this tender's manifests."""
+		types: dict[str, dict] = {}
+		for row in self.get("unit_types") or []:
+			code = (row.unit_type or "").strip()
+			row.unit_type = code
+			label = frappe.bold(code)
+			if row.project_type == SITE_PROJECT_TYPE:
+				frappe.throw(_("Unit Type {0}: a unit can't be of project type Site.").format(label))
+			seen = types.setdefault(code.upper(), {"code": code, "project_types": set(), "kitchen": None})
+			if row.project_type in seen["project_types"]:
+				frappe.throw(_("Unit Type {0} has {1} twice.").format(label, frappe.bold(row.project_type)))
+			seen["project_types"].add(row.project_type)
+			if row.project_type == KITCHEN_PROJECT_TYPE:
+				seen["kitchen"] = row
+			else:
+				# bedrooms and units belong to the unit type, entered on its Kitchen row
+				row.bedrooms = row.unit_count = 0
+			if row.manifest and frappe.db.get_value("Tender Manifest", row.manifest, "tender") != self.name:
+				frappe.throw(
+					_("Unit Type {0}: manifest {1} isn't one of this tender's manifests.").format(
+						label, frappe.bold(row.manifest)
+					)
+				)
+
+		for seen in types.values():
+			kitchen = seen["kitchen"]
+			if not kitchen:
+				frappe.throw(
+					_("Unit Type {0} needs a {1} row; the other project types are created under it.").format(
+						frappe.bold(seen["code"]), _(KITCHEN_PROJECT_TYPE)
+					)
+				)
+			if cint(kitchen.unit_count) <= 0:
+				frappe.throw(_("Unit Type {0}: enter how many units on its Kitchen row.").format(frappe.bold(seen["code"])))
 
 
 def update_tender_totals(tender: str | None):
