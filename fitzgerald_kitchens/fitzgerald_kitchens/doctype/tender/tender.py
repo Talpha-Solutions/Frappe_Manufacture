@@ -6,6 +6,9 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
+# who a tender can be for: a Lead until we've won work from them, then a Customer
+PARTY_TYPES = ("Lead", "Customer")
+
 # manifest field -> tender total it adds up into
 TOTAL_FIELDS = {
 	"kitchens_to_tender": "total_units",
@@ -17,8 +20,22 @@ TOTAL_FIELDS = {
 
 class Tender(Document):
 	def validate(self):
+		self._set_party()
 		# the totals belong to the manifests; recompute rather than trust what the form sent
 		self.update(_calculate_totals(self.name) if not self.is_new() else _empty_totals())
+
+	def _set_party(self):
+		if self.tender_from and self.tender_from not in PARTY_TYPES:
+			frappe.throw(_("Tender From must be one of {0}").format(", ".join(PARTY_TYPES)))
+		if not self.party_name:
+			self.party_title = None
+			return
+		# the readable name rather than the ID (a Lead's company, else the person)
+		if self.tender_from == "Customer":
+			self.party_title = frappe.db.get_value("Customer", self.party_name, "customer_name")
+		else:
+			lead = frappe.db.get_value("Lead", self.party_name, ["company_name", "lead_name"], as_dict=True) or {}
+			self.party_title = lead.get("company_name") or lead.get("lead_name") or self.party_name
 
 
 def update_tender_totals(tender: str | None):

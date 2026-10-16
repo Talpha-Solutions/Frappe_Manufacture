@@ -5,6 +5,13 @@ const TENDER_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.te
 const EXCEL_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender_excel.download_tender_excel";
 
 frappe.ui.form.on("Tender", {
+	setup(frm) {
+		frm.set_query("tender_from", () => ({ filters: { name: ["in", ["Lead", "Customer"]] } }));
+	},
+	tender_from(frm) {
+		// the party belongs to the old type
+		frm.set_value("party_name", "");
+	},
 	refresh(frm) {
 		add_status_button(frm);
 		add_download_buttons(frm);

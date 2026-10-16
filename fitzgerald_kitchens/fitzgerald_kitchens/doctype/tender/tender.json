@@ -11,7 +11,9 @@
   "tender_name",
   "status",
   "column_break_details",
-  "customer",
+  "tender_from",
+  "party_name",
+  "party_title",
   "site_address",
   "section_break_dates",
   "tender_date",
@@ -68,13 +70,28 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "The contractor we tender to",
-   "fieldname": "customer",
+   "default": "Lead",
+   "description": "A Lead until we've won work from them, then a Customer",
+   "fieldname": "tender_from",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Customer",
-   "options": "Customer"
+   "label": "Tender From",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "party_name",
+   "fieldtype": "Dynamic Link",
+   "in_standard_filter": 1,
+   "label": "Party",
+   "options": "tender_from",
+   "search_index": 1
+  },
+  {
+   "fieldname": "party_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Party Name",
+   "read_only": 1
   },
   {
    "fieldname": "site_address",
@@ -195,7 +212,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-12 22:37:58.126104",
+ "modified": "2026-10-16 17:10:40.777654",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender",
@@ -240,7 +257,7 @@
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
- "search_fields": "tender_name,customer,status",
+ "search_fields": "tender_name,party_title,status",
  "show_title_field_in_link": 1,
  "sort_field": "creation",
  "sort_order": "DESC",
