@@ -171,6 +171,7 @@ def _tender_header(tender, client: bool) -> list[str]:
 		f"From: {company}" if company else "",
 		f"Tender: {tender.tender_name} ({tender.name})",
 		f"Client: {tender.party_title}" if tender.party_name else "",
+		f"Number of units: {tender.number_of_units}" if tender.number_of_units else "",
 		f"Site: {site}" if site else "",
 		dates,
 		"" if client else f"Status: {tender.status}",

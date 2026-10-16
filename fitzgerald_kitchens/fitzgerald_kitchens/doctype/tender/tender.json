@@ -10,6 +10,7 @@
   "naming_series",
   "tender_name",
   "status",
+  "number_of_units",
   "column_break_details",
   "party_type",
   "party_name",
@@ -63,6 +64,14 @@
    "label": "Status",
    "options": "Draft\nIn Progress\nSubmitted\nWon\nLost\nCancelled",
    "read_only": 1
+  },
+  {
+   "description": "Houses / apartments on the site. One unit can take several tender manifests (kitchen, robe, utility…)",
+   "fieldname": "number_of_units",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Number of Units",
+   "non_negative": 1
   },
   {
    "fieldname": "column_break_details",
@@ -170,8 +179,9 @@
   {
    "fieldname": "total_units",
    "fieldtype": "Float",
-   "label": "Total Units",
-   "read_only": 1
+   "label": "Manifest Units",
+   "read_only": 1,
+   "description": "Units added up across all tender manifests; a unit with a kitchen and a robe manifest counts twice"
   },
   {
    "fieldname": "column_break_totals",
@@ -211,7 +221,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-16 21:24:33.183670",
+ "modified": "2026-10-16 22:00:56.177978",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender",

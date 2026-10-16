@@ -148,7 +148,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-10-16 17:11:13.611633",
+ "modified": "2026-10-16 22:05:41.487878",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tendering",
@@ -164,10 +164,8 @@
   {
    "color": "Blue",
    "doc_view": "List",
-   "format": "{} Open",
    "label": "Tender",
    "link_to": "Tender",
-   "stats_filter": "[[\"Tender\",\"status\",\"in\",[\"Draft\",\"In Progress\"]]]",
    "type": "DocType"
   },
   {
