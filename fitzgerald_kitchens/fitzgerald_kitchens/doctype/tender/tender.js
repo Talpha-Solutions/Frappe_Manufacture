@@ -2,53 +2,36 @@
 // For license information, please see license.txt
 
 const TENDER_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender";
+const TEMPLATE_QUERY = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template.template_query";
 const EXCEL_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender_excel.download_tender_excel";
 
 frappe.ui.form.on("Tender", {
+	setup(frm) {
+		frm.set_query("party_type", () => ({ filters: { name: ["in", ["Lead", "Customer"]] } }));
+		// the customer's own templates if they have any, otherwise those for everyone
+		frm.set_query("template", () => ({
+			query: TEMPLATE_QUERY,
+			filters: { party_type: frm.doc.party_type || "", party_name: frm.doc.party_name || "" },
+		}));
+	},
+	party_type(frm) {
+		// the party belongs to the old type
+		frm.set_value("party_name", "");
+	},
 	refresh(frm) {
-		add_status_button(frm);
+		// "Create a new Tender Configuration Template" from the Template field starts it for this party
+		frm.set_df_property("template", "get_route_options_for_new_doc", () =>
+			frm.doc.party_name ? { party_type: frm.doc.party_type, party_name: frm.doc.party_name } : {}
+		);
+		frm.set_df_property(
+			"template",
+			"filter_description",
+			__("Templates for this tender's Lead or Customer, or for everyone if they don't have their own")
+		);
 		add_download_buttons(frm);
 		render_manifests(frm);
 	},
 });
-
-// status is read-only on the form and changed here, like Set Project Status on Project
-function add_status_button(frm) {
-	if (frm.is_new() || !frm.perm[0]?.write) return;
-	frm.add_custom_button(__("Set Tender Status"), () => status_dialog(frm), __("Actions"));
-}
-
-function status_dialog(frm) {
-	if (frm.is_dirty()) {
-		frappe.msgprint(__("Save the tender first."));
-		return;
-	}
-	const options = (frappe.meta.get_docfield("Tender", "status").options || "")
-		.split("\n")
-		.filter((status) => status && status !== frm.doc.status);
-	const dialog = new frappe.ui.Dialog({
-		title: __("Set Tender Status"),
-		fields: [
-			{
-				fieldtype: "HTML",
-				fieldname: "current",
-				options: `<p class="text-muted">${__("Current status: {0}", [`<b>${__(frm.doc.status)}</b>`])}</p>`,
-			},
-			{ fieldname: "status", fieldtype: "Select", label: __("New Status"), reqd: 1, options: options.join("\n") },
-		],
-		primary_action_label: __("Set Status"),
-		primary_action({ status }) {
-			dialog.hide();
-			frappe
-				.xcall(`${TENDER_METHOD}.set_tender_status`, { tender: frm.doc.name, status })
-				.then(() => {
-					frappe.show_alert({ message: __("Tender status set to {0}", [__(status)]), indicator: "green" });
-					frm.reload_doc();
-				});
-		},
-	});
-	dialog.show();
-}
 
 // detailed: our costing across all tender manifests; simplified: the client's copy, at tender price
 function add_download_buttons(frm) {

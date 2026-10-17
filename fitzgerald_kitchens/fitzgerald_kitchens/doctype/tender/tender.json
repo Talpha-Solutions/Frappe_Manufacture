@@ -10,8 +10,11 @@
   "naming_series",
   "tender_name",
   "status",
+  "number_of_units",
   "column_break_details",
-  "customer",
+  "party_type",
+  "party_name",
+  "party_title",
   "site_address",
   "section_break_dates",
   "tender_date",
@@ -60,21 +63,43 @@
    "in_standard_filter": 1,
    "label": "Status",
    "options": "Draft\nIn Progress\nSubmitted\nWon\nLost\nCancelled",
-   "read_only": 1,
-   "description": "Change it with Actions → Set Tender Status"
+   "read_only": 1
+  },
+  {
+   "description": "Houses / apartments on the site. One unit can take several tender manifests (kitchen, robe, utility…)",
+   "fieldname": "number_of_units",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Number of Units",
+   "non_negative": 1
   },
   {
    "fieldname": "column_break_details",
    "fieldtype": "Column Break"
   },
   {
-   "description": "The contractor we tender to",
-   "fieldname": "customer",
+   "default": "Lead",
+   "description": "A Lead until we've won work from them, then a Customer",
+   "fieldname": "party_type",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Customer",
-   "options": "Customer"
+   "label": "Party Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "party_name",
+   "fieldtype": "Dynamic Link",
+   "in_standard_filter": 1,
+   "label": "Party",
+   "options": "party_type",
+   "search_index": 1
+  },
+  {
+   "fieldname": "party_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Party Name",
+   "read_only": 1
   },
   {
    "fieldname": "site_address",
@@ -154,8 +179,9 @@
   {
    "fieldname": "total_units",
    "fieldtype": "Float",
-   "label": "Total Units",
-   "read_only": 1
+   "label": "Manifest Units",
+   "read_only": 1,
+   "description": "Units added up across all tender manifests; a unit with a kitchen and a robe manifest counts twice"
   },
   {
    "fieldname": "column_break_totals",
@@ -195,7 +221,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-12 22:37:58.126104",
+ "modified": "2026-10-16 22:00:56.177978",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender",
@@ -240,7 +266,7 @@
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
- "search_fields": "tender_name,customer,status",
+ "search_fields": "tender_name,party_title,status",
  "show_title_field_in_link": 1,
  "sort_field": "creation",
  "sort_order": "DESC",

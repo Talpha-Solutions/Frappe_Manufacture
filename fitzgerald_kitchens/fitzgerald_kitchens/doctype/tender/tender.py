@@ -6,6 +6,12 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
+from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template import (
+	party_title,
+	validate_party_type,
+	validate_template_party,
+)
+
 # manifest field -> tender total it adds up into
 TOTAL_FIELDS = {
 	"kitchens_to_tender": "total_units",
@@ -17,6 +23,9 @@ TOTAL_FIELDS = {
 
 class Tender(Document):
 	def validate(self):
+		validate_party_type(self.party_type)
+		self.party_title = party_title(self.party_type, self.party_name)
+		validate_template_party(self.template, self.party_type, self.party_name)
 		# the totals belong to the manifests; recompute rather than trust what the form sent
 		self.update(_calculate_totals(self.name) if not self.is_new() else _empty_totals())
 
@@ -37,20 +46,6 @@ def _calculate_totals(tender: str) -> dict:
 
 def _empty_totals() -> dict:
 	return {"manifest_count": 0, **{total: 0 for total in TOTAL_FIELDS.values()}}
-
-
-@frappe.whitelist()
-def set_tender_status(tender: str, status: str):
-	"""Change a tender's status (the field is read-only on the form; this is the Set Tender Status action)."""
-	doc = frappe.get_doc("Tender", tender)
-	doc.check_permission("write")
-	options = (doc.meta.get_field("status").options or "").split("\n")
-	if status not in options:
-		frappe.throw(_("Status must be one of {0}").format(", ".join(options)))
-	if doc.status == status:
-		return
-	doc.status = status
-	doc.save()
 
 
 @frappe.whitelist()

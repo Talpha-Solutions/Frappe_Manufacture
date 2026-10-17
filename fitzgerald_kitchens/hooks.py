@@ -216,6 +216,8 @@ extend_doctype_class = {
 # along with any modifications made in other Frappe apps
 override_doctype_dashboards = {
 	"Project": "fitzgerald_kitchens.setup.project_dashboard.get_project_dashboard",
+	"Lead": "fitzgerald_kitchens.setup.tender_dashboards.add_tenders",
+	"Customer": "fitzgerald_kitchens.setup.tender_dashboards.add_tenders",
 }
 
 # exempt linked doctypes from being automatically cancelled
@@ -331,6 +333,21 @@ fixtures = [
 	{
 		"dt": "Role",
 		"filters": [["name", "in", ["Tender Manager", "Tender User"]]],
+	},
+	{
+		"dt": "Workflow State",
+		# Prefixed so these import before workflow.json, which links to them.
+		"prefix": "0",
+		"filters": [["name", "in", ["Draft", "In Progress", "Submitted", "Won", "Lost", "Cancelled"]]],
+	},
+	{
+		"dt": "Workflow Action Master",
+		"prefix": "0",
+		"filters": [["name", "in", ["Start Pricing", "Submit to Client", "Revise", "Mark Won", "Mark Lost", "Reopen", "Cancel"]]],
+	},
+	{
+		"dt": "Workflow",
+		"filters": [["name", "=", "Tender Workflow"]],
 	},
 	{
 		"dt": "Task Type",
