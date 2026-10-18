@@ -109,6 +109,7 @@ def get_tender_manifests(tender: str) -> dict:
 		fields=[
 			"name",
 			"tender_name",
+			"project_type",
 			"template",
 			"kitchens_to_tender",
 			"total_cost_per_kitchen",
