@@ -138,6 +138,7 @@ function manifests_html(manifests) {
 			<tr class="manifest-row" data-name="${esc(m.name)}">
 				<td>${esc(m.name)}</td>
 				<td>${esc(m.tender_name || "")}</td>
+				<td>${esc(__(m.project_type || "Kitchen"))}</td>
 				<td class="text-muted">${esc(m.template || "")}</td>
 				<td class="col-num">${format_number(flt(m.kitchens_to_tender), null, 0)}</td>
 				<td class="col-num">${format_currency(flt(m.total_cost_per_kitchen))}</td>
@@ -153,6 +154,7 @@ function manifests_html(manifests) {
 					<tr>
 						<th>${__("Tender Manifest")}</th>
 						<th>${__("Name")}</th>
+						<th>${__("Type")}</th>
 						<th>${__("Template")}</th>
 						<th class="col-num">${__("Units")}</th>
 						<th class="col-num">${__("Cost / Unit")}</th>
@@ -162,7 +164,7 @@ function manifests_html(manifests) {
 				<tbody>${rows}</tbody>
 				<tfoot>
 					<tr>
-						<td colspan="3">${__("Total")}</td>
+						<td colspan="4">${__("Total")}</td>
 						<td class="col-num">${format_number(total("kitchens_to_tender"), null, 0)}</td>
 						<td></td>
 						<td class="col-num">${format_currency(total("tender_price_total"))}</td>
