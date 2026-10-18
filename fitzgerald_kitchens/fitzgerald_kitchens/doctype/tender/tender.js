@@ -65,9 +65,6 @@ function add_unit_buttons(frm) {
 		fn();
 	};
 	if (frm.perm[0]?.write) frm.add_custom_button(__("Add Units"), () => add_units_dialog(frm), group);
-	if ((frm.doc.unit_types || []).length) {
-		frm.add_custom_button(__("Preview"), saved_first(() => preview_units(frm)), group);
-	}
 	if (frm.doc.unit_import_status === "Ready" && frappe.model.can_create("Project")) {
 		frm.add_custom_button(__("Create Projects"), saved_first(() => confirm_create_units(frm)), group);
 	}
