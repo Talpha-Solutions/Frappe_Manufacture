@@ -6,12 +6,15 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cint, flt
 
-from fitzgerald_kitchens.setup.project_unit_fields import KITCHEN_PROJECT_TYPE, SITE_PROJECT_TYPE
+from fitzgerald_kitchens.setup.project_unit_fields import KITCHEN_PROJECT_TYPE
 from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template import (
 	party_title,
 	validate_party_type,
 	validate_template_party,
 )
+
+# tasks for the unit projects a won tender creates, unless another template is picked
+DEFAULT_PROJECT_TEMPLATE = "Main Development Template"
 
 # manifest field -> tender total it adds up into
 TOTAL_FIELDS = {
@@ -27,46 +30,52 @@ class Tender(Document):
 		validate_party_type(self.party_type)
 		self.party_title = party_title(self.party_type, self.party_name)
 		validate_template_party(self.template, self.party_type, self.party_name)
+		self._set_unit_defaults()
 		self._validate_unit_types()
 		# the totals belong to the manifests; recompute rather than trust what the form sent
 		self.update(_calculate_totals(self.name) if not self.is_new() else _empty_totals())
 
-	def _validate_unit_types(self):
-		"""Units tab: each unit type has one Kitchen row (with its units) and at most one row per
-		project type, all using this tender's manifests."""
-		types: dict[str, dict] = {}
-		for row in self.get("unit_types") or []:
-			code = (row.unit_type or "").strip()
-			row.unit_type = code
-			label = frappe.bold(code)
-			if row.project_type == SITE_PROJECT_TYPE:
-				frappe.throw(_("Unit Type {0}: a unit can't be of project type Site.").format(label))
-			seen = types.setdefault(code.upper(), {"code": code, "project_types": set(), "kitchen": None})
-			if row.project_type in seen["project_types"]:
-				frappe.throw(_("Unit Type {0} has {1} twice.").format(label, frappe.bold(row.project_type)))
-			seen["project_types"].add(row.project_type)
-			if row.project_type == KITCHEN_PROJECT_TYPE:
-				seen["kitchen"] = row
-			else:
-				# bedrooms and units belong to the unit type, entered on its Kitchen row
-				row.bedrooms = row.unit_count = 0
-			if row.manifest and frappe.db.get_value("Tender Manifest", row.manifest, "tender") != self.name:
-				frappe.throw(
-					_("Unit Type {0}: manifest {1} isn't one of this tender's manifests.").format(
-						label, frappe.bold(row.manifest)
-					)
-				)
+	def _set_unit_defaults(self):
+		"""A won tender's Units tab starts with the site name, company and task template filled in
+		(the workflow saves the tender when it's marked Won)."""
+		if self.status != "Won":
+			return
+		self.unit_site_name = self.unit_site_name or self.tender_name
+		self.company = self.company or frappe.defaults.get_user_default("Company") or frappe.defaults.get_global_default("company")
+		if not self.project_template and frappe.db.exists("Project Template", DEFAULT_PROJECT_TEMPLATE):
+			self.project_template = DEFAULT_PROJECT_TEMPLATE
 
-		for seen in types.values():
-			kitchen = seen["kitchen"]
-			if not kitchen:
+	def _validate_unit_types(self):
+		"""Units tab: a row per apartment per manifest. Rows sharing an Apt No are one apartment, which
+		needs one Kitchen manifest; its other manifests (Robe, Utility...) are created under it."""
+		apartments: dict[str, dict] = {}
+		for row in self.get("unit_types") or []:
+			for field in ("unit_type", "floor", "number", "unit_name"):
+				row.set(field, (row.get(field) or "").strip())
+			label = frappe.bold(row.number)
+			project_type = frappe.db.get_value("Tender Manifest", row.manifest, "project_type") if row.manifest else None
+			row.project_type = project_type
+			if row.manifest and frappe.db.get_value("Tender Manifest", row.manifest, "tender") != self.name:
+				frappe.throw(_("Apt {0}: manifest {1} isn't one of this tender's manifests.").format(label, frappe.bold(row.manifest)))
+			if cint(row.qty) <= 0:
+				frappe.throw(_("Apt {0}: Qty must be at least 1.").format(label))
+
+			apt = apartments.setdefault(row.number.upper(), {"row": row, "project_types": set()})
+			first = apt["row"]
+			for field, name in (("unit_type", _("Apt Type")), ("floor", _("Floor")), ("unit_name", _("Unit Name"))):
+				if row.get(field) != first.get(field):
+					frappe.throw(_("Apt {0} has different {1} values on its rows.").format(label, name))
+			if project_type in apt["project_types"]:
+				frappe.throw(_("Apt {0} has two {1} manifests; use Qty for more than one.").format(label, frappe.bold(project_type)))
+			apt["project_types"].add(project_type)
+
+		for apt in apartments.values():
+			if KITCHEN_PROJECT_TYPE not in apt["project_types"]:
 				frappe.throw(
-					_("Unit Type {0} needs a {1} row; the other project types are created under it.").format(
-						frappe.bold(seen["code"]), _(KITCHEN_PROJECT_TYPE)
+					_("Apt {0} needs a Kitchen manifest; its other manifests are created under the kitchen.").format(
+						frappe.bold(apt["row"].number)
 					)
 				)
-			if cint(kitchen.unit_count) <= 0:
-				frappe.throw(_("Unit Type {0}: enter how many units on its Kitchen row.").format(frappe.bold(seen["code"])))
 
 
 def update_tender_totals(tender: str | None):

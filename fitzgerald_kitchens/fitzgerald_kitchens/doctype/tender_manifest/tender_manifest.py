@@ -21,12 +21,18 @@ TEMPLATE_ROW_FIELDS = ("tag", "subtitle", "item_group", "qty_label")
 STANDARD_SELLING_PRICE_LIST = "Standard Selling"
 
 
+# while a tender is with the client, or closed, its manifests are fixed; Revise (or Reopen) the tender
+# to change them. A won tender stays open, e.g. to add a variation before creating its units.
+LOCKED_TENDER_STATUSES = ("Submitted", "Lost", "Cancelled")
+
+
 class TenderManifest(Document):
 	def before_insert(self):
 		if not self.naming_series:
 			self.naming_series = "KC-.YYYY.-.#####"
 
 	def validate(self):
+		self._check_tender_lock()
 		if self.project_type == SITE_PROJECT_TYPE:
 			frappe.throw(_("A tender manifest prices a unit's room, so its Project Type can't be Site."))
 		if not self.template:
@@ -55,8 +61,23 @@ class TenderManifest(Document):
 		if previous and previous.tender and previous.tender != self.tender:
 			update_tender_totals(previous.tender)
 
+	def on_trash(self):
+		self._check_tender_lock()
+
 	def after_delete(self):
 		update_tender_totals(self.tender)
+
+	def _check_tender_lock(self):
+		previous = None if self.is_new() else frappe.db.get_value("Tender Manifest", self.name, "tender")
+		for tender in {self.tender, previous} - {None, ""}:
+			status = frappe.db.get_value("Tender", tender, "status")
+			if status in LOCKED_TENDER_STATUSES:
+				frappe.throw(
+					_("Tender {0} is {1}, so its manifests can't be changed. Revise the tender to change them.").format(
+						frappe.bold(tender), _(status)
+					),
+					title=_("Tender Locked"),
+				)
 
 	def get_print_summary(self) -> dict:
 		"""Pre-computed values for custom Print Format (Jinja cannot parse JSON reliably)."""

@@ -11,6 +11,8 @@ TENDER_ROLES = ("Tender Manager", "Tender User")
 READ_DOCTYPES = ("Customer", "Item", "Item Group", "Item Price")
 # a tender from someone we haven't worked with starts as a Lead, so the tender roles add and edit them
 EDIT_DOCTYPES = ("Lead",)
+# creating a won tender's projects converts its Lead to a Customer
+MANAGER_CREATE_DOCTYPES = ("Customer",)
 
 
 def ensure_tender_permissions():
@@ -31,3 +33,10 @@ def ensure_tender_permissions():
 			if doctype in EDIT_DOCTYPES:
 				for ptype in ("write", "create"):
 					update_permission_property(doctype, role, 0, ptype, 1)
+
+	if frappe.db.exists("Role", "Tender Manager"):
+		for doctype in MANAGER_CREATE_DOCTYPES:
+			if not frappe.db.get_value(
+				"Custom DocPerm", {"parent": doctype, "role": "Tender Manager", "permlevel": 0, "if_owner": 0}, "create"
+			):
+				update_permission_property(doctype, "Tender Manager", 0, "create", 1)

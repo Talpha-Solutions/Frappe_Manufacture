@@ -38,12 +38,14 @@
   "notes",
   "units_tab",
   "section_break_unit_setup",
+  "unit_site_name",
   "company",
   "column_break_unit_setup",
   "project_template",
   "section_break_unit_types",
   "unit_types",
   "section_break_unit_workbook",
+  "download_unit_workbook",
   "unit_workbook",
   "units_preview_html",
   "section_break_unit_projects",
@@ -242,7 +244,13 @@
    "fieldname": "section_break_unit_setup",
    "fieldtype": "Section Break",
    "label": "Unit Setup",
-   "description": "One row per unit type: how many units, and which tender manifest each room uses"
+   "description": "One row per apartment per manifest; an apartment with a kitchen and a robe has two rows"
+  },
+  {
+   "description": "The Site project's name; defaults to the tender name",
+   "fieldname": "unit_site_name",
+   "fieldtype": "Data",
+   "label": "Site Name"
   },
   {
    "fieldname": "company",
@@ -268,19 +276,26 @@
   {
    "fieldname": "unit_types",
    "fieldtype": "Table",
-   "label": "Unit Types",
+   "label": "Units",
    "options": "Tender Unit Type"
   },
   {
    "fieldname": "section_break_unit_workbook",
    "fieldtype": "Section Break",
    "label": "Workbook",
-   "description": "Download the workbook, adjust unit numbers, names and rooms, then upload it here to preview"
+   "description": "For many units: download the import template, fill in the Units sheet (a row per apartment), then attach it"
+  },
+  {
+   "fieldname": "download_unit_workbook",
+   "fieldtype": "Button",
+   "label": "Download Workbook",
+   "description": "An import template: a Units sheet with a row per apartment and a Manifest + Qty column pair per project type, plus a sheet per manifest for reference."
   },
   {
    "fieldname": "unit_workbook",
    "fieldtype": "Attach",
-   "label": "Unit Workbook"
+   "label": "Unit Workbook",
+   "description": "Attaching the workbook replaces the Units table with its rows"
   },
   {
    "fieldname": "units_preview_html",
@@ -324,7 +339,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-16 22:27:51.234760",
+ "modified": "2026-10-18 09:28:05.172095",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender",
