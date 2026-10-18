@@ -364,12 +364,7 @@ def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
 	site = frappe.db.get_value("Project", {"project_type": SITE_PROJECT_TYPE, "project_name": site_name}, ["name", "fk_tender"], as_dict=True)
 	if site and site.fk_tender and site.fk_tender != doc.name:
 		errors.append(_("Site project {0} already belongs to tender {1}. Change the Site Name.").format(frappe.bold(site_name), site.fk_tender))
-	existing = 0
-	if site and apartments:
-		existing = frappe.db.count("Project", {"fk_parent_project": site.name, "project_type": KITCHEN_PROJECT_TYPE,
-		                                       "fk_house_number": ["in", [a["number"] for a in apartments.values()]]})
-		if existing:
-			warnings.append(_("{0} of these apartments already have projects on {1}; they'll be updated.").format(existing, frappe.bold(site_name)))
+	sync = _sync_state(site.name if site else None, site_name, apartments)
 
 	order = lambda pt: (pt != KITCHEN_PROJECT_TYPE, pt)
 	counts: dict[str, int] = {}
@@ -397,11 +392,50 @@ def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
 			{**a, "rows": [{"project_type": pt, **row} for pt, row in sorted(a["rows"].items(), key=lambda kv: order(kv[0]))]}
 			for a in apartments.values()
 		],
+		"site": site.name if site else None,
 		"project_types": sorted(counts, key=order),
 		"project_counts": {pt: counts[pt] for pt in sorted(counts, key=order)},
 		"project_total": sum(counts.values()),
-		"existing_units": existing,
+		"sync": sync["counts"],
+		"not_in_table": sync["not_in_table"],
 	}
+
+
+def _sync_state(site: str | None, site_name: str, apartments: dict) -> dict:
+	"""Compare each apartment with the projects already on the site: new, changed (and what) or in
+	sync; and list the site's unit projects whose apartment is no longer in the table."""
+	counts = {"new": 0, "changed": 0, "synced": 0}
+	projects = {}
+	if site:
+		for p in frappe.get_all("Project", filters={"fk_parent_project": site},
+		                        fields=["name", "project_type", "fk_house_number", "fk_unit_name", "fk_floor",
+		                                "fk_unit_qty", "fk_tender_manifest", "fk_unit_configuration"]):
+			projects[(cstr(p.fk_house_number).upper(), p.project_type)] = p
+	labels = {"fk_unit_name": _("Unit Name"), "fk_floor": _("Floor"), "fk_unit_qty": _("Qty"),
+	          "fk_tender_manifest": _("Manifest"), "fk_unit_configuration": _("Apt Type")}
+	for apt in apartments.values():
+		key = apt["number"].upper()
+		changes, missing = [], []
+		configuration = build_configuration_code(apt["type"], site_name) if apt["type"] else None
+		for project_type, row in apt["rows"].items():
+			p = projects.pop((key, project_type), None)
+			if not p:
+				missing.append(project_type)
+				continue
+			want = {"fk_unit_name": apt["name"] or None, "fk_floor": apt["floor"] or None, "fk_unit_qty": row["qty"],
+			        "fk_tender_manifest": row["manifest"], "fk_unit_configuration": configuration}
+			for field, value in want.items():
+				if cstr(p.get(field) or "") != cstr(value or ""):
+					changes.append(f"{_(project_type)} {labels[field]}")
+		if KITCHEN_PROJECT_TYPE in missing:
+			apt["sync"], apt["changes"] = "new", []
+		elif missing or changes:
+			apt["sync"], apt["changes"] = "changed", changes + [_("{0} to create").format(_(pt)) for pt in missing]
+		else:
+			apt["sync"], apt["changes"] = "synced", []
+		counts[apt["sync"]] += 1
+	not_in_table = sorted({p.fk_house_number for p in projects.values() if p.fk_house_number})
+	return {"counts": counts, "not_in_table": not_in_table}
 
 
 # ---------------------------------------------------------------- create

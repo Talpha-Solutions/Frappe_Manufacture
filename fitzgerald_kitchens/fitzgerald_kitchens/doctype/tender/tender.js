@@ -46,32 +46,12 @@ frappe.ui.form.on("Tender", {
 		);
 		add_download_buttons(frm);
 		render_manifests(frm);
-		add_unit_buttons(frm);
 		render_units_preview(frm);
 		listen_for_unit_projects(frm);
 	},
 });
 
 // ---------------------------------------------------------------- Units tab (won tenders)
-
-function add_unit_buttons(frm) {
-	if (frm.doc.status !== "Won" || frm.is_new()) return;
-	const group = __("Units");
-	const saved_first = (fn) => () => {
-		if (frm.is_dirty()) {
-			frappe.msgprint(__("Save the tender first."));
-			return;
-		}
-		fn();
-	};
-	if (frm.perm[0]?.write) frm.add_custom_button(__("Add Units"), () => add_units_dialog(frm), group);
-	if (frm.doc.unit_import_status === "Ready" && frappe.model.can_create("Project")) {
-		frm.add_custom_button(__("Create Projects"), saved_first(() => confirm_create_units(frm)), group);
-	}
-	if (frm.doc.project) {
-		frm.add_custom_button(__("View Site Project"), () => frappe.set_route("Form", "Project", frm.doc.project), group);
-	}
-}
 
 // add a run of apartments: one row per apartment per manifest
 function add_units_dialog(frm) {
@@ -168,14 +148,13 @@ function load_unit_workbook(frm) {
 function render_units_preview(frm) {
 	const field = frm.fields_dict.units_preview_html;
 	if (!field) return;
-	if (frm.doc.status !== "Won" || !(frm.doc.unit_types || []).length) {
-		field.$wrapper.html(
-			`<div class="text-muted" style="padding: 8px 0;">${__("Add units with Units → Add Units, or download the workbook, fill it in and attach it above.")}</div>`
-		);
+	if (frm.doc.status !== "Won") return;
+	if (!(frm.doc.unit_types || []).length) {
+		show_units_panel(frm, units_empty_html(frm));
 		return;
 	}
 	if (frm.__fk_units_preview_for === frm.doc.modified) {
-		field.$wrapper.html(frm.__fk_units_preview_html);
+		show_units_panel(frm, frm.__fk_units_preview_html);
 		return;
 	}
 	if (!frm.is_dirty()) preview_units(frm);
@@ -190,21 +169,77 @@ function preview_units(frm) {
 		args: { tender: frm.doc.name },
 		callback(r) {
 			if (frm.doc.modified !== modified) return;
-			const html = units_preview_html(r.message || {});
+			const html = units_preview_html(r.message || {}, frm);
 			frm.__fk_units_preview_for = modified;
 			frm.__fk_units_preview_html = html;
-			field.$wrapper.html(html);
+			show_units_panel(frm, html);
 			if ((r.message || {}).status && r.message.status !== frm.doc.unit_import_status) {
 				frm.doc.unit_import_status = r.message.status;
 				frm.refresh_field("unit_import_status");
-				frm.clear_custom_buttons();
-				frm.refresh();
 			}
 		},
 	});
 }
 
-function units_preview_html(p) {
+// put the panel on the tab and wire its buttons
+function show_units_panel(frm, html) {
+	const $w = frm.fields_dict.units_preview_html.$wrapper;
+	$w.html(html);
+	$w.find("[data-units-action]").on("click", function () {
+		const action = $(this).data("units-action");
+		if (frm.is_dirty() && action !== "add") {
+			frappe.msgprint(__("Save the tender first."));
+			return;
+		}
+		if (action === "add") add_units_dialog(frm);
+		if (action === "create") confirm_create_units(frm, false);
+		if (action === "sync") confirm_create_units(frm, true);
+		if (action === "site") frappe.set_route("Form", "Project", frm.doc.project);
+	});
+}
+
+function units_empty_html(frm) {
+	const add = frm.perm[0]?.write
+		? `<button class="btn btn-sm btn-primary" data-units-action="add">${__("Add Units")}</button>`
+		: "";
+	return `
+		<div style="text-align: center; padding: 32px 20px; color: var(--text-muted); border: 1px dashed var(--border-color); border-radius: var(--border-radius-md);">
+			<p style="margin-bottom: 12px;">${__("No units yet. Add them here, or download the workbook, fill in the Units sheet and attach it above.")}</p>
+			${add}
+		</div>`;
+}
+
+// status line and actions above the preview
+function units_actions_html(p, frm) {
+	const sync = p.sync || {};
+	const created = !!frm.doc.project;
+	const pending = (sync.new || 0) + (sync.changed || 0);
+	const busy = frm.doc.unit_import_status === "Creating";
+	const blocked = (p.errors || []).length > 0;
+	let status;
+	if (busy) status = `<span class="indicator-pill orange">${__("Creating projects…")}</span>`;
+	else if (!created) status = `<span class="indicator-pill gray">${__("Projects not created yet")}</span>`;
+	else if (!pending) status = `<span class="indicator-pill green">${__("All apartments in sync")}</span>`;
+	else status = `<span class="indicator-pill orange">${__("{0} to sync", [pending])}</span>`;
+
+	const button = (action, label, primary, disabled) =>
+		`<button class="btn btn-sm ${primary ? "btn-primary" : "btn-default"}" data-units-action="${action}" ${disabled ? "disabled" : ""}>${label}</button>`;
+	const can_project = frappe.model.can_create("Project");
+	const buttons = [
+		frm.perm[0]?.write ? button("add", __("Add Units"), false, busy) : "",
+		!created && can_project ? button("create", __("Create Projects"), true, busy || blocked) : "",
+		created && can_project && pending ? button("sync", __("Sync Projects"), true, busy || blocked) : "",
+		created ? button("site", __("View Site Project"), false, false) : "",
+	].join(" ");
+	const note = blocked && !busy ? `<div class="text-muted small" style="margin-top: 6px;">${__("Fix the errors below to create or sync the projects.")}</div>` : "";
+	return `
+		<div class="fk-units-actions">
+			<div>${status}</div>
+			<div class="fk-units-buttons">${buttons}</div>
+		</div>${note}`;
+}
+
+function units_preview_html(p, frm) {
 	const esc = frappe.utils.escape_html;
 	const style = `
 		<style>
@@ -224,12 +259,16 @@ function units_preview_html(p) {
 			.fk-units-table tr:last-child td { border-bottom: none; }
 			.fk-units-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 			.fk-units-list summary { cursor: pointer; padding: 8px 12px; color: var(--text-muted); }
+			.fk-units-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--margin-sm); flex-wrap: wrap;
+				padding: 10px 12px; border: 1px solid var(--border-color); border-radius: var(--border-radius-md); margin-bottom: var(--margin-md); }
+			.fk-units-buttons { display: flex; gap: var(--margin-xs); flex-wrap: wrap; }
 		</style>`;
 	const messages = [
 		...(p.errors || []).map((m) => `<div class="fk-units-msg error">${m}</div>`),
 		...(p.warnings || []).map((m) => `<div class="fk-units-msg warning">${m}</div>`),
 	].join("");
-	if (!(p.types || []).length) return `${style}<div class="fk-units">${messages}</div>`;
+	const actions = units_actions_html(p, frm);
+	if (!(p.types || []).length) return `${style}<div class="fk-units">${actions}${messages}</div>`;
 
 	const card = (value, label) => `<div class="fk-units-card"><div class="value">${esc(String(value))}</div><div class="label">${esc(label)}</div></div>`;
 	const cards = [
@@ -237,7 +276,11 @@ function units_preview_html(p) {
 		card(p.types.length, __("Apartment types")),
 		card((p.apartments || []).length, __("Apartments")),
 		...Object.entries(p.project_counts || {}).map(([pt, n]) => card(n, __("{0} projects", [__(pt)]))),
+		...(frm.doc.project ? [card((p.sync || {}).synced || 0, __("In sync")), card(((p.sync || {}).changed || 0) + ((p.sync || {}).new || 0), __("To sync"))] : []),
 	].join("");
+	const orphans = (p.not_in_table || []).length
+		? `<div class="fk-units-msg warning">${__("Projects exist for apartments no longer in the table (kept, not deleted): {0}", [p.not_in_table.map(esc).join(", ")])}</div>`
+		: "";
 	const lead = p.party_is_lead
 		? `<div class="fk-units-msg warning">${__("{0} is a Lead; it will be converted to a Customer when the projects are created.", [esc(p.party || "")])}</div>`
 		: "";
@@ -253,7 +296,14 @@ function units_preview_html(p) {
 				const r = a.rows.find((x) => x.project_type === pt);
 				return `<td>${r ? `${esc(r.manifest)}${r.qty > 1 ? ` × ${r.qty}` : ""}` : ""}</td>`;
 			}).join("");
-			return `<tr><td>${esc(a.number)}</td><td>${esc(a.floor || "")}</td><td>${esc(a.name || "")}</td>${cells}</tr>`;
+			const pill = {
+				synced: `<span class="indicator-pill green">${__("In sync")}</span>`,
+				changed: `<span class="indicator-pill orange" title="${esc((a.changes || []).join(", "))}">${__("Changed")}</span>`,
+				new: `<span class="indicator-pill blue">${__("New")}</span>`,
+			}[a.sync];
+			const changes = a.sync === "changed" ? `<div class="text-muted small">${esc((a.changes || []).join(", "))}</div>` : "";
+			const state = frm.doc.project ? `<td>${pill || ""}${changes}</td>` : "";
+			return `<tr><td>${esc(a.number)}</td><td>${esc(a.floor || "")}</td><td>${esc(a.name || "")}</td>${cells}${state}</tr>`;
 		}).join("");
 		const more = apartments.length > shown.length ? `<div class="text-muted" style="padding: 6px 12px;">${__("and {0} more", [apartments.length - shown.length])}</div>` : "";
 		return `
@@ -261,23 +311,26 @@ function units_preview_html(p) {
 				<div class="fk-units-type-head"><span>${esc(t.code || __("(no type)"))}</span><span class="text-muted">${__("{0} apartments", [t.apartments])}</span></div>
 				<table class="fk-units-table"><thead><tr><th>${__("Project Type")}</th><th>${__("Manifest")}</th><th class="num">${__("Apartments")}</th></tr></thead><tbody>${used}</tbody></table>
 				<details class="fk-units-list"><summary>${__("Show apartments")}</summary>
-					<table class="fk-units-table"><thead><tr><th>${__("Apt No")}</th><th>${__("Floor")}</th><th>${__("Unit Name")}</th>${(p.project_types || []).map((pt) => `<th>${esc(__(pt))}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>${more}
+					<table class="fk-units-table"><thead><tr><th>${__("Apt No")}</th><th>${__("Floor")}</th><th>${__("Unit Name")}</th>${(p.project_types || []).map((pt) => `<th>${esc(__(pt))}</th>`).join("")}${frm.doc.project ? `<th>${__("Status")}</th>` : ""}</tr></thead><tbody>${rows}</tbody></table>${more}
 				</details>
 			</div>`;
 	}).join("");
-	return `${style}<div class="fk-units">${messages}${lead}<div class="fk-units-cards">${cards}</div>${types}</div>`;
+	return `${style}<div class="fk-units">${actions}${messages}${lead}${orphans}<div class="fk-units-cards">${cards}</div>${types}</div>`;
 }
 
-function confirm_create_units(frm) {
+function confirm_create_units(frm, syncing) {
 	frappe.confirm(
-		__("Create the site, apartment types and apartment projects from the Units table? Existing projects with the same Apt No are updated."),
+		syncing
+			? __("Update the projects to match the Units table, and create projects for new apartments? Projects for apartments no longer in the table are kept.")
+			: __("Create the site, apartment types and apartment projects from the Units table?"),
 		() => frappe.call({
 			method: `${UNITS_METHOD}.create_unit_projects`,
 			args: { tender: frm.doc.name },
 			freeze: true,
 			freeze_message: __("Starting..."),
 			callback() {
-				frappe.show_alert({ message: __("Creating the unit projects. This page updates when it's done."), indicator: "blue" });
+				frappe.show_alert({ message: __("Working on the unit projects. This page updates when it's done."), indicator: "blue" });
+				frm.__fk_units_preview_for = null;
 				frm.reload_doc();
 			},
 		})
