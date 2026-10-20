@@ -16,19 +16,6 @@ frappe.ui.form.on("Tender", {
 			query: TEMPLATE_QUERY,
 			filters: { party_type: frm.doc.party_type || "", party_name: frm.doc.party_name || "" },
 		}));
-		// Units tab: this tender's manifests, and any project type but Site
-		frm.set_query("manifest", "unit_types", () => ({ filters: { tender: frm.doc.name || "__none__" } }));
-	},
-	download_unit_workbook(frm) {
-		if (frm.is_dirty()) {
-			frappe.msgprint(__("Save the tender first, so the workbook has the latest units."));
-			return;
-		}
-		window.open(`/api/method/${UNITS_METHOD}.download_unit_workbook?tender=${encodeURIComponent(frm.doc.name)}`);
-	},
-	unit_workbook(frm) {
-		// an uploaded workbook replaces the Units table
-		if (frm.doc.unit_workbook && frm.is_dirty()) frm.save().then(() => load_unit_workbook(frm));
 	},
 	party_type(frm) {
 		// the party belongs to the old type
@@ -52,97 +39,11 @@ frappe.ui.form.on("Tender", {
 });
 
 // ---------------------------------------------------------------- Units tab (won tenders)
+// The tab only shows the units and their projects; they're set up on the Tender Units page.
 
-// add a run of apartments: one row per apartment per manifest
-function add_units_dialog(frm) {
-	const dialog = new frappe.ui.Dialog({
-		title: __("Add Units"),
-		fields: [
-			{ fieldname: "unit_type", fieldtype: "Data", label: __("Apt Type"), reqd: 1, description: __("e.g. 1B2P") },
-			{ fieldname: "floor", fieldtype: "Data", label: __("Floor") },
-			{ fieldtype: "Column Break" },
-			{ fieldname: "numbers", fieldtype: "Data", label: __("Apt Nos"), reqd: 1, description: __("Ranges and single numbers, e.g. 101-110, 115, A1-A4") },
-			{ fieldname: "unit_name", fieldtype: "Data", label: __("Unit Name"), description: __("Optional; the same for all of them") },
-			{ fieldtype: "Section Break", label: __("Manifests for each apartment") },
-			{
-				fieldname: "manifests", fieldtype: "Table", label: __("Manifests"), reqd: 1, in_place_edit: true,
-				data: [{ qty: 1 }],
-				fields: [
-					{ fieldname: "manifest", fieldtype: "Link", options: "Tender Manifest", label: __("Manifest"), in_list_view: 1, reqd: 1, columns: 7,
-						get_query: () => ({ filters: { tender: frm.doc.name } }) },
-					{ fieldname: "qty", fieldtype: "Int", label: __("Qty"), in_list_view: 1, default: 1, columns: 2 },
-				],
-			},
-		],
-		primary_action_label: __("Add"),
-		primary_action(values) {
-			const numbers = expand_apt_numbers(values.numbers);
-			const manifests = (values.manifests || []).filter((m) => m.manifest);
-			if (!numbers.length || !manifests.length) {
-				frappe.msgprint(__("Enter at least one Apt No and one manifest."));
-				return;
-			}
-			const taken = new Set((frm.doc.unit_types || []).map((r) => (r.number || "").toUpperCase()));
-			const clash = numbers.filter((n) => taken.has(n.toUpperCase()));
-			if (clash.length) {
-				frappe.msgprint(__("Already in the table: {0}", [clash.slice(0, 10).join(", ")]));
-				return;
-			}
-			for (const number of numbers) {
-				for (const m of manifests) {
-					frm.add_child("unit_types", {
-						unit_type: values.unit_type.trim(), floor: (values.floor || "").trim(), number,
-						unit_name: (values.unit_name || "").trim(), manifest: m.manifest, qty: m.qty || 1,
-					});
-				}
-			}
-			frm.refresh_field("unit_types");
-			dialog.hide();
-			frappe.show_alert({ message: __("Added {0} apartments ({1} rows). Save to keep them.", [numbers.length, numbers.length * manifests.length]), indicator: "green" });
-		},
-	});
-	dialog.show();
-}
-
-// "101-110, 115, A1-A4" -> ["101", ..., "110", "115", "A1", ..., "A4"]
-function expand_apt_numbers(text) {
-	const out = [];
-	for (const part of (text || "").split(",").map((p) => p.trim()).filter(Boolean)) {
-		const range = part.match(/^(\D*)(\d+)\s*-\s*\1?(\d+)$/);
-		if (!range) {
-			out.push(part);
-			continue;
-		}
-		const [, prefix, from, to] = range;
-		const width = from.length;
-		for (let n = parseInt(from, 10); n <= parseInt(to, 10) && out.length < 5000; n++) {
-			out.push(prefix + String(n).padStart(width, "0"));
-		}
-	}
-	return [...new Set(out)];
-}
-
-function load_unit_workbook(frm) {
-	frappe.call({
-		method: `${UNITS_METHOD}.upload_unit_workbook`,
-		args: { tender: frm.doc.name },
-		freeze: true,
-		freeze_message: __("Reading the workbook..."),
-		callback(r) {
-			const result = r.message || {};
-			if ((result.errors || []).length) {
-				frappe.msgprint({
-					title: __("The workbook wasn't loaded"),
-					message: `<p>${__("The Units table is unchanged. Fix these in the workbook and attach it again:")}</p><ul>${result.errors.slice(0, 30).map((e) => `<li>${e}</li>`).join("")}</ul>`,
-					indicator: "red",
-				});
-				return;
-			}
-			frappe.show_alert({ message: __("Loaded {0} rows into the Units table.", [result.loaded]), indicator: "green" });
-			frm.__fk_units_preview_for = null;
-			frm.reload_doc();
-		},
-	});
+function open_units_editor(frm) {
+	// a page of its own, opened in a new tab beside the tender
+	window.open(`/desk/tender-units?tender=${encodeURIComponent(frm.doc.name)}`, "_blank");
 }
 
 function render_units_preview(frm) {
@@ -187,28 +88,16 @@ function show_units_panel(frm, html) {
 	$w.html(html);
 	$w.find("[data-units-action]").on("click", function () {
 		const action = $(this).data("units-action");
-		if (frm.is_dirty() && action !== "add" && action !== "editor") {
-			frappe.msgprint(__("Save the tender first."));
-			return;
-		}
-		if (action === "add") add_units_dialog(frm);
-		// the editor is a page of its own, opened in a new tab beside the tender
-		if (action === "editor") window.open(`/desk/tender-units?tender=${encodeURIComponent(frm.doc.name)}`, "_blank");
-		if (action === "create") confirm_create_units(frm, false);
-		if (action === "sync") confirm_create_units(frm, true);
+		if (action === "editor") open_units_editor(frm);
 		if (action === "site") frappe.set_route("Form", "Project", frm.doc.project);
 	});
 }
 
 function units_empty_html(frm) {
-	const add = frm.perm[0]?.write
-		? `<button class="btn btn-sm btn-primary" data-units-action="add">${__("Add Units")}</button>`
-		: "";
-	const editor = `<button class="btn btn-sm btn-default" data-units-action="editor">${__("Open Units Editor")}</button>`;
 	return `
 		<div style="text-align: center; padding: 32px 20px; color: var(--text-muted); border: 1px dashed var(--border-color); border-radius: var(--border-radius-md);">
-			<p style="margin-bottom: 12px;">${__("No units yet. Add them here or in the Units Editor, or download the workbook, fill in the Units sheet and attach it above.")}</p>
-			${add} ${editor}
+			<p style="margin-bottom: 12px;">${__("No units yet. Set them up in the Units Editor: type them in, paste them from Excel or upload the unit workbook.")}</p>
+			<button class="btn btn-sm btn-primary" data-units-action="editor">${__("Open Units Editor")}</button>
 		</div>`;
 }
 
@@ -217,30 +106,26 @@ function units_actions_html(p, frm) {
 	const sync = p.sync || {};
 	const created = !!frm.doc.project;
 	const pending = (sync.new || 0) + (sync.changed || 0);
-	const busy = frm.doc.unit_import_status === "Creating";
-	const blocked = (p.errors || []).length > 0;
 	let status;
-	if (busy) status = `<span class="indicator-pill orange">${__("Creating projects…")}</span>`;
+	if (frm.doc.unit_import_status === "Creating") status = `<span class="indicator-pill orange">${__("Creating projects…")}</span>`;
+	else if (frm.doc.unit_import_status === "Failed" && created) status = `<span class="indicator-pill red">${__("Last sync failed")}</span>`;
 	else if (!created) status = `<span class="indicator-pill gray">${__("Projects not created yet")}</span>`;
 	else if (!pending) status = `<span class="indicator-pill green">${__("All apartments in sync")}</span>`;
 	else status = `<span class="indicator-pill orange">${__("{0} to sync", [pending])}</span>`;
 
-	const button = (action, label, primary, disabled) =>
-		`<button class="btn btn-sm ${primary ? "btn-primary" : "btn-default"}" data-units-action="${action}" ${disabled ? "disabled" : ""}>${label}</button>`;
-	const can_project = frappe.model.can_create("Project");
 	const buttons = [
-		button("editor", __("Open Units Editor"), false, false),
-		frm.perm[0]?.write ? button("add", __("Add Units"), false, busy) : "",
-		!created && can_project ? button("create", __("Create Projects"), true, busy || blocked) : "",
-		created && can_project && pending ? button("sync", __("Sync Projects"), true, busy || blocked) : "",
-		created ? button("site", __("View Site Project"), false, false) : "",
+		`<button class="btn btn-sm btn-primary" data-units-action="editor">${__("Open Units Editor")}</button>`,
+		created ? `<button class="btn btn-sm btn-default" data-units-action="site">${__("View Site Project")}</button>` : "",
 	].join(" ");
-	const note = blocked && !busy ? `<div class="text-muted small" style="margin-top: 6px;">${__("Fix the errors below to create or sync the projects.")}</div>` : "";
+	// the last create / sync run's summary
+	const summary = frm.doc.unit_import_summary
+		? `<div class="text-muted small" style="margin-top: 6px; white-space: pre-line;">${frappe.utils.escape_html(frm.doc.unit_import_summary)}</div>`
+		: "";
 	return `
 		<div class="fk-units-actions">
-			<div>${status}</div>
+			<div>${status}${summary}</div>
 			<div class="fk-units-buttons">${buttons}</div>
-		</div>${note}`;
+		</div>`;
 }
 
 function units_preview_html(p, frm) {
@@ -319,26 +204,25 @@ function units_preview_html(p, frm) {
 				</details>
 			</div>`;
 	}).join("");
-	return `${style}<div class="fk-units">${actions}${messages}${lead}${orphans}<div class="fk-units-cards">${cards}</div>${types}</div>`;
-}
-
-function confirm_create_units(frm, syncing) {
-	frappe.confirm(
-		syncing
-			? __("Update the projects to match the Units table, and create projects for new apartments? Projects for apartments no longer in the table are kept.")
-			: __("Create the site, apartment types and apartment projects from the Units table?"),
-		() => frappe.call({
-			method: `${UNITS_METHOD}.create_unit_projects`,
-			args: { tender: frm.doc.name },
-			freeze: true,
-			freeze_message: __("Starting..."),
-			callback() {
-				frappe.show_alert({ message: __("Working on the unit projects. This page updates when it's done."), indicator: "blue" });
-				frm.__fk_units_preview_for = null;
-				frm.reload_doc();
-			},
-		})
-	);
+	// each manifest's tendered Units against how many the apartments use
+	const allocation = (p.allocation || []).length ? `
+		<div class="fk-units-type">
+			<div class="fk-units-type-head"><span>${__("Manifests: tendered vs in the units")}</span></div>
+			<table class="fk-units-table">
+				<thead><tr><th>${__("Manifest")}</th><th>${__("Project Type")}</th><th class="num">${__("Tendered")}</th>
+					<th class="num">${__("In the units")}</th><th class="num">${__("Apartments")}</th><th></th></tr></thead>
+				<tbody>${p.allocation.map((m) => {
+					const diff = m.allocated - m.tendered;
+					const pill = diff === 0
+						? `<span class="indicator-pill green">${__("Matches")}</span>`
+						: `<span class="indicator-pill orange">${diff < 0 ? __("{0} short", [-diff]) : __("{0} over", [diff])}</span>`;
+					return `<tr><td>${manifest_link({ manifest: m.manifest, manifest_name: m.label.split(" · ").slice(1).join(" · ") })}</td>
+						<td>${esc(__(m.project_type))}</td><td class="num">${m.tendered}</td><td class="num">${m.allocated}</td>
+						<td class="num">${m.apartments}</td><td>${pill}</td></tr>`;
+				}).join("")}</tbody>
+			</table>
+		</div>` : "";
+	return `${style}<div class="fk-units">${actions}${messages}${lead}${orphans}<div class="fk-units-cards">${cards}</div>${allocation}${types}</div>`;
 }
 
 function listen_for_unit_projects(frm) {
@@ -346,10 +230,7 @@ function listen_for_unit_projects(frm) {
 	frm.__fk_units_listening = true;
 	frappe.realtime.on("tender_units_done", (data) => {
 		if (!data || data.tender !== frm.doc.name) return;
-		frappe.show_alert({
-			message: data.ok ? data.summary : __("Creating the unit projects failed; see the summary on the Units tab."),
-			indicator: data.ok ? "green" : "red",
-		}, 10);
+		// the Tender Units page that started the run shows the alert; here the tab just catches up
 		frm.__fk_units_preview_for = null;
 		frm.reload_doc();
 	});

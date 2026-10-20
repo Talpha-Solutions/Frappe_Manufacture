@@ -229,9 +229,14 @@ def _write_manifest_sheet(ws, m):
 
 
 @frappe.whitelist()
-def upload_unit_workbook(tender: str) -> dict:
-	"""Read the attached workbook's Units sheet into the Units table (replacing it), if it passes the checks."""
+def upload_unit_workbook(tender: str, file_url: str | None = None) -> dict:
+	"""Read the workbook's Units sheet into the Units table (replacing it), if it passes the checks.
+	The Tender Units page uploads the file to the tender first and passes its file_url."""
 	doc = _get_won_tender(tender, "write")
+	if file_url:
+		if not frappe.db.exists("File", {"file_url": file_url, "attached_to_doctype": "Tender", "attached_to_name": doc.name}):
+			frappe.throw(_("That file isn't attached to this tender."))
+		doc.unit_workbook = file_url
 	if not doc.unit_workbook:
 		frappe.throw(_("Attach the unit workbook first."))
 	try:
@@ -240,7 +245,7 @@ def upload_unit_workbook(tender: str) -> dict:
 	except Exception:
 		return {"errors": [_("The file couldn't be read as an Excel workbook (.xlsx).")], "warnings": []}
 	if UNITS_SHEET not in wb.sheetnames:
-		return {"errors": [_("Sheet {0} is missing; download the workbook from the tender and fill that in.").format(frappe.bold(UNITS_SHEET))], "warnings": []}
+		return {"errors": [_("Sheet {0} is missing; download the workbook from the Tender Units page and fill that in.").format(frappe.bold(UNITS_SHEET))], "warnings": []}
 
 	ws = wb[UNITS_SHEET]
 	headers = [cstr(c.value).strip() for c in next(ws.iter_rows(min_row=1, max_row=1))]
@@ -328,9 +333,14 @@ def get_unit_editor(tender: str) -> dict:
 			"name": doc.name, "tender_name": doc.tender_name, "party": doc.party_title or doc.party_name,
 			"party_type": doc.party_type, "project": doc.project, "status": doc.unit_import_status,
 			"site_name": _site_name(doc), "number_of_units": cint(doc.number_of_units),
+			"unit_site_name": doc.unit_site_name, "company": doc.company, "project_template": doc.project_template,
+			"summary": doc.unit_import_summary,
 			"can_write": doc.has_permission("write"), "can_create_projects": frappe.has_permission("Project", "create"),
 		},
-		"manifests": [{"name": m.name, "label": _manifest_label(m), "project_type": m.project_type or KITCHEN_PROJECT_TYPE} for m in manifests],
+		"manifests": [{"name": m.name, "label": _manifest_label(m), "project_type": m.project_type or KITCHEN_PROJECT_TYPE,
+		               "tendered": cint(m.kitchens_to_tender)} for m in manifests],
+		"allocation": plan["allocation"],
+		"count_warnings": plan["count_warnings"],
 		"project_types": _project_types(manifests),
 		"apartments": list(apartments.values()),
 		"errors": plan["errors"],
@@ -341,11 +351,17 @@ def get_unit_editor(tender: str) -> dict:
 
 
 @frappe.whitelist()
-def save_unit_editor(tender: str, apartments: str | list) -> dict:
-	"""Save the page's apartments into the Units table (a row per apartment per manifest), if they pass the checks."""
+def save_unit_editor(tender: str, apartments: str | list, settings: str | dict | None = None) -> dict:
+	"""Save the page's apartments into the Units table (a row per apartment per manifest), and its
+	Site Name, Company and Project Template, if they pass the checks."""
 	doc = _get_won_tender(tender, "write")
 	if isinstance(apartments, str):
 		apartments = json.loads(apartments)
+	if isinstance(settings, str):
+		settings = json.loads(settings)
+	for key, field in (("site_name", "unit_site_name"), ("company", "company"), ("project_template", "project_template")):
+		if settings and key in settings:
+			doc.set(field, cstr(settings[key]).strip() or None)
 	rows, errors, seen = [], [], set()
 	for i, apt in enumerate(apartments, start=1):
 		number = cstr(apt.get("number")).strip()
@@ -403,7 +419,7 @@ def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
 	errors, warnings = [], []
 	manifests = {m.name: m for m in _tender_manifests(doc.name)}
 	if not rows:
-		errors.append(_("There are no units yet. Add them with Add Units, or upload the workbook."))
+		errors.append(_("There are no units yet. Add them on the Tender Units page, or upload the workbook there."))
 
 	apartments: dict[str, dict] = {}
 	for r in rows:
@@ -436,8 +452,15 @@ def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
 		if apt["rows"] and KITCHEN_PROJECT_TYPE not in apt["rows"]:
 			errors.append(_("Apt {0} needs a Kitchen manifest; its other manifests are created under the kitchen.").format(frappe.bold(apt["number"])))
 
+	# counts against the tender: also warnings, and listed apart so the Tender Units page can show them its own way
+	count_warnings = []
 	if cint(doc.number_of_units) and len(apartments) != cint(doc.number_of_units):
-		warnings.append(_("There are {0} apartments; the tender's Number of Units is {1}.").format(len(apartments), cint(doc.number_of_units)))
+		count_warnings.append(_("There are {0} apartments; the tender's Number of Units is {1}.").format(len(apartments), cint(doc.number_of_units)))
+	allocation = _allocation(manifests.values(), apartments)
+	for a in allocation:
+		if a["allocated"] != a["tendered"]:
+			count_warnings.append(_("{0}: {1} in the units, {2} tendered.").format(frappe.bold(a["label"]), a["allocated"], a["tendered"]))
+	warnings += count_warnings
 	site = frappe.db.get_value("Project", {"project_type": SITE_PROJECT_TYPE, "project_name": site_name}, ["name", "fk_tender"], as_dict=True)
 	if site and site.fk_tender and site.fk_tender != doc.name:
 		errors.append(_("Site project {0} already belongs to tender {1}. Change the Site Name.").format(frappe.bold(site_name), site.fk_tender))
@@ -475,7 +498,25 @@ def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
 		"project_total": sum(counts.values()),
 		"sync": sync["counts"],
 		"not_in_table": sync["not_in_table"],
+		"allocation": allocation,
+		"count_warnings": count_warnings,
 	}
+
+
+def _allocation(manifests, apartments: dict) -> list[dict]:
+	"""Per tender manifest: how many it was tendered for (its Units) against how many the apartments use
+	(their Qty added up), and on how many apartments."""
+	used = {m.name: {"allocated": 0, "apartments": 0} for m in manifests}
+	for apt in apartments.values():
+		for row in apt["rows"].values():
+			if row["manifest"] in used:
+				used[row["manifest"]]["allocated"] += cint(row["qty"]) or 1
+				used[row["manifest"]]["apartments"] += 1
+	return [
+		{"manifest": m.name, "label": _manifest_label(m), "project_type": m.project_type or KITCHEN_PROJECT_TYPE,
+		 "tendered": cint(m.kitchens_to_tender), **used[m.name]}
+		for m in manifests
+	]
 
 
 def _sync_state(site: str | None, site_name: str, apartments: dict) -> dict:
@@ -522,7 +563,7 @@ def _sync_state(site: str | None, site_name: str, apartments: dict) -> dict:
 def create_unit_projects(tender: str):
 	doc = _get_won_tender(tender, "write")
 	if not doc.company:
-		frappe.throw(_("Set the Company on the Units tab first."))
+		frappe.throw(_("Set the Company on the Tender Units page first."))
 	if not frappe.has_permission("Project", "create"):
 		frappe.throw(_("You need permission to create Projects."), frappe.PermissionError)
 	if doc.party_type == "Lead" and not frappe.has_permission("Customer", "create"):
@@ -729,7 +770,7 @@ def _site_name(doc) -> str:
 
 def _tender_manifests(tender: str) -> list:
 	"""The tender's manifests, kitchens first."""
-	manifests = frappe.get_all("Tender Manifest", filters={"tender": tender}, fields=["name", "tender_name", "project_type"], order_by="name")
+	manifests = frappe.get_all("Tender Manifest", filters={"tender": tender}, fields=["name", "tender_name", "project_type", "kitchens_to_tender"], order_by="name")
 	return sorted(manifests, key=lambda m: (m.project_type not in (None, "", KITCHEN_PROJECT_TYPE), m.name))
 
 
