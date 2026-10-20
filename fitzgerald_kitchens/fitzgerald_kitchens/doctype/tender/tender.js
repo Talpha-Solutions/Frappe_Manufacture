@@ -3,7 +3,7 @@
 
 const TENDER_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender";
 const TEMPLATE_QUERY = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template.template_query";
-const EXCEL_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender_excel.download_tender_excel";
+const EXCEL_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_excel.download_tender_excel";
 // matches LOCKED_TENDER_STATUSES in tender_manifest.py: manifests are fixed while with the client or closed
 const LOCKED_STATUSES = ["Submitted", "Lost", "Cancelled"];
 const UNITS_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender_units";

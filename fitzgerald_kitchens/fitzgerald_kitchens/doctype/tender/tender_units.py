@@ -23,7 +23,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_manifest.tender_manifest_excel import (
+from fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_manifest_excel import (
 	FONT,
 	HEADER_FILL,
 	THIN,

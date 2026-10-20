@@ -11,7 +11,7 @@ import frappe
 from frappe.contacts.doctype.address.address import get_company_address
 from frappe.utils import cint, flt, money_in_words
 
-from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_manifest.tender_manifest_excel import (
+from fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_manifest_excel import (
 	_group_rows,
 	_line_values,
 	_refs,
