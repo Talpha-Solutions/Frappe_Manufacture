@@ -168,7 +168,7 @@ function units_preview_html(p, frm) {
 		...(frm.doc.project ? [card((p.sync || {}).synced || 0, __("In sync")), card(((p.sync || {}).changed || 0) + ((p.sync || {}).new || 0), __("To sync"))] : []),
 	].join("");
 	const orphans = (p.not_in_table || []).length
-		? `<div class="fk-units-msg warning">${__("Projects exist for apartments no longer in the table (kept, not deleted): {0}", [p.not_in_table.map(esc).join(", ")])}</div>`
+		? `<div class="fk-units-msg warning">${__("These projects no longer have a unit here (kept, not deleted): {0}", [p.not_in_table.map(esc).join(", ")])}</div>`
 		: "";
 	const lead = p.party_is_lead
 		? `<div class="fk-units-msg warning">${__("{0} is a Lead; it will be converted to a Customer when the projects are created.", [esc(p.party || "")])}</div>`

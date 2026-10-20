@@ -430,7 +430,7 @@ class TenderUnits {
 		const last_run = t.summary && !this.dirty
 			? `<div class="alert ${t.status === "Failed" ? "alert-danger" : "alert-info"}"><b>${__("Last run")}:</b> ${frappe.utils.escape_html(t.summary)}</div>` : "";
 		const gone = !this.dirty && d.not_in_table?.length
-			? `<div class="alert alert-warning">${__("Projects exist for apartments that aren't here any more: {0}. Sync keeps them.", [d.not_in_table.map(frappe.utils.escape_html).join(", ")])}</div>` : "";
+			? `<div class="alert alert-warning">${__("These projects no longer have a unit here: {0}. Sync keeps them.", [d.not_in_table.map(frappe.utils.escape_html).join(", ")])}</div>` : "";
 		this.$body.find(".fk-tu-messages").html(last_run + list(errors, "alert-danger") + list(warnings, "alert-warning") + gone);
 	}
 

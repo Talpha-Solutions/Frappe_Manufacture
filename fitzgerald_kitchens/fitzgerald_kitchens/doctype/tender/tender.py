@@ -46,8 +46,9 @@ class Tender(Document):
 			self.project_template = DEFAULT_PROJECT_TEMPLATE
 
 	def _validate_unit_types(self):
-		"""Units tab: a row per apartment per manifest. Rows sharing an Apt No are one apartment, which
-		needs one Kitchen manifest; its other manifests (Robe, Utility...) are created under it."""
+		"""Units tab: a row per unit (per apartment, per manifest, per one of its Qty). Rows sharing an Apt
+		No are one apartment, which needs a Kitchen; its other units (Robe, Utility...) are created under
+		it. An apartment's rows of a project type share one manifest and are numbered 1, 2..."""
 		apartments: dict[str, dict] = {}
 		for row in self.get("unit_types") or []:
 			for field in ("unit_type", "floor", "number", "unit_name"):
@@ -57,17 +58,17 @@ class Tender(Document):
 			row.project_type = project_type
 			if row.manifest and frappe.db.get_value("Tender Manifest", row.manifest, "tender") != self.name:
 				frappe.throw(_("Apt {0}: manifest {1} isn't one of this tender's manifests.").format(label, frappe.bold(row.manifest)))
-			if cint(row.qty) <= 0:
-				frappe.throw(_("Apt {0}: Qty must be at least 1.").format(label))
-
-			apt = apartments.setdefault(row.number.upper(), {"row": row, "project_types": set()})
+			apt = apartments.setdefault(row.number.upper(), {"row": row, "project_types": {}})
 			first = apt["row"]
 			for field, name in (("unit_type", _("Apt Type")), ("floor", _("Floor")), ("unit_name", _("Unit Name"))):
 				if row.get(field) != first.get(field):
 					frappe.throw(_("Apt {0} has different {1} values on its rows.").format(label, name))
-			if project_type in apt["project_types"]:
-				frappe.throw(_("Apt {0} has two {1} manifests; use Qty for more than one.").format(label, frappe.bold(project_type)))
-			apt["project_types"].add(project_type)
+			same_type = apt["project_types"].setdefault(project_type, {"manifest": row.manifest, "units": 0})
+			if same_type["manifest"] != row.manifest:
+				frappe.throw(_("Apt {0} has two different {1} manifests; an apartment uses one per project type.").format(
+					label, frappe.bold(project_type)))
+			same_type["units"] += 1
+			row.unit_no = same_type["units"]
 
 		for apt in apartments.values():
 			if KITCHEN_PROJECT_TYPE not in apt["project_types"]:

@@ -3,8 +3,9 @@
 
 """Units tab of a won Tender: the units table, its workbook, a preview and project creation.
 
-The Units table has a row per apartment per manifest (Apt Type, Floor, Apt No, Unit Name, Manifest,
-Qty); rows sharing an Apt No are one apartment. The workbook is the same table in Excel, for bulk
+The Units table has a row per unit: per apartment, per manifest, per one of its Qty (Apt Type, Floor,
+Apt No, Unit Name, Manifest, No.), and the project made for it. Rows sharing an Apt No are one
+apartment; an apartment with two robes has two Robe rows (No. 1 and 2) and gets two Robe projects. The workbook is the same table in Excel, for bulk
 editing: uploading it fills the table. Creating projects builds what the rest of the project module
 expects: a Site project, a Project Unit Configuration per apartment type with production Manifests,
 and per apartment a Kitchen project with its other manifests (Robe, Utility...) under it.
@@ -42,7 +43,7 @@ UNITS_SHEET = "Units"
 LISTS_SHEET = "Lists"
 # the Units sheet: these, then a "<Project Type> Manifest" + "<Project Type> Qty" pair per project type
 BASE_HEADERS = ["Apt Type", "Floor", "Apt No", "Unit Name"]
-UNIT_FIELDS = ["unit_type", "floor", "number", "unit_name", "manifest", "qty"]
+UNIT_FIELDS = ["unit_type", "floor", "number", "unit_name", "manifest", "unit_no", "project"]
 MANIFEST_HEADERS = ["Section", "Label", "Item Code", "Item Name", "Qty per Unit", "UOM", "Specification"]
 SITE_NAME_CELL = "B6"
 EDIT_FILL = PatternFill("solid", fgColor="FFF8E1")
@@ -163,18 +164,14 @@ def _write_units_sheet(ws, doc, manifests, project_types, lists):
 	_box_row(ws, 1, 1, len(headers), top=THIN, bottom=THIN)
 	ws.freeze_panes = "E2"
 
-	# the table's apartments, one row each, their manifests across
+	# the table's apartments, one row each, their manifests across (Qty: the apartment's units of that type)
 	labels = {m.name: _manifest_label(m) for m in manifests}
-	apartments: dict[str, dict] = {}
-	for r in doc.get("unit_types") or []:
-		apt = apartments.setdefault((r.number or "").upper(), {"values": [r.unit_type, r.floor, r.number, r.unit_name], "types": {}})
-		apt["types"][r.project_type or KITCHEN_PROJECT_TYPE] = (labels.get(r.manifest, r.manifest), cint(r.qty) or 1)
 	row = 2
-	for apt in apartments.values():
-		values = list(apt["values"])
+	for apt in _table_apartments(doc):
+		values = [apt["type"], apt["floor"], apt["number"], apt["name"]]
 		for pt in project_types:
-			manifest, qty = apt["types"].get(pt, (None, None))
-			values += [manifest, qty]
+			m = apt["manifests"].get(pt)
+			values += [labels.get(m["manifest"], m["manifest"]), m["qty"]] if m else [None, None]
 		for col, value in enumerate(values, start=1):
 			ws.cell(row=row, column=col, value=value or None).font = Font(name=FONT, size=10)
 		_box_row(ws, row, 1, len(headers))
@@ -289,7 +286,7 @@ def upload_unit_workbook(tender: str, file_url: str | None = None) -> dict:
 		plan["status"] = "Failed"
 		return plan
 
-	doc.set("unit_types", [{k: r[k] for k in UNIT_FIELDS} for r in rows])
+	doc.set("unit_types", _child_rows(plan["apartments"], _row_links(doc)))
 	if site_name:
 		doc.unit_site_name = site_name
 	if doc.unit_import_status != "Completed":
@@ -318,16 +315,9 @@ def get_unit_editor(tender: str) -> dict:
 	"""Everything the Tender Units page needs: the tender, its manifests, the apartments and their state."""
 	doc = _get_won_tender(tender, "read")
 	manifests = _tender_manifests(doc.name)
-	rows = [{**{k: r.get(k) for k in UNIT_FIELDS}, "_row": r.idx} for r in doc.get("unit_types") or []]
-	plan = _plan(doc, rows, _site_name(doc), where=_where_apartment)
+	plan = _plan(doc, _table_rows(doc), _site_name(doc), where=_where_apartment)
 	sync = {a["number"].upper(): {"sync": a.get("sync"), "changes": a.get("changes")} for a in plan["apartments"]}
-
-	apartments: dict[str, dict] = {}
-	for r in doc.get("unit_types") or []:
-		key = (r.number or "").upper()
-		apt = apartments.setdefault(key, {"number": r.number, "type": r.unit_type or "", "floor": r.floor or "",
-		                                  "name": r.unit_name or "", "manifests": {}, **sync.get(key, {})})
-		apt["manifests"][r.project_type or KITCHEN_PROJECT_TYPE] = {"manifest": r.manifest, "qty": cint(r.qty) or 1}
+	apartments = [{**a, **sync.get(a["number"].upper(), {})} for a in _table_apartments(doc)]
 	return {
 		"tender": {
 			"name": doc.name, "tender_name": doc.tender_name, "party": doc.party_title or doc.party_name,
@@ -342,7 +332,7 @@ def get_unit_editor(tender: str) -> dict:
 		"allocation": plan["allocation"],
 		"count_warnings": plan["count_warnings"],
 		"project_types": _project_types(manifests),
-		"apartments": list(apartments.values()),
+		"apartments": apartments,
 		"errors": plan["errors"],
 		"warnings": plan["warnings"],
 		"sync": plan["sync"],
@@ -386,7 +376,7 @@ def save_unit_editor(tender: str, apartments: str | list, settings: str | dict |
 	errors += plan["errors"]
 	if errors:
 		return {"ok": False, "errors": errors}
-	doc.set("unit_types", [{k: r[k] for k in UNIT_FIELDS} for r in rows])
+	doc.set("unit_types", _child_rows(plan["apartments"], _row_links(doc)))
 	if doc.unit_import_status not in ("Completed", "Creating"):
 		doc.unit_import_status = "Ready"
 	doc.save()
@@ -400,13 +390,74 @@ def save_unit_editor(tender: str, apartments: str | list, settings: str | dict |
 def preview_units(tender: str) -> dict:
 	"""What Create Projects would build from the Units table, with errors and warnings."""
 	doc = _get_won_tender(tender, "read")
-	rows = [{**{k: r.get(k) for k in UNIT_FIELDS}, "_row": r.idx} for r in doc.get("unit_types") or []]
-	plan = _plan(doc, rows, _site_name(doc), where=_where_apartment)
+	plan = _plan(doc, _table_rows(doc), _site_name(doc), where=_where_apartment)
 	status = "Failed" if plan["errors"] else "Ready"
 	if doc.unit_import_status not in ("Creating", "Completed") or plan["errors"]:
 		frappe.db.set_value("Tender", doc.name, "unit_import_status", status, update_modified=False)
 	plan["status"] = status
 	return plan
+
+
+def _table_rows(doc) -> list[dict]:
+	"""The Units table's rows for _plan: each one unit (Qty 1), with the project it's linked to."""
+	return [{**{k: r.get(k) for k in UNIT_FIELDS}, "qty": 1, "_child": r.name, "_row": r.idx} for r in doc.get("unit_types") or []]
+
+
+def _table_apartments(doc) -> list[dict]:
+	"""The Units table as the page and the workbook show it: an apartment per Apt No, with a manifest
+	and Qty (its number of units) per project type."""
+	apartments: dict[str, dict] = {}
+	for r in doc.get("unit_types") or []:
+		apt = apartments.setdefault((r.number or "").upper(), {"number": r.number, "type": r.unit_type or "", "floor": r.floor or "",
+		                                                       "name": r.unit_name or "", "manifests": {}})
+		m = apt["manifests"].setdefault(r.project_type or KITCHEN_PROJECT_TYPE, {"manifest": r.manifest, "qty": 0})
+		m["qty"] += 1
+	return list(apartments.values())
+
+
+def _row_links(doc) -> dict:
+	"""The projects the Units table's rows link to, by apartment, project type and unit No."""
+	return {((r.number or "").upper(), r.project_type or KITCHEN_PROJECT_TYPE, cint(r.unit_no) or 1): r.project
+	        for r in doc.get("unit_types") or [] if r.project}
+
+
+def _child_rows(apartments: list[dict], links: dict) -> list[dict]:
+	"""Units table rows for _plan's apartments: one per unit (an apartment's Robe Qty 2 is two rows, No. 1
+	and 2), each keeping the project its unit was linked to."""
+	rows = []
+	for apt in apartments:
+		for row in apt["rows"]:
+			for unit in row["units"]:
+				rows.append({"unit_type": apt["type"], "floor": apt["floor"], "number": apt["number"], "unit_name": apt["name"],
+				             "manifest": row["manifest"], "unit_no": unit["unit_no"],
+				             "project": links.get((apt["number"].upper(), row["project_type"], unit["unit_no"]))})
+	return rows
+
+
+def link_unit_projects(doc) -> int:
+	"""Link the Units table's rows to the projects already on the tender's site (rows that link to none
+	take the oldest unlinked project of their apartment and project type). Returns how many it linked."""
+	if not doc.project:
+		return 0
+	apartments: dict[str, dict] = {}
+	for r in doc.get("unit_types") or []:
+		apt = apartments.setdefault((r.number or "").upper(), {"number": r.number or "", "rows": {}})
+		row = apt["rows"].setdefault(r.project_type or KITCHEN_PROJECT_TYPE, {"units": []})
+		row["units"].append({"project": r.project, "child": r.name})
+	_match_projects(apartments.values(), _unit_projects(doc.project))
+	linked = 0
+	for apt in apartments.values():
+		for row in apt["rows"].values():
+			for unit in row["units"]:
+				if unit["match"] and unit["match"] != unit["project"]:
+					frappe.db.set_value("Tender Unit Type", unit["child"], "project", unit["match"], update_modified=False)
+					linked += 1
+	return linked
+
+
+def _unit_label(project_type: str, unit_no: int, qty: int) -> str:
+	"""A unit's place in its project name: Robe when the apartment has one, Robe 1 / Robe 2 when it has two."""
+	return project_type if qty == 1 else f"{project_type} {unit_no}"
 
 
 def _where_apartment(r: dict) -> str:
@@ -434,7 +485,8 @@ def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
 		if not m:
 			errors.append(_("{0}: {1} isn't one of this tender's manifests.").format(at, frappe.bold(r.get("manifest") or "-")))
 			continue
-		if cint(r.get("qty")) <= 0:
+		qty = cint(r.get("qty"))
+		if qty <= 0:
 			errors.append(_("{0}: Qty must be a whole number, at least 1.").format(at))
 		project_type = m.project_type or KITCHEN_PROJECT_TYPE
 		apt = apartments.setdefault(number.upper(), {
@@ -444,9 +496,25 @@ def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
 		for field, key, label in (("unit_type", "type", _("Apt Type")), ("floor", "floor", _("Floor")), ("unit_name", "name", _("Unit Name"))):
 			if cstr(r.get(field)).strip() != apt[key]:
 				errors.append(_("{0}: Apt {1} has a different {2} on another row.").format(at, frappe.bold(number), label))
-		if project_type in apt["rows"]:
-			errors.append(_("{0}: Apt {1} has two {2} manifests; use Qty for more than one.").format(at, frappe.bold(number), project_type))
-		apt["rows"][project_type] = {"manifest": m.name, "qty": cint(r.get("qty")) or 1}
+		same_type = apt["rows"].get(project_type)
+		if same_type and same_type["manifest"] != m.name:
+			errors.append(_("{0}: Apt {1} has two different {2} manifests; an apartment uses one per project type, with a Qty.").format(
+				at, frappe.bold(number), project_type))
+			continue
+		row = apt["rows"].setdefault(project_type, {"manifest": m.name, "qty": 0, "units": []})
+		# a table row is one unit (with its project); a row from the page or the workbook is Qty units
+		if r.get("_child"):
+			row["units"].append({"unit_no": cint(r.get("unit_no")), "project": r.get("project"), "child": r["_child"]})
+		else:
+			row["units"] += [{"unit_no": 0, "project": None, "child": None} for _i in range(max(qty, 1))]
+		row["qty"] = len(row["units"])
+
+	# number each apartment's units of a type 1, 2... in the order they had
+	for apt in apartments.values():
+		for row in apt["rows"].values():
+			row["units"].sort(key=lambda u: u["unit_no"] or float("inf"))
+			for n, unit in enumerate(row["units"], start=1):
+				unit["unit_no"] = n
 
 	for apt in apartments.values():
 		if apt["rows"] and KITCHEN_PROJECT_TYPE not in apt["rows"]:
@@ -473,7 +541,7 @@ def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
 		t = types.setdefault(apt["type"], {"code": apt["type"], "apartments": 0, "manifests": {}})
 		t["apartments"] += 1
 		for project_type, row in apt["rows"].items():
-			counts[project_type] = counts.get(project_type, 0) + 1
+			counts[project_type] = counts.get(project_type, 0) + row["qty"]
 			used = t["manifests"].setdefault(row["manifest"], {"project_type": project_type, "manifest": row["manifest"],
 			                                                   "manifest_name": manifests[row["manifest"]].tender_name, "apartments": 0})
 			used["apartments"] += 1
@@ -520,40 +588,67 @@ def _allocation(manifests, apartments: dict) -> list[dict]:
 
 
 def _sync_state(site: str | None, site_name: str, apartments: dict) -> dict:
-	"""Compare each apartment with the projects already on the site: new, changed (and what) or in
-	sync; and list the site's unit projects whose apartment is no longer in the table."""
+	"""Compare each apartment's units with their projects on the site: new, changed (and what) or in
+	sync; and list the site's unit projects no unit has any more."""
 	counts = {"new": 0, "changed": 0, "synced": 0}
-	projects = {}
-	if site:
-		for p in frappe.get_all("Project", filters={"fk_parent_project": site},
-		                        fields=["name", "project_type", "fk_house_number", "fk_unit_name", "fk_floor",
-		                                "fk_unit_qty", "fk_tender_manifest", "fk_unit_configuration"]):
-			projects[(cstr(p.fk_house_number).upper(), p.project_type)] = p
-	labels = {"fk_unit_name": _("Unit Name"), "fk_floor": _("Floor"), "fk_unit_qty": _("Qty"),
+	projects = _unit_projects(site) if site else []
+	left = _match_projects(apartments.values(), projects)
+	by_name = {p.name: p for p in projects}
+	labels = {"project_name": _("Name"), "fk_unit_name": _("Unit Name"), "fk_floor": _("Floor"), "fk_unit_qty": _("Qty"),
 	          "fk_tender_manifest": _("Manifest"), "fk_unit_configuration": _("Apt Type")}
 	for apt in apartments.values():
-		key = apt["number"].upper()
 		changes, missing = [], []
 		configuration = build_configuration_code(apt["type"], site_name) if apt["type"] else None
 		for project_type, row in apt["rows"].items():
-			p = projects.pop((key, project_type), None)
-			if not p:
-				missing.append(project_type)
-				continue
-			want = {"fk_unit_name": apt["name"] or None, "fk_floor": apt["floor"] or None, "fk_unit_qty": row["qty"],
-			        "fk_tender_manifest": row["manifest"], "fk_unit_configuration": configuration}
-			for field, value in want.items():
-				if cstr(p.get(field) or "") != cstr(value or ""):
-					changes.append(f"{_(project_type)} {labels[field]}")
-		if KITCHEN_PROJECT_TYPE in missing:
+			for unit in row["units"]:
+				label = _unit_label(project_type, unit["unit_no"], row["qty"])
+				p = by_name.get(unit.get("match"))
+				if not p:
+					missing.append(label)
+					continue
+				want = {"project_name": build_unit_project_name(site_name, apt["number"], label), "fk_unit_name": apt["name"] or None,
+				        "fk_floor": apt["floor"] or None, "fk_unit_qty": 1, "fk_tender_manifest": row["manifest"],
+				        "fk_unit_configuration": configuration}
+				for field, value in want.items():
+					if cstr(p.get(field) or "") != cstr(value or ""):
+						changes.append(f"{_(label)} {labels[field]}")
+		kitchen = apt["rows"].get(KITCHEN_PROJECT_TYPE)
+		if kitchen and not by_name.get(kitchen["units"][0].get("match")):
 			apt["sync"], apt["changes"] = "new", []
 		elif missing or changes:
-			apt["sync"], apt["changes"] = "changed", changes + [_("{0} to create").format(_(pt)) for pt in missing]
+			apt["sync"], apt["changes"] = "changed", changes + [_("{0} to create").format(_(label)) for label in missing]
 		else:
 			apt["sync"], apt["changes"] = "synced", []
 		counts[apt["sync"]] += 1
-	not_in_table = sorted({p.fk_house_number for p in projects.values() if p.fk_house_number})
+	not_in_table = [p.project_name or p.name for p in left]
 	return {"counts": counts, "not_in_table": not_in_table}
+
+
+def _unit_projects(site: str) -> list:
+	"""The unit projects on a site, oldest first."""
+	return frappe.get_all("Project", filters={"fk_parent_project": site},
+	                      fields=["name", "project_name", "project_type", "fk_house_number", "fk_unit_name", "fk_floor",
+	                              "fk_unit_qty", "fk_tender_manifest", "fk_unit_configuration"],
+	                      order_by="creation asc")
+
+
+def _match_projects(apartments, projects: list) -> list:
+	"""Give each unit (unit["match"]) its project: the one its row links to; failing that (projects from
+	before the rows had links), the oldest one left of its apartment and project type. Returns the
+	projects no unit took."""
+	free = {p.name: p for p in projects}
+	units = [(apt, project_type, unit) for apt in apartments for project_type, row in apt["rows"].items() for unit in row["units"]]
+	for _apt, _pt, unit in units:
+		unit["match"] = unit["project"] if unit.get("project") in free else None
+		if unit["match"]:
+			free.pop(unit["match"])
+	for apt, project_type, unit in units:
+		if unit["match"]:
+			continue
+		p = next((p for p in free.values() if cstr(p.fk_house_number).upper() == apt["number"].upper() and p.project_type == project_type), None)
+		if p:
+			unit["match"] = free.pop(p.name).name
+	return list(free.values())
 
 
 # ---------------------------------------------------------------- create
@@ -590,8 +685,8 @@ def build_unit_projects(tender: str):
 	stats = {"configurations": 0, "manifests": 0, "created": 0, "updated": 0}
 	try:
 		site_name = _site_name(doc)
-		rows = [{**{k: r.get(k) for k in UNIT_FIELDS}, "_row": r.idx} for r in doc.get("unit_types") or []]
-		plan = _plan(doc, rows, site_name, where=_where_apartment)
+		# _plan also matches each unit to its project on the site (unit["match"]), when the site exists
+		plan = _plan(doc, _table_rows(doc), site_name, where=_where_apartment)
 		if plan["errors"]:
 			raise frappe.ValidationError("\n".join(plan["errors"]))
 		customer = _party_customer(doc)
@@ -613,11 +708,16 @@ def build_unit_projects(tender: str):
 			stats["configurations"] += 1
 
 			for apt in apartments:
-				rows_by_type = {r["project_type"]: r for r in apt["rows"]}
-				kitchen = _upsert_unit(doc, site, site_name, customer, code, apt, rows_by_type[KITCHEN_PROJECT_TYPE], None, production, stats)
-				for project_type, row in rows_by_type.items():
-					if project_type != KITCHEN_PROJECT_TYPE:
-						_upsert_unit(doc, site, site_name, customer, code, apt, row, kitchen, production, stats)
+				# a project per unit, Kitchen first: the others go under the apartment's (first) kitchen
+				kitchen = None
+				for row in apt["rows"]:
+					for unit in row["units"]:
+						parent = None if row["project_type"] == KITCHEN_PROJECT_TYPE else kitchen
+						project = _upsert_unit(doc, site, site_name, customer, code, apt, row, unit, parent, production, stats)
+						if row["project_type"] == KITCHEN_PROJECT_TYPE and not kitchen:
+							kitchen = project
+						if unit["child"]:
+							frappe.db.set_value("Tender Unit Type", unit["child"], "project", project, update_modified=False)
 				done += 1
 				if done % 10 == 0 or done == total:
 					frappe.publish_progress(done * 100 / total, title=_("Creating unit projects"), doctype="Tender", docname=doc.name,
@@ -708,16 +808,17 @@ def _upsert_production_manifest(apt_type, site_name, configuration, tender_manif
 	return manifest.name
 
 
-def _upsert_unit(doc, site, site_name, customer, configuration, apt, row, parent_unit, production, stats) -> str:
+def _upsert_unit(doc, site, site_name, customer, configuration, apt, row, unit, parent_unit, production, stats) -> str:
+	"""One unit's project: Unit 101 | Robe | Site, or Robe 1 / Robe 2 when the apartment has two."""
 	project_type = row["project_type"]
 	values = {
-		"project_name": build_unit_project_name(site_name, apt["number"], project_type),
+		"project_name": build_unit_project_name(site_name, apt["number"], _unit_label(project_type, unit["unit_no"], row["qty"])),
 		"project_type": project_type,
 		"fk_parent_project": site,
 		"fk_house_number": apt["number"],
 		"fk_unit_name": apt["name"] or None,
 		"fk_floor": apt["floor"] or None,
-		"fk_unit_qty": row["qty"],
+		"fk_unit_qty": 1,
 		"fk_parent_unit_project": parent_unit,
 		"fk_unit_configuration": configuration,
 		"fk_tender_manifest": row["manifest"],
@@ -726,7 +827,7 @@ def _upsert_unit(doc, site, site_name, customer, configuration, apt, row, parent
 		"fk_developer": customer,
 	}
 	effective = production[row["manifest"]]
-	existing = frappe.db.get_value("Project", {"fk_parent_project": site, "fk_house_number": apt["number"], "project_type": project_type}, "name")
+	existing = unit.get("match")
 	if existing:
 		# a manifest amended for this one unit (Unit Snapshot) is kept
 		current = frappe.db.get_value("Project", existing, "fk_effective_manifest")
