@@ -187,11 +187,13 @@ function show_units_panel(frm, html) {
 	$w.html(html);
 	$w.find("[data-units-action]").on("click", function () {
 		const action = $(this).data("units-action");
-		if (frm.is_dirty() && action !== "add") {
+		if (frm.is_dirty() && action !== "add" && action !== "editor") {
 			frappe.msgprint(__("Save the tender first."));
 			return;
 		}
 		if (action === "add") add_units_dialog(frm);
+		// the editor is a page of its own, opened in a new tab beside the tender
+		if (action === "editor") window.open(`/desk/tender-units?tender=${encodeURIComponent(frm.doc.name)}`, "_blank");
 		if (action === "create") confirm_create_units(frm, false);
 		if (action === "sync") confirm_create_units(frm, true);
 		if (action === "site") frappe.set_route("Form", "Project", frm.doc.project);
@@ -202,10 +204,11 @@ function units_empty_html(frm) {
 	const add = frm.perm[0]?.write
 		? `<button class="btn btn-sm btn-primary" data-units-action="add">${__("Add Units")}</button>`
 		: "";
+	const editor = `<button class="btn btn-sm btn-default" data-units-action="editor">${__("Open Units Editor")}</button>`;
 	return `
 		<div style="text-align: center; padding: 32px 20px; color: var(--text-muted); border: 1px dashed var(--border-color); border-radius: var(--border-radius-md);">
-			<p style="margin-bottom: 12px;">${__("No units yet. Add them here, or download the workbook, fill in the Units sheet and attach it above.")}</p>
-			${add}
+			<p style="margin-bottom: 12px;">${__("No units yet. Add them here or in the Units Editor, or download the workbook, fill in the Units sheet and attach it above.")}</p>
+			${add} ${editor}
 		</div>`;
 }
 
@@ -226,6 +229,7 @@ function units_actions_html(p, frm) {
 		`<button class="btn btn-sm ${primary ? "btn-primary" : "btn-default"}" data-units-action="${action}" ${disabled ? "disabled" : ""}>${label}</button>`;
 	const can_project = frappe.model.can_create("Project");
 	const buttons = [
+		button("editor", __("Open Units Editor"), false, false),
 		frm.perm[0]?.write ? button("add", __("Add Units"), false, busy) : "",
 		!created && can_project ? button("create", __("Create Projects"), true, busy || blocked) : "",
 		created && can_project && pending ? button("sync", __("Sync Projects"), true, busy || blocked) : "",

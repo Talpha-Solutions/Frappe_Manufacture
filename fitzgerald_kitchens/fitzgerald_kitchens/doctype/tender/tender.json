@@ -276,6 +276,7 @@
   {
    "fieldname": "unit_types",
    "fieldtype": "Table",
+   "hidden": 1,
    "label": "Units",
    "options": "Tender Unit Type"
   },
@@ -339,7 +340,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-18 09:28:05.172095",
+ "modified": "2026-10-20 10:40:01.744406",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender",

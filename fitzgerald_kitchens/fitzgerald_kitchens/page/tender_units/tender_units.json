@@ -1,0 +1,29 @@
+{
+ "content": null,
+ "creation": "2026-10-18 17:40:47.872980",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-10-18 22:16:24.705500",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "tender-units",
+ "owner": "Administrator",
+ "page_name": "tender-units",
+ "roles": [
+  {
+   "role": "Tender Manager"
+  },
+  {
+   "role": "Tender User"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Tender Units"
+}

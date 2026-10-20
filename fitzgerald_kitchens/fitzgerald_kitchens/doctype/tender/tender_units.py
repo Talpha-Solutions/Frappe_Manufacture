@@ -305,6 +305,78 @@ def _type_headers(project_type: str) -> list[str]:
 	return [f"{project_type} Manifest", f"{project_type} Qty"]
 
 
+# ---------------------------------------------------------------- units editor page
+
+
+@frappe.whitelist()
+def get_unit_editor(tender: str) -> dict:
+	"""Everything the Tender Units page needs: the tender, its manifests, the apartments and their state."""
+	doc = _get_won_tender(tender, "read")
+	manifests = _tender_manifests(doc.name)
+	rows = [{**{k: r.get(k) for k in UNIT_FIELDS}, "_row": r.idx} for r in doc.get("unit_types") or []]
+	plan = _plan(doc, rows, _site_name(doc), where=_where_apartment)
+	sync = {a["number"].upper(): {"sync": a.get("sync"), "changes": a.get("changes")} for a in plan["apartments"]}
+
+	apartments: dict[str, dict] = {}
+	for r in doc.get("unit_types") or []:
+		key = (r.number or "").upper()
+		apt = apartments.setdefault(key, {"number": r.number, "type": r.unit_type or "", "floor": r.floor or "",
+		                                  "name": r.unit_name or "", "manifests": {}, **sync.get(key, {})})
+		apt["manifests"][r.project_type or KITCHEN_PROJECT_TYPE] = {"manifest": r.manifest, "qty": cint(r.qty) or 1}
+	return {
+		"tender": {
+			"name": doc.name, "tender_name": doc.tender_name, "party": doc.party_title or doc.party_name,
+			"party_type": doc.party_type, "project": doc.project, "status": doc.unit_import_status,
+			"site_name": _site_name(doc), "number_of_units": cint(doc.number_of_units),
+			"can_write": doc.has_permission("write"), "can_create_projects": frappe.has_permission("Project", "create"),
+		},
+		"manifests": [{"name": m.name, "label": _manifest_label(m), "project_type": m.project_type or KITCHEN_PROJECT_TYPE} for m in manifests],
+		"project_types": _project_types(manifests),
+		"apartments": list(apartments.values()),
+		"errors": plan["errors"],
+		"warnings": plan["warnings"],
+		"sync": plan["sync"],
+		"not_in_table": plan["not_in_table"],
+	}
+
+
+@frappe.whitelist()
+def save_unit_editor(tender: str, apartments: str | list) -> dict:
+	"""Save the page's apartments into the Units table (a row per apartment per manifest), if they pass the checks."""
+	doc = _get_won_tender(tender, "write")
+	if isinstance(apartments, str):
+		apartments = json.loads(apartments)
+	rows, errors, seen = [], [], set()
+	for i, apt in enumerate(apartments, start=1):
+		number = cstr(apt.get("number")).strip()
+		# a missing or repeated Apt No is reported once here, and the apartment left out of the row checks
+		if not number:
+			errors.append(_("Apartment #{0} has no Apt No.").format(i))
+			continue
+		if number.upper() in seen:
+			errors.append(_("Apt No {0} is used twice.").format(frappe.bold(number)))
+			continue
+		seen.add(number.upper())
+		manifests = {pt: m for pt, m in (apt.get("manifests") or {}).items() if (m or {}).get("manifest")}
+		if not manifests:
+			errors.append(_("Apt {0} has no manifests.").format(frappe.bold(number)))
+			continue
+		base = {"unit_type": cstr(apt.get("type")).strip(), "floor": cstr(apt.get("floor")).strip(), "number": number,
+		        "unit_name": cstr(apt.get("name")).strip(), "_where": _("Apt {0}").format(frappe.bold(number))}
+		for m in manifests.values():
+			qty = _whole_number(m.get("qty"), 1)
+			rows.append({**base, "manifest": m["manifest"], "qty": qty if qty is not None else -1})
+	plan = _plan(doc, rows, _site_name(doc), where=lambda r: r["_where"])
+	errors += plan["errors"]
+	if errors:
+		return {"ok": False, "errors": errors}
+	doc.set("unit_types", [{k: r[k] for k in UNIT_FIELDS} for r in rows])
+	if doc.unit_import_status not in ("Completed", "Creating"):
+		doc.unit_import_status = "Ready"
+	doc.save()
+	return {"ok": True, **get_unit_editor(doc.name)}
+
+
 # ---------------------------------------------------------------- preview
 
 
@@ -313,12 +385,17 @@ def preview_units(tender: str) -> dict:
 	"""What Create Projects would build from the Units table, with errors and warnings."""
 	doc = _get_won_tender(tender, "read")
 	rows = [{**{k: r.get(k) for k in UNIT_FIELDS}, "_row": r.idx} for r in doc.get("unit_types") or []]
-	plan = _plan(doc, rows, _site_name(doc), where=lambda r: _("Units row {0}").format(r["_row"]))
+	plan = _plan(doc, rows, _site_name(doc), where=_where_apartment)
 	status = "Failed" if plan["errors"] else "Ready"
 	if doc.unit_import_status not in ("Creating", "Completed") or plan["errors"]:
 		frappe.db.set_value("Tender", doc.name, "unit_import_status", status, update_modified=False)
 	plan["status"] = status
 	return plan
+
+
+def _where_apartment(r: dict) -> str:
+	"""Where a Units table row's error is: its apartment, as the table itself is hidden."""
+	return _("Apt {0}").format(frappe.bold(r.get("number"))) if r.get("number") else _("Units row {0}").format(r["_row"])
 
 
 def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
@@ -473,7 +550,7 @@ def build_unit_projects(tender: str):
 	try:
 		site_name = _site_name(doc)
 		rows = [{**{k: r.get(k) for k in UNIT_FIELDS}, "_row": r.idx} for r in doc.get("unit_types") or []]
-		plan = _plan(doc, rows, site_name, where=lambda r: _("Units row {0}").format(r["_row"]))
+		plan = _plan(doc, rows, site_name, where=_where_apartment)
 		if plan["errors"]:
 			raise frappe.ValidationError("\n".join(plan["errors"]))
 		customer = _party_customer(doc)
