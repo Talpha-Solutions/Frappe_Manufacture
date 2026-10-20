@@ -93,10 +93,10 @@ update_website_context = [
 # ----------
 
 # add methods and filters to jinja environment
-# jinja = {
-# 	"methods": "fitzgerald_kitchens.utils.jinja_methods",
-# 	"filters": "fitzgerald_kitchens.utils.jinja_filters"
-# }
+jinja = {
+	# the Tender Document print format
+	"methods": ["fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender_print.get_tender_document"],
+}
 
 # Installation
 # ------------
@@ -322,6 +322,7 @@ fixtures = [
 					"Task-sb_more_info-fieldtype",
 					"Address-address_type-options",
 					"Tender Manifest-main-default_print_format",
+					"Tender-main-default_print_format",
 				],
 			]
 		],

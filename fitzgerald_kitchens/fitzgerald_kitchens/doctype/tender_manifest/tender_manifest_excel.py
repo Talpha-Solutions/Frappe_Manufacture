@@ -213,7 +213,9 @@ def _write_item(ws, row: int, ref: str, line: dict, unit_count: float, client: b
 	return row
 
 
-def _write_line(ws, row: int, line: dict, unit_count: float, client: bool = False) -> int:
+def _line_values(line: dict, unit_count: float, client: bool = False) -> str:
+	"""A bill line's description, and its € per unit and € total (set on the line); shared by the
+	Excel bill and the Tender's print format so both show the same figures."""
 	item = line.get("item_name") or line.get("item_code") or _("Not selected")
 	excluded = bool(line.get("exclude_from_price"))
 	if line.get("is_charge"):
@@ -236,6 +238,12 @@ def _write_line(ws, row: int, line: dict, unit_count: float, client: bool = Fals
 	else:
 		line["per_unit"] = flt(line.get("amount"), 2)
 		line["total"] = flt(line["per_unit"] * unit_count, 2)
+	return description
+
+
+def _write_line(ws, row: int, line: dict, unit_count: float, client: bool = False) -> int:
+	description = _line_values(line, unit_count, client)
+	excluded = bool(line.get("exclude_from_price"))
 
 	values = {
 		3: description,
