@@ -17,7 +17,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, Side
 from openpyxl.utils import get_column_letter
 
-from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_manifest.tender_manifest_excel import (
+from fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_manifest_excel import (
 	FONT,
 	HEADER_FILL,
 	MONEY,

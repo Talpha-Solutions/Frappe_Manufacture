@@ -9,6 +9,7 @@ from frappe.model.document import Document
 from frappe.utils import cint, cstr, flt
 
 from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender import update_tender_totals
+from fitzgerald_kitchens.setup.project_unit_fields import SITE_PROJECT_TYPE
 from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template import (
 	tender_party,
 	validate_template_party,
@@ -26,6 +27,8 @@ class TenderManifest(Document):
 			self.naming_series = "KC-.YYYY.-.#####"
 
 	def validate(self):
+		if self.project_type == SITE_PROJECT_TYPE:
+			frappe.throw(_("A tender manifest prices a unit's room, so its Project Type can't be Site."))
 		if not self.template:
 			frappe.throw(_("Template is required."))
 		validate_template_party(self.template, *tender_party(self.tender))
