@@ -11,29 +11,12 @@ from urllib.parse import quote
 import frappe
 from erpnext.controllers.website_list_for_contact import get_customers_suppliers
 from frappe import _
-from frappe.utils import formatdate, getdate, today
+from frappe.utils import cstr, formatdate, getdate, today
 from frappe.utils.user import is_website_user
 
 from fitzgerald_kitchens.setup.project_hierarchy_fields import SITE_PARENT_FIELD
-from fitzgerald_kitchens.www.project_photos import (
-	_detect_category,
-	_get_project_type_label,
-	_normalize_task_type,
-)
+from fitzgerald_kitchens.www.project_photos import _detect_category, _get_project_type_label
 
-PRODUCTION_STAGES = (
-	"Survey",
-	"Drawing",
-	"Export",
-	"Manufacturing",
-	"Assembly",
-	"Despatch",
-	"Delivery",
-	"Fitting",
-	"Handover",
-)
-
-STAGE_COUNT = len(PRODUCTION_STAGES)
 
 EXCLUDED_TASK_STATUSES = frozenset({"Cancelled", "Template"})
 
@@ -82,12 +65,13 @@ def get_tracker_context(focused_project: str | None = None) -> dict:
 
 		project_tasks = tasks_by_project.get(project.name, [])
 		stage_tasks = _map_stage_tasks(project_tasks)
-		stages = [_build_stage_cell(stage_name, stage_tasks.get(stage_name), user_map) for stage_name in PRODUCTION_STAGES]
+		stage_names = _ordered_stage_names(stage_tasks)
+		stages = [_build_stage_cell(stage_name, stage_tasks[stage_name], user_map) for stage_name in stage_names]
 
 		_accumulate_global_metrics(global_metrics, project_tasks)
 
 		completed_count = sum(1 for stage in stages if stage.get("status") == "Completed")
-		progress_percent = int(round((completed_count / STAGE_COUNT) * 100)) if STAGE_COUNT else 0
+		progress_percent = int(round((completed_count / len(stages)) * 100)) if stages else 0
 
 		project_name = (project.get("project_name") or project.name).strip()
 
@@ -101,7 +85,7 @@ def get_tracker_context(focused_project: str | None = None) -> dict:
 				"category": _detect_category(project_type),
 				"search_text": _build_search_text(project_name, project_type, project.name),
 				"tasks_completed": completed_count,
-				"tasks_total": STAGE_COUNT,
+				"tasks_total": len(stages),
 				"progress_percent": progress_percent,
 				"needs_attention": any(stage["state"] in ("overdue", "due_today") for stage in stages),
 				"stages": stages,
@@ -309,16 +293,24 @@ def _task_is_newer(task, existing) -> bool:
 
 
 def _map_stage_tasks(project_tasks):
-	"""Pick the best task row per production stage (latest non-cancelled match)."""
+	"""Every task type that exists on the project, one row each (latest non-cancelled match) —
+	whatever the project's template actually has, not a fixed list of stages."""
 	stage_tasks = {}
 	for task in project_tasks or []:
-		stage_name = _normalize_task_type(task.get("type"))
-		if stage_name not in PRODUCTION_STAGES:
+		stage_name = cstr(task.get("type")).strip()
+		if not stage_name:
 			continue
+		if stage_name.lower() == "dispatch":
+			stage_name = "Despatch"
 		existing = stage_tasks.get(stage_name)
 		if not existing or _task_is_newer(task, existing):
 			stage_tasks[stage_name] = task
 	return stage_tasks
+
+
+def _ordered_stage_names(stage_tasks: dict) -> list[str]:
+	"""Stage names in the order their tasks were created, matching the project template's order."""
+	return sorted(stage_tasks, key=lambda name: stage_tasks[name].get("idx") or 0)
 
 
 def _build_stage_cell(stage_name: str, task, user_map: dict) -> dict:
