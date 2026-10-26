@@ -17,7 +17,7 @@ from io import BytesIO
 
 import frappe
 from frappe import _
-from frappe.utils import cint, cstr, flt, formatdate, getdate, nowdate
+from frappe.utils import add_days, cint, cstr, flt, formatdate, getdate, nowdate
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -821,6 +821,20 @@ def _upsert_production_manifest(apt_type, site_name, configuration, tender_manif
 	return manifest.name
 
 
+def _expected_start_date(template: str | None, delivery_date: str | None) -> str | None:
+	"""The project's start date, worked backwards from the apartment's Delivery Date: finds the
+	template's Delivery task and its day offset, then shifts the whole schedule so that task's
+	calculated date lands exactly on Delivery Date. Every other task (before or after Delivery)
+	falls out of the existing forward calculation in copy_from_template() once this is set."""
+	if not template or not delivery_date:
+		return None
+	for task in frappe.get_all("Project Template Task", filters={"parent": template}, pluck="task"):
+		task_type, start = frappe.db.get_value("Task", task, ["type", "start"])
+		if task_type == "Delivery":
+			return add_days(getdate(delivery_date), -cint(start))
+	return None
+
+
 def _upsert_unit(doc, site, site_name, customer, configuration, apt, row, unit, parent_unit, production, stats) -> str:
 	"""One unit's project: Unit 101 | Robe | Site, or Robe 1 / Robe 2 when the apartment has two."""
 	project_type = row["project_type"]
@@ -839,6 +853,9 @@ def _upsert_unit(doc, site, site_name, customer, configuration, apt, row, unit, 
 		"customer": customer,
 		"fk_developer": customer,
 	}
+	start_date = _expected_start_date(doc.project_template, apt.get("delivery_date"))
+	if start_date:
+		values["expected_start_date"] = start_date
 	effective = production[row["manifest"]]
 	existing = unit.get("match")
 	if existing:
