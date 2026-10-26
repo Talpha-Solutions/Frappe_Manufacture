@@ -17,7 +17,7 @@ from io import BytesIO
 
 import frappe
 from frappe import _
-from frappe.utils import cint, cstr, flt, formatdate, nowdate
+from frappe.utils import cint, cstr, flt, formatdate, getdate, nowdate
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -42,8 +42,8 @@ TENDER_SHEET = "Tender"
 UNITS_SHEET = "Units"
 LISTS_SHEET = "Lists"
 # the Units sheet: these, then a "<Project Type> Manifest" + "<Project Type> Qty" pair per project type
-BASE_HEADERS = ["Apt Type", "Floor", "Apt No", "Unit Name"]
-UNIT_FIELDS = ["unit_type", "floor", "number", "unit_name", "manifest", "unit_no", "project"]
+BASE_HEADERS = ["Apt Type", "Floor", "Apt No", "Unit Name", "Delivery Date"]
+UNIT_FIELDS = ["unit_type", "floor", "number", "unit_name", "delivery_date", "manifest", "unit_no", "project"]
 MANIFEST_HEADERS = ["Section", "Label", "Item Code", "Item Name", "Qty per Unit", "UOM", "Specification"]
 SITE_NAME_CELL = "B6"
 EDIT_FILL = PatternFill("solid", fgColor="FFF8E1")
@@ -138,10 +138,10 @@ def _write_how_to(ws, start: int, project_types):
 		cell.font = bold
 		cell.fill = HEADER_FILL
 	_box_row(ws, row, 1, len(headers), top=THIN, bottom=THIN)
-	samples = [("1B2P", "1", "101", "Plot 1", True), ("1B2P", "1", "102", "Plot 2", True), ("2B4P", "2", "201", "", False)]
-	for apt_type, floor, number, name, other in samples:
+	samples = [("1B2P", "1", "101", "Plot 1", "2026-12-01", True), ("1B2P", "1", "102", "Plot 2", "2026-12-01", True), ("2B4P", "2", "201", "", "", False)]
+	for apt_type, floor, number, name, delivery_date, other in samples:
 		row += 1
-		values = [apt_type, floor, number, name]
+		values = [apt_type, floor, number, name, delivery_date]
 		for i, pt in enumerate(example_types):
 			has = i == 0 or other
 			values += [f"<{_('a {0} manifest').format(_(pt))}>" if has else None, (1 if i == 0 else 2) if has else None]
@@ -154,7 +154,7 @@ def _write_how_to(ws, start: int, project_types):
 
 def _write_units_sheet(ws, doc, manifests, project_types, lists):
 	headers = BASE_HEADERS + [h for pt in project_types for h in _type_headers(pt)]
-	widths = [12, 8, 10, 28] + [w for _pt in project_types for w in (34, 8)]
+	widths = [12, 8, 10, 28, 14] + [w for _pt in project_types for w in (34, 8)]
 	for col, (label, width) in enumerate(zip(headers, widths), start=1):
 		cell = ws.cell(row=1, column=col, value=label)
 		cell.font = Font(name=FONT, size=10, bold=True)
@@ -162,13 +162,13 @@ def _write_units_sheet(ws, doc, manifests, project_types, lists):
 		cell.alignment = Alignment(vertical="center", wrap_text=True)
 		ws.column_dimensions[get_column_letter(col)].width = width
 	_box_row(ws, 1, 1, len(headers), top=THIN, bottom=THIN)
-	ws.freeze_panes = "E2"
+	ws.freeze_panes = "F2"
 
 	# the table's apartments, one row each, their manifests across (Qty: the apartment's units of that type)
 	labels = {m.name: _manifest_label(m) for m in manifests}
 	row = 2
 	for apt in _table_apartments(doc):
-		values = [apt["type"], apt["floor"], apt["number"], apt["name"]]
+		values = [apt["type"], apt["floor"], apt["number"], apt["name"], getdate(apt["delivery_date"]) if apt["delivery_date"] else None]
 		for pt in project_types:
 			m = apt["manifests"].get(pt)
 			values += [labels.get(m["manifest"], m["manifest"]), m["qty"]] if m else [None, None]
@@ -261,8 +261,12 @@ def upload_unit_workbook(tender: str, file_url: str | None = None) -> dict:
 			errors.append(_("{0}: Apt No {1} is on more than one row; one row per apartment.").format(at, frappe.bold(number)))
 			continue
 		seen.add(number.upper())
+		delivery_date, delivery_ok = _date(values.get("Delivery Date"))
+		if not delivery_ok:
+			errors.append(_("{0}: Delivery Date {1} isn't a valid date.").format(at, frappe.bold(delivery_date)))
+			delivery_date = ""
 		base = {"unit_type": cstr(values["Apt Type"]).strip(), "floor": _text(values["Floor"]), "number": number,
-		        "unit_name": cstr(values["Unit Name"]).strip()}
+		        "unit_name": cstr(values["Unit Name"]).strip(), "delivery_date": delivery_date}
 		picked = 0
 		for pt in project_types:
 			manifest = cstr(values[f"{pt} Manifest"]).split(" · ")[0].strip()
@@ -369,8 +373,12 @@ def save_unit_editor(tender: str, apartments: str | list, settings: str | dict |
 		if not manifests:
 			errors.append(_("Apt {0} has no manifests.").format(frappe.bold(number)))
 			continue
+		delivery_date, delivery_ok = _date(apt.get("delivery_date"))
+		if not delivery_ok:
+			errors.append(_("Apt {0}: Delivery Date {1} isn't a valid date.").format(frappe.bold(number), frappe.bold(delivery_date)))
+			delivery_date = ""
 		base = {"unit_type": cstr(apt.get("type")).strip(), "floor": cstr(apt.get("floor")).strip(), "number": number,
-		        "unit_name": cstr(apt.get("name")).strip(), "_where": _("Apt {0}").format(frappe.bold(number))}
+		        "unit_name": cstr(apt.get("name")).strip(), "delivery_date": delivery_date, "_where": _("Apt {0}").format(frappe.bold(number))}
 		for m in manifests.values():
 			qty = _whole_number(m.get("qty"), 1)
 			rows.append({**base, "manifest": m["manifest"], "qty": qty if qty is not None else -1})
@@ -411,7 +419,8 @@ def _table_apartments(doc) -> list[dict]:
 	apartments: dict[str, dict] = {}
 	for r in doc.get("unit_types") or []:
 		apt = apartments.setdefault((r.number or "").upper(), {"number": r.number, "type": r.unit_type or "", "floor": r.floor or "",
-		                                                       "name": r.unit_name or "", "manifests": {}})
+		                                                       "name": r.unit_name or "", "delivery_date": cstr(r.delivery_date or ""),
+		                                                       "manifests": {}})
 		m = apt["manifests"].setdefault(r.project_type or KITCHEN_PROJECT_TYPE, {"manifest": r.manifest, "qty": 0})
 		m["qty"] += 1
 	return list(apartments.values())
@@ -431,7 +440,7 @@ def _child_rows(apartments: list[dict], links: dict) -> list[dict]:
 		for row in apt["rows"]:
 			for unit in row["units"]:
 				rows.append({"unit_type": apt["type"], "floor": apt["floor"], "number": apt["number"], "unit_name": apt["name"],
-				             "manifest": row["manifest"], "unit_no": unit["unit_no"],
+				             "delivery_date": apt["delivery_date"], "manifest": row["manifest"], "unit_no": unit["unit_no"],
 				             "project": links.get((apt["number"].upper(), row["project_type"], unit["unit_no"]))})
 	return rows
 
@@ -492,9 +501,10 @@ def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
 		project_type = m.project_type or KITCHEN_PROJECT_TYPE
 		apt = apartments.setdefault(number.upper(), {
 			"number": number, "type": cstr(r.get("unit_type")).strip(), "floor": cstr(r.get("floor")).strip(),
-			"name": cstr(r.get("unit_name")).strip(), "rows": {},
+			"name": cstr(r.get("unit_name")).strip(), "delivery_date": cstr(r.get("delivery_date")).strip(), "rows": {},
 		})
-		for field, key, label in (("unit_type", "type", _("Apt Type")), ("floor", "floor", _("Floor")), ("unit_name", "name", _("Unit Name"))):
+		for field, key, label in (("unit_type", "type", _("Apt Type")), ("floor", "floor", _("Floor")), ("unit_name", "name", _("Unit Name")),
+		                          ("delivery_date", "delivery_date", _("Delivery Date"))):
 			if cstr(r.get(field)).strip() != apt[key]:
 				errors.append(_("{0}: Apt {1} has a different {2} on another row.").format(at, frappe.bold(number), label))
 		same_type = apt["rows"].get(project_type)
@@ -922,6 +932,18 @@ def _text(value) -> str:
 	if isinstance(value, float) and value == int(value):
 		return str(int(value))
 	return cstr(value).strip()
+
+
+def _date(value) -> tuple[str, bool]:
+	"""A cell or typed value as an ISO date string; blank is valid (""). The second value is False
+	when the input wasn't blank but isn't a date, so the caller can report it."""
+	text = _text(value)
+	if not text:
+		return "", True
+	try:
+		return str(getdate(value if not isinstance(value, str) else text)), True
+	except Exception:
+		return text, False
 
 
 def _whole_number(value, default):

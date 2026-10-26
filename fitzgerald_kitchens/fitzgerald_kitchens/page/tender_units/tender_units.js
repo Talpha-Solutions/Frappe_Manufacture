@@ -215,7 +215,7 @@ class TenderUnits {
 
 	payload() {
 		return this.sorted(this.apts).map((a) => ({
-			number: a.number, type: a.type, floor: a.floor, name: a.name,
+			number: a.number, type: a.type, floor: a.floor, name: a.name, delivery_date: a.delivery_date,
 			manifests: Object.fromEntries(Object.entries(a.manifests || {}).filter(([, m]) => m && m.manifest)),
 		}));
 	}
@@ -451,6 +451,7 @@ class TenderUnits {
 			{ key: "floor", label: __("Floor") },
 			{ key: "number", label: __("Apt No") },
 			{ key: "name", label: __("Unit Name") },
+			{ key: "delivery_date", label: __("Delivery Date") },
 		];
 		for (const pt of this.data.project_types) {
 			cols.push({ key: `m:${pt}`, label: __("{0} Manifest", [pt]), pt, kind: "manifest" });
@@ -467,7 +468,7 @@ class TenderUnits {
 
 	set_cell(apt, col, value) {
 		value = (value ?? "").toString().trim();
-		const before = JSON.stringify([apt.type, apt.floor, apt.number, apt.name, apt.manifests]);
+		const before = JSON.stringify([apt.type, apt.floor, apt.number, apt.name, apt.delivery_date, apt.manifests]);
 		apt.manifests = apt.manifests || {};
 		if (col.kind === "manifest") {
 			const name = value ? this.find_manifest(col.pt, value) : null;
@@ -481,7 +482,7 @@ class TenderUnits {
 			apt[col.key] = value;
 		}
 		// moving through a cell with Enter fires change too; only a real change marks the apartment edited
-		if (JSON.stringify([apt.type, apt.floor, apt.number, apt.name, apt.manifests]) !== before) this.touch(apt);
+		if (JSON.stringify([apt.type, apt.floor, apt.number, apt.name, apt.delivery_date, apt.manifests]) !== before) this.touch(apt);
 		return true;
 	}
 
@@ -504,15 +505,12 @@ class TenderUnits {
 					${this.manifests_for(col.pt).map((m) => `<option value="${frappe.utils.escape_html(m.name)}" ${m.name === value ? "selected" : ""}>${frappe.utils.escape_html(m.label)}</option>`).join("")}
 				</select>`;
 			}
-			return `<input class="fk-tu-cell ${col.kind === "qty" ? "fk-tu-qty" : ""}" data-r="${r}" data-c="${c}" value="${frappe.utils.escape_html(value)}" ${dis}>`;
+			return `<input class="fk-tu-cell ${col.kind === "qty" ? "fk-tu-qty" : ""} ${col.key === "delivery_date" ? "fk-tu-date" : ""}" data-r="${r}" data-c="${c}" value="${frappe.utils.escape_html(value)}" ${dis}>`;
 		};
 		const sort = this.grid_sort || {};
 		const arrow = (c) => (sort.c === c ? (sort.desc ? " ↓" : " ↑") : "");
 		// the view element is reused, so drop the last render's delegated handlers
 		const $view = this.$body.find(".fk-tu-view").off().html(`
-			${can_write ? `<div class="fk-tu-hint text-muted small">
-				${__("Paste cells from Excel (rows are added as needed). <b>Ctrl+D</b> copies a cell down to the ticked rows below it (or the next row). Tick rows to delete them. Click a heading to sort.")}
-			</div>` : ""}
 			<div class="fk-tu-grid-wrap">
 				<table class="fk-tu-grid">
 					<thead><tr>
@@ -537,6 +535,24 @@ class TenderUnits {
 				<button class="btn btn-xs btn-secondary" data-act="add-row">${__("Add Row")}</button>
 			</div>` : ""}`);
 		this.bind_grid($view, rows, cols);
+		this.bind_datepickers($view);
+	}
+
+	// a real Frappe-style calendar on each Delivery Date cell, instead of a plain text box
+	bind_datepickers($view) {
+		$view.find(".fk-tu-date").each((i, el) => {
+			const $el = $(el);
+			$el.datepicker({
+				language: "en",
+				autoClose: true,
+				todayButton: true,
+				dateFormat: "yyyy-mm-dd",
+				firstDay: frappe.datetime.get_first_day_of_the_week_index(),
+				// picking a date writes it into the input and fires change, same as typing it; the
+				// grid's existing change handler (bind_grid) takes it from there
+				onSelect: () => $el.trigger("change"),
+			});
+		});
 	}
 
 	// focus a grid cell after a re-render
@@ -604,7 +620,7 @@ class TenderUnits {
 		});
 		// a new, empty row at the bottom, like a child table's Add Row
 		$view.find("[data-act=add-row]").on("click", () => {
-			const apt = { _id: this.next_id++, type: "", floor: "", number: "", name: "", manifests: {} };
+			const apt = { _id: this.next_id++, type: "", floor: "", number: "", name: "", delivery_date: "", manifests: {} };
 			this.touch(apt);
 			this.apts.push(apt);
 			this.grid_order.push(apt._id);
@@ -658,7 +674,7 @@ class TenderUnits {
 		lines.forEach((cells, i) => {
 			let apt = rows[r0 + i];
 			if (!apt) {
-				apt = { _id: this.next_id++, number: "", type: "", floor: "", name: "", manifests: {} };
+				apt = { _id: this.next_id++, number: "", type: "", floor: "", name: "", delivery_date: "", manifests: {} };
 				this.apts.push(apt);
 				this.grid_order.push(apt._id);
 				rows.push(apt);
@@ -701,7 +717,6 @@ class TenderUnits {
 			.fk-tu-type i, .fk-tu-idx i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
 			.fk-tu-messages .alert { padding: 8px 12px; margin-bottom: 8px; }
 			.fk-tu-messages ul { margin: 0; padding-left: 18px; }
-			.fk-tu-hint { margin-bottom: 8px; }
 			.fk-tu-grid th.fk-tu-sort { cursor: pointer; user-select: none; }
 			.fk-tu-grid th.fk-tu-sort:hover { color: var(--text-color); background: var(--fg-hover-color); }
 			.fk-tu-footer { margin-top: 8px; display: flex; gap: 6px; }

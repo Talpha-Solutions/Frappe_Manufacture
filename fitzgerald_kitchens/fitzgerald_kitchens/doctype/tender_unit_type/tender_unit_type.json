@@ -11,6 +11,7 @@
   "floor",
   "number",
   "unit_name",
+  "delivery_date",
   "manifest",
   "project_type",
   "unit_no",
@@ -48,6 +49,14 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Unit Name"
+  },
+  {
+   "columns": 1,
+   "description": "Scheduled delivery date for the apartment",
+   "fieldname": "delivery_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Delivery Date"
   },
   {
    "columns": 2,
@@ -93,7 +102,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-10-20 17:57:01.591144",
+ "modified": "2026-10-26 19:29:19.662796",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender Unit Type",
