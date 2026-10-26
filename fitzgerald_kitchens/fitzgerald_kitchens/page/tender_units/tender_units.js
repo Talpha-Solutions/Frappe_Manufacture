@@ -221,6 +221,8 @@ class TenderUnits {
 	}
 
 	create_projects(syncing) {
+		// the page can be saved with no apartments, but there's nothing to create from it
+		if (!this.apts.length) return frappe.msgprint(__("Add the apartments first: there are no units to create projects for."));
 		const { issues, counts } = this.checks();
 		if (issues.length) {
 			return frappe.msgprint({ title: __("Fix these first"), indicator: "red", message: `<ul>${issues.map((i) => `<li>${i}</li>`).join("")}</ul>` });

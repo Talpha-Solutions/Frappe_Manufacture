@@ -279,6 +279,8 @@ def upload_unit_workbook(tender: str, file_url: str | None = None) -> dict:
 		if not picked:
 			errors.append(_("{0}: Apt {1} has no manifests.").format(at, frappe.bold(number or "-")))
 	site_name = cstr(wb[TENDER_SHEET][SITE_NAME_CELL].value).strip() if TENDER_SHEET in wb.sheetnames else ""
+	if not rows and not errors:
+		errors.append(_("The Units sheet has no apartments. Fill it in, or clear the units on the Tender Units page instead."))
 
 	plan = _plan(doc, rows, site_name or _site_name(doc), where=lambda r: r["_where"])
 	plan["errors"] = errors + plan["errors"]
@@ -378,7 +380,7 @@ def save_unit_editor(tender: str, apartments: str | list, settings: str | dict |
 		return {"ok": False, "errors": errors}
 	doc.set("unit_types", _child_rows(plan["apartments"], _row_links(doc)))
 	if doc.unit_import_status not in ("Completed", "Creating"):
-		doc.unit_import_status = "Ready"
+		doc.unit_import_status = "Ready" if doc.unit_types else "Not Started"
 	doc.save()
 	return {"ok": True, **get_unit_editor(doc.name)}
 
@@ -391,7 +393,7 @@ def preview_units(tender: str) -> dict:
 	"""What Create Projects would build from the Units table, with errors and warnings."""
 	doc = _get_won_tender(tender, "read")
 	plan = _plan(doc, _table_rows(doc), _site_name(doc), where=_where_apartment)
-	status = "Failed" if plan["errors"] else "Ready"
+	status = "Failed" if plan["errors"] else "Ready" if doc.get("unit_types") else "Not Started"
 	if doc.unit_import_status not in ("Creating", "Completed") or plan["errors"]:
 		frappe.db.set_value("Tender", doc.name, "unit_import_status", status, update_modified=False)
 	plan["status"] = status
@@ -469,8 +471,7 @@ def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
 	"""Group the unit rows into apartments and check them; the same checks for the table and the file."""
 	errors, warnings = [], []
 	manifests = {m.name: m for m in _tender_manifests(doc.name)}
-	if not rows:
-		errors.append(_("There are no units yet. Add them on the Tender Units page, or upload the workbook there."))
+	# no rows is fine here (the page can be saved empty); Create Projects checks for units itself
 
 	apartments: dict[str, dict] = {}
 	for r in rows:
@@ -665,6 +666,8 @@ def create_unit_projects(tender: str):
 		frappe.throw(_("The party is a Lead; converting it to a Customer needs permission to create Customers."), frappe.PermissionError)
 	if doc.unit_import_status == "Creating":
 		frappe.throw(_("The projects are already being created."))
+	if not doc.get("unit_types"):
+		frappe.throw(_("There are no units yet. Add them on the Tender Units page, or upload the workbook there."))
 	if preview_units(doc.name)["errors"]:
 		frappe.throw(_("Fix the errors in the preview first."))
 
