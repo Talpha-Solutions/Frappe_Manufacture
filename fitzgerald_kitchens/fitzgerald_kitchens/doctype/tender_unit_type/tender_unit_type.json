@@ -1,0 +1,116 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-10-16 17:56:10.323123",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "unit_type",
+  "floor",
+  "number",
+  "unit_name",
+  "delivery_date",
+  "manifest",
+  "project_type",
+  "unit_no",
+  "project"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "description": "e.g. 1B2P; apartments of a type share a project configuration",
+   "fieldname": "unit_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Apt Type"
+  },
+  {
+   "columns": 1,
+   "fieldname": "floor",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Floor"
+  },
+  {
+   "columns": 1,
+   "description": "Rows with the same Apt No are one apartment",
+   "fieldname": "number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Apt No",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "description": "Plot, address or label",
+   "fieldname": "unit_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Unit Name"
+  },
+  {
+   "columns": 1,
+   "description": "Scheduled delivery date for the apartment",
+   "fieldname": "delivery_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Delivery Date"
+  },
+  {
+   "columns": 2,
+   "fieldname": "manifest",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Manifest",
+   "options": "Tender Manifest",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fetch_from": "manifest.project_type",
+   "fieldname": "project_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Project Type",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "default": "1",
+   "description": "Which one of the apartment's units of this project type: Robe 1, Robe 2...",
+   "fieldname": "unit_no",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "No.",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "description": "The project made for this unit",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "no_copy": 1,
+   "options": "Project",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-26 19:29:19.662796",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Tender Unit Type",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -136,13 +136,15 @@ def get_project_unit_custom_fields() -> dict:
 				"fieldtype": "Data",
 				"label": "House Number",
 				"depends_on": UNIT_TAB_DEPENDS_ON,
-				"insert_after": "fk_site_tender_price_per_kitchen",
+				# after the unit's own tender fields (fk_tender_manifest_price, a fixture)
+				"insert_after": "fk_tender_manifest_price",
 			},
 			{
 				"fieldname": "fk_col_break_hierarchy",
 				"fieldtype": "Column Break",
 				"depends_on": UNIT_TAB_DEPENDS_ON,
-				"insert_after": "fk_house_number",
+				# after Unit Name and Floor (fixtures placed after House Number)
+				"insert_after": "fk_floor",
 			},
 			{
 				"fieldname": "fk_bedrooms",

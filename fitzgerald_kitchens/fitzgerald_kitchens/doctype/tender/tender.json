@@ -35,7 +35,24 @@
   "total_margin",
   "total_tender_price",
   "section_break_notes",
-  "notes"
+  "notes",
+  "units_tab",
+  "section_break_unit_setup",
+  "unit_site_name",
+  "company",
+  "column_break_unit_setup",
+  "project_template",
+  "section_break_unit_types",
+  "unit_types",
+  "section_break_unit_workbook",
+  "download_unit_workbook",
+  "unit_workbook",
+  "units_preview_html",
+  "section_break_unit_projects",
+  "unit_import_status",
+  "project",
+  "column_break_unit_projects",
+  "unit_import_summary"
  ],
  "fields": [
   {
@@ -216,12 +233,120 @@
    "fieldname": "notes",
    "fieldtype": "Text Editor",
    "label": "Notes"
+  },
+  {
+   "depends_on": "eval:doc.status=='Won'",
+   "fieldname": "units_tab",
+   "fieldtype": "Tab Break",
+   "label": "Units"
+  },
+  {
+   "fieldname": "section_break_unit_setup",
+   "fieldtype": "Section Break",
+   "label": "Unit Setup",
+   "description": "One row per apartment per manifest; an apartment with a kitchen and a robe has two rows"
+  },
+  {
+   "description": "The Site project's name; defaults to the tender name",
+   "fieldname": "unit_site_name",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Site Name"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_unit_setup",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Tasks added to each unit project",
+   "fieldname": "project_template",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Project Template",
+   "options": "Project Template"
+  },
+  {
+   "fieldname": "section_break_unit_types",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "unit_types",
+   "fieldtype": "Table",
+   "hidden": 1,
+   "label": "Units",
+   "options": "Tender Unit Type"
+  },
+  {
+   "fieldname": "section_break_unit_workbook",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "download_unit_workbook",
+   "fieldtype": "Button",
+   "hidden": 1,
+   "label": "Download Workbook",
+   "description": "An import template: a Units sheet with a row per apartment and a Manifest + Qty column pair per project type, plus a sheet per manifest for reference."
+  },
+  {
+   "fieldname": "unit_workbook",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Unit Workbook",
+   "description": "Attaching the workbook replaces the Units table with its rows"
+  },
+  {
+   "fieldname": "units_preview_html",
+   "fieldtype": "HTML",
+   "label": "Units Preview"
+  },
+  {
+   "fieldname": "section_break_unit_projects",
+   "fieldtype": "Section Break",
+   "label": "Projects"
+  },
+  {
+   "default": "Not Started",
+   "fieldname": "unit_import_status",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Unit Projects Status",
+   "options": "Not Started\nReady\nCreating\nCompleted\nFailed",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Site Project",
+   "options": "Project",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_unit_projects",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "unit_import_summary",
+   "fieldtype": "Long Text",
+   "hidden": 1,
+   "label": "Summary",
+   "read_only": 1,
+   "no_copy": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-16 22:00:56.177978",
+ "modified": "2026-10-20 11:16:11.630168",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender",

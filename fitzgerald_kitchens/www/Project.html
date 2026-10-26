@@ -285,20 +285,10 @@
 
   .fk-timeline {
     display: grid;
-    grid-template-columns: repeat(9, minmax(0, 1fr));
+    /* projects can have any number of stages (whatever their template has), so the column
+       count adapts to the available width instead of assuming a fixed number of stages */
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
     gap: 0.45rem;
-  }
-
-  @media (max-width: 1100px) {
-    .fk-timeline {
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 640px) {
-    .fk-timeline {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
   }
 
   .fk-stage {

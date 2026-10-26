@@ -73,3 +73,4 @@ fitzgerald_kitchens.patches.v1_0.move_tender_manifest_print_format_to_property_s
 fitzgerald_kitchens.patches.v1_0.move_tender_customer_to_party
 fitzgerald_kitchens.patches.v1_0.rename_tender_from_to_party_type
 fitzgerald_kitchens.patches.v1_0.move_template_customer_to_party
+fitzgerald_kitchens.patches.v1_0.split_tender_units_per_qty

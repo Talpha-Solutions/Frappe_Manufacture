@@ -2,7 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.utils import add_days, cint, getdate, today
+from frappe.utils import getdate, today
 
 try:
 	from hrms.overrides.employee_project import EmployeeProject as ProjectBase
@@ -23,14 +23,16 @@ class FKProject(ProjectBase):
 
 	def _ensure_expected_end_date_for_template(self):
 		template = frappe.get_doc("Project Template", self.project_template)
-		project_start = getdate(self.expected_start_date)
-		latest_task_end = project_start
+		latest_task_end = getdate(self.expected_start_date)
 
 		for row in template.tasks:
 			task_details = frappe.get_doc("Task", row.task)
-			task_end = add_days(project_start, cint(task_details.start) + cint(task_details.duration))
-			if getdate(task_end) > latest_task_end:
-				latest_task_end = getdate(task_end)
+			# the same dates ERPNext gives the task (moved past holidays), or the task's end
+			# date can fall after the project's and the task is rejected
+			self.calculate_start_date(task_details)
+			task_end = getdate(self.calculate_end_date(task_details))
+			if task_end > latest_task_end:
+				latest_task_end = task_end
 
 		if not self.expected_end_date or getdate(self.expected_end_date) < latest_task_end:
 			self.expected_end_date = latest_task_end
