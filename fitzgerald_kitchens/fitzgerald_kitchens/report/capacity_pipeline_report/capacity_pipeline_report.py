@@ -69,17 +69,18 @@ def get_default_bom(company=None):
 
     has_fk_bom = frappe.db.has_column("Project", "fk_effective_bom")
     fk_select = "p.fk_effective_bom" if has_fk_bom else "NULL"
+    kitchen_select = _legacy_project_col("kitchen_bom")
     row = frappe.db.sql(
         f"""
         SELECT bom_name, COUNT(*) AS project_count
         FROM (
-            SELECT COALESCE({fk_select}, p.kitchen_bom) AS bom_name
+            SELECT COALESCE({fk_select}, {kitchen_select}) AS bom_name
             FROM `tabProject` p
             WHERE
                 p.company = %(company)s
                 AND p.docstatus < 2
                 AND p.status NOT IN ('Cancelled', 'Completed')
-                AND COALESCE({fk_select}, p.kitchen_bom) IS NOT NULL
+                AND COALESCE({fk_select}, {kitchen_select}) IS NOT NULL
         ) AS assigned
         INNER JOIN `tabBOM` b ON b.name = assigned.bom_name
         WHERE b.company = %(company)s AND b.docstatus = 1 AND b.is_active = 1
@@ -167,16 +168,33 @@ def _project_unit_qty_sql(prefix="p"):
     return "1"
 
 
+LEGACY_PROJECT_FIELDS = ("kitchen_bom", "kitchen_required", "wardrobe_bom", "wardrobe_required")
+
+
+def _legacy_project_col(fieldname, prefix="p"):
+    """Legacy Project BOM tab field (removed by project_bom_fields) — NULL on sites without it."""
+    if frappe.db.has_column("Project", fieldname):
+        return f"{prefix}.{fieldname}"
+    return "NULL"
+
+
+def _legacy_project_select(prefix="p"):
+    """SELECT list for the legacy fields, aliased so rows always carry the keys."""
+    return ",\n            ".join(
+        f"{_legacy_project_col(f, prefix)} AS {f}" for f in LEGACY_PROJECT_FIELDS
+    )
+
+
 def _project_is_kitchen_sql(prefix="p"):
     return (
-        f"(IFNULL({prefix}.kitchen_required, 0) = 1 "
+        f"(IFNULL({_legacy_project_col('kitchen_required', prefix)}, 0) = 1 "
         f"OR IFNULL({prefix}.project_type, '') = 'Kitchen')"
     )
 
 
 def _project_is_wardrobe_sql(prefix="p"):
     return (
-        f"(IFNULL({prefix}.wardrobe_required, 0) = 1 "
+        f"(IFNULL({_legacy_project_col('wardrobe_required', prefix)}, 0) = 1 "
         f"OR IFNULL({prefix}.project_type, '') = 'Robe')"
     )
 
@@ -507,10 +525,7 @@ def _q_projects(filters):
             p.customer,
             p.fk_effective_bom,
             p.project_type,
-            p.kitchen_bom,
-            p.kitchen_required,
-            p.wardrobe_bom,
-            p.wardrobe_required{parent_select}
+            {_legacy_project_select()}{parent_select}
         FROM
             `tabProject` p
         WHERE
@@ -547,10 +562,7 @@ def _q_all_unit_projects(filters):
             p.customer,
             p.fk_effective_bom,
             p.project_type,
-            p.kitchen_bom,
-            p.kitchen_required,
-            p.wardrobe_bom,
-            p.wardrobe_required{parent_select}
+            {_legacy_project_select()}{parent_select}
         FROM
             `tabProject` p
         WHERE
@@ -593,10 +605,7 @@ def _append_site_parent_projects(projects, filters):
             p.customer,
             p.project_type,
             p.fk_effective_bom,
-            p.kitchen_bom,
-            p.kitchen_required,
-            p.wardrobe_bom,
-            p.wardrobe_required,
+            {_legacy_project_select()},
             p.{SITE_PARENT_FIELD}
         FROM
             `tabProject` p
@@ -632,10 +641,7 @@ def _q_all_site_projects(filters):
             p.customer,
             p.fk_effective_bom,
             p.project_type,
-            p.kitchen_bom,
-            p.kitchen_required,
-            p.wardrobe_bom,
-            p.wardrobe_required,
+            {_legacy_project_select()},
             p.{SITE_PARENT_FIELD}
         FROM
             `tabProject` p
@@ -695,10 +701,7 @@ def _q_projects_by_names(project_names):
             p.customer,
             p.fk_effective_bom,
             p.project_type,
-            p.kitchen_bom,
-            p.kitchen_required,
-            p.wardrobe_bom,
-            p.wardrobe_required{parent_select}
+            {_legacy_project_select()}{parent_select}
         FROM
             `tabProject` p
         WHERE
