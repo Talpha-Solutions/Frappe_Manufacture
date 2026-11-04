@@ -797,7 +797,8 @@ def _upsert_production_manifest(apt_type, site_name, configuration, tender_manif
 	category = MANIFEST_CATEGORY.get(project_type, "Unit")
 	items = []
 	for line in _manifest_rows(frappe.get_doc("Tender Manifest", tender_manifest)):
-		bom = resolve_manifest_linked_bom(line["item_code"])
+		# the row's own BOM first, else the item's default
+		bom = line["bom"] or resolve_manifest_linked_bom(line["item_code"])
 		items.append({
 			"item_code": line["item_code"],
 			"description": line["item_name"],
@@ -929,6 +930,8 @@ def _manifest_rows(manifest) -> list[dict]:
 			"uom": uom,
 			"uom_code": uom if frappe.db.exists("UOM", uom) else item.stock_uom,
 			"specification": (r.get("specification") or "").strip(),
+			# the BOM picked on the row, e.g. the one resolved for the manifest's spec
+			"bom": r.get("bom") or None,
 		})
 	return out
 

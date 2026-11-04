@@ -79,30 +79,18 @@ def get_active_bom_no(item_code: str, linked_bom: str | None = None, project: st
 	return bom_no or None
 
 
-RAW_MATERIAL_ITEM_GROUPS = frozenset({"Raw Material"})
-
-
-def is_manufacturing_item(item_code: str) -> bool:
-	"""Return True for finished goods / sub-assemblies, not raw materials."""
+def is_manufacturing_item(item_code: str, linked_bom: str | None = None) -> bool:
+	"""Return True for items made in-house: those with a submitted, active BOM (the manifest line's
+	linked BOM, or the item's default). Raw materials and bought-in items have none; they come from
+	the BOM explosion or a Material Request, not from a production line of their own."""
 	if not item_code:
 		return False
 
-	item = frappe.db.get_value(
-		"Item",
-		item_code,
-		["include_item_in_manufacturing", "item_group", "disabled"],
-		as_dict=True,
-	)
-	if not item or item.disabled:
+	item = frappe.db.get_value("Item", item_code, ["include_item_in_manufacturing", "disabled"], as_dict=True)
+	if not item or item.disabled or not cint(item.include_item_in_manufacturing):
 		return False
 
-	if not cint(item.include_item_in_manufacturing):
-		return False
-
-	if (item.item_group or "") in RAW_MATERIAL_ITEM_GROUPS:
-		return False
-
-	return True
+	return bool(get_active_bom_no(item_code, linked_bom))
 
 
 def get_manifest_items_for_project(project: str, effective_manifest: str | None = None) -> list[dict]:
@@ -123,7 +111,7 @@ def get_manifest_items_for_project(project: str, effective_manifest: str | None 
 			continue
 
 		item_details = get_item_details(row.item_code, project=project, skip_bom_info=True, throw=False) or {}
-		if not is_manufacturing_item(row.item_code):
+		if not is_manufacturing_item(row.item_code, row.linked_bom):
 			continue
 
 		bom_no = get_active_bom_no(row.item_code, row.linked_bom, project=project) or ""
