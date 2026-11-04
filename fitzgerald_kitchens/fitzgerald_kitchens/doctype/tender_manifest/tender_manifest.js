@@ -154,6 +154,7 @@ async function render_builder(frm) {
 			.fk-rate-value.edited { color: var(--text-color); font-weight: var(--weight-medium); }
 			.fk-rate-reset { margin-left: 4px; cursor: pointer; }
 			.fk-rate-ctl { margin-top: 2px; }
+			.fk-bom-ctl { margin-top: var(--padding-xs); }
 			.fk-rate-ctl input { height: 26px !important; font-size: var(--text-xs) !important; }
 			.fk-label { font-size: var(--text-md); font-weight: var(--weight-medium); color: var(--text-color); line-height: 1.3; }
 			.fk-sub { font-size: var(--text-sm); color: var(--text-muted); line-height: 1.3; }
@@ -223,7 +224,7 @@ async function render_builder(frm) {
 						<div class="fk-label">${escape_html(row.label || "")}</div>
 						<div class="fk-sub">${escape_html(row.subtitle || "")}</div>
 					</div>
-					<div><div class="fk-item-ctl"></div><div class="fk-rate">${rate_html(row)}</div><div class="fk-rate-ctl hide"></div></div>
+					<div><div class="fk-item-ctl"></div><div class="fk-rate">${rate_html(row)}</div><div class="fk-rate-ctl hide"></div><div class="fk-bom-ctl hide"></div></div>
 					<div class="fk-spec-ctl"></div>
 					<div class="fk-qty-ctl"></div>
 					<div>
@@ -470,6 +471,7 @@ async function load_template_rows(frm, forceReload) {
 			...row,
 			price_row: "",
 			item_code: "",
+			bom: "",
 			rate: 0,
 			currency: "",
 			uom: "",
@@ -504,7 +506,7 @@ async function load_template_cabinet_prices(frm, forceReload = false) {
 async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 	// one call per item group, all at once, rather than one per row in turn
 	const groups = [...new Set(rows.map((r) => r.item_group).filter(Boolean))];
-	const [specOptions, groupPrices] = await Promise.all([
+	const [specOptions, groupPrices, bomItems] = await Promise.all([
 		fetch_spec_options(rows.map((r) => r.item_code)),
 		Promise.all(
 			groups.map((item_group) =>
@@ -513,6 +515,7 @@ async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 					.then((r) => r.message || [])
 			)
 		),
+		fetch_bom_items(rows.map((r) => r.item_code)),
 	]);
 	if (!is_current()) return;
 	const pricesByGroup = Object.fromEntries(groups.map((group, i) => [group, groupPrices[i]]));
@@ -533,6 +536,35 @@ async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 
 		const pricedCodes = [...new Set(priceOptions.map((o) => o.item_code))];
 
+		// BOM: which of the item's submitted BOMs this row uses (e.g. the one resolved for this spec);
+		// shown only for items that have one
+		const $bomCtl = $row.find(".fk-bom-ctl");
+		const bomControl = make_row_control($bomCtl, {
+			fieldtype: "Link",
+			fieldname: "bom",
+			options: "BOM",
+			placeholder: __("Select BOM"),
+			get_query: () => {
+				bomControl.df.filter_description = __("Active BOMs for {0}", [row.item_code]);
+				return { filters: { item: row.item_code || "__no_item__", docstatus: 1, is_active: 1 } };
+			},
+			change: () => {
+				if (bomControl.__fk_silent) return;
+				row.bom = bomControl.get_value() || "";
+				save_rows(frm, rows);
+			},
+		});
+		const refresh_bom = async (itemChanged) => {
+			// a different item can't keep the old item's BOM
+			if (itemChanged) row.bom = "";
+			if (row.item_code && !bomItems.has(row.item_code)) {
+				for (const code of await fetch_bom_items([row.item_code])) bomItems.add(code);
+			}
+			$bomCtl.toggleClass("hide", !(row.item_code && bomItems.has(row.item_code)));
+			await set_silently(bomControl, row.bom || "");
+		};
+		await refresh_bom(false);
+
 		// apply the new item to the row, refresh cost/rate, and reload its specs if the item changed
 		const on_item_changed = async (itemChanged, apply) => {
 			apply();
@@ -541,6 +573,7 @@ async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 			row.rate_override = 0;
 			$row.find(".fk-amount").text(format_currency(row.amount));
 			$row.find(".fk-rate").html(rate_html(row));
+			await refresh_bom(itemChanged);
 			if (itemChanged) {
 				const specs = (await fetch_spec_options([row.item_code]))[row.item_code] || [];
 				if (row.spec_custom && row.specification) {
@@ -771,6 +804,18 @@ async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 			save_rows(frm, rows);
 		});
 	}
+}
+
+// the items, of those given, that have at least one submitted, active BOM
+async function fetch_bom_items(itemCodes) {
+	const codes = [...new Set(itemCodes.filter(Boolean))];
+	if (!codes.length) return new Set();
+	const boms = await frappe.db.get_list("BOM", {
+		filters: { item: ["in", codes], docstatus: 1, is_active: 1 },
+		fields: ["item"],
+		limit: 0,
+	});
+	return new Set(boms.map((b) => b.item));
 }
 
 async function fetch_spec_options(itemCodes) {

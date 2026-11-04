@@ -215,12 +215,14 @@ def _validate_and_calculate_rows(rows: list[dict], template_rows: list[dict]) ->
 			_validate_spec_only_item(row)
 			_apply_reference_price(row)
 			_apply_item_spec(row)
+			_validate_row_bom(row)
 			continue
 
 		if not row.get("price_row"):
 			row["item_code"] = ""
 			_apply_rate(row, 0)
 			_apply_item_spec(row)
+			_validate_row_bom(row)
 			continue
 
 		item_price = frappe.db.get_value(
@@ -246,8 +248,26 @@ def _validate_and_calculate_rows(rows: list[dict], template_rows: list[dict]) ->
 		_apply_rate(row, item_price.price_list_rate)
 		total += flt(row["amount"])
 		_apply_item_spec(row)
+		_validate_row_bom(row)
 
 	return total
+
+
+def _validate_row_bom(row: dict):
+	"""The row's BOM (optional) must be a submitted, active BOM of the row's item."""
+	bom = row.get("bom")
+	if not bom or not row.get("item_code"):
+		row["bom"] = ""
+		return
+	bom_data = frappe.db.get_value("BOM", bom, ["item", "docstatus", "is_active"], as_dict=True)
+	if not bom_data or bom_data.docstatus != 1 or not bom_data.is_active:
+		frappe.throw(_("BOM {0} for row {1} isn't a submitted, active BOM.").format(frappe.bold(bom), row.get("label")))
+	if bom_data.item != row["item_code"]:
+		frappe.throw(
+			_("BOM {0} is for {1}, not {2} (row {3}).").format(
+				frappe.bold(bom), bom_data.item, row["item_code"], row.get("label")
+			)
+		)
 
 
 def _validate_and_calculate_other_costs(charges: list[dict]) -> float:
