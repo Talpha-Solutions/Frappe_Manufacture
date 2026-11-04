@@ -15,7 +15,7 @@ PARTY_TYPES = ("Lead", "Customer")
 
 class TenderConfigurationTemplate(Document):
 	def validate(self):
-		self._validate_cabinet_price_rows()
+		# cabinet prices are optional here; Tender Manifest asks for them when it prices a tender
 		self._validate_party()
 
 	def _validate_party(self):
@@ -26,17 +26,6 @@ class TenderConfigurationTemplate(Document):
 		self.party_title = party_title(self.party_type, self.party_name)
 		if self.based_on == self.name:
 			self.based_on = None
-
-	def _validate_cabinet_price_rows(self):
-		required_price_rows = {
-			"Base Units": self.base_units_price_row,
-			"Wall Units": self.wall_units_price_row,
-			"Tall Units": self.tall_units_price_row,
-			"Drawer Packs": self.drawer_packs_price_row,
-		}
-		for label, price_row in required_price_rows.items():
-			if not price_row:
-				frappe.throw(_("{0} Price is required.").format(label))
 
 
 def validate_party_type(party_type: str | None):
