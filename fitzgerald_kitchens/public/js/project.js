@@ -46,6 +46,7 @@ frappe.ui.form.on("Project", {
 		setup_material_request_actions(frm);
 		setup_production_plan_actions(frm);
 		setup_amend_manifest_actions(frm);
+		setup_site_report_buttons(frm);
 		render_download_qr_html(frm);
 	},
 	project_type(frm) {
@@ -174,6 +175,19 @@ function apply_default_naming_series(frm) {
 	const series = PROJECT_NAMING_SERIES[frm.doc.project_type] || "UNIT-UNT-.#####";
 	if (frm.doc.naming_series !== series) {
 		frm.set_value("naming_series", series);
+	}
+}
+
+// the site's reports, filtered to this site (a unit project opens its own site's)
+function setup_site_report_buttons(frm) {
+	if (frm.is_new()) return;
+	const site = is_site_project(frm) ? frm.doc.name : frm.doc.fk_parent_project;
+	if (!site) return;
+	for (const [label, report] of [
+		[__("Material Requirements"), "Site Material Requirements"],
+		[__("Project Overview"), "Site Project Overview"],
+	]) {
+		frm.add_custom_button(label, () => frappe.set_route("query-report", report, { site_project: site }), __("Reports"));
 	}
 }
 

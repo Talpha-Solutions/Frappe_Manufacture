@@ -32,11 +32,23 @@ frappe.ui.form.on("Tender", {
 			__("Templates for this tender's Lead or Customer, or for everyone if they don't have their own")
 		);
 		add_download_buttons(frm);
+		add_site_report_buttons(frm);
 		render_manifests(frm);
 		render_units_preview(frm);
 		listen_for_unit_projects(frm);
 	},
 });
+
+// once the won tender's projects exist: the site's reports, filtered to its site project
+function add_site_report_buttons(frm) {
+	if (frm.doc.status !== "Won" || !frm.doc.project) return;
+	for (const [label, report] of [
+		[__("Material Requirements"), "Site Material Requirements"],
+		[__("Project Overview"), "Site Project Overview"],
+	]) {
+		frm.add_custom_button(label, () => frappe.set_route("query-report", report, { site_project: frm.doc.project }), __("Reports"));
+	}
+}
 
 // ---------------------------------------------------------------- Units tab (won tenders)
 // The tab only shows the units and their projects; they're set up on the Tender Units page.
