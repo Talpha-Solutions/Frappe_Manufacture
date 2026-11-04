@@ -381,7 +381,7 @@ class TenderUnits {
 			const diff = m.allocated - m.tendered;
 			const pct = m.tendered ? Math.min(100, Math.round((m.allocated / m.tendered) * 100)) : m.allocated ? 100 : 0;
 			const state = diff === 0 ? "ok" : "warn";
-			const status = diff === 0 ? __("Matches") : diff < 0 ? __("{0} short", [-diff]) : __("{0} over", [diff]);
+			const status = diff === 0 ? __("Matches") : diff < 0 ? __("{0} unallocated", [-diff]) : __("{0} over", [diff]);
 			return `<tr>
 				<td>${esc(m.label)}</td>
 				<td class="text-muted">${esc(m.project_type)}</td>
