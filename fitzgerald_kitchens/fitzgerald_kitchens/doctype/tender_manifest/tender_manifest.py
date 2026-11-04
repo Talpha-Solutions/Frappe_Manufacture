@@ -389,8 +389,9 @@ def _get_template_cabinet_prices(template: str) -> dict:
 	}
 	cabinet_prices = {}
 	for key, price_row in mapping.items():
+		# a template may leave a cabinet price out; those cabinets are costed at 0
 		if not price_row:
-			frappe.throw(_("Cabinet price mapping is missing for {0}.").format(key.replace("_", " ").title()))
+			continue
 		item_price = frappe.db.get_value(
 			"Item Price",
 			price_row,
