@@ -99,29 +99,25 @@
    "fieldname": "base_units_price_row",
    "fieldtype": "Link",
    "label": "Base Units Price",
-   "options": "Item Price",
-   "reqd": 1
+   "options": "Item Price"
   },
   {
    "fieldname": "wall_units_price_row",
    "fieldtype": "Link",
    "label": "Wall Units Price",
-   "options": "Item Price",
-   "reqd": 1
+   "options": "Item Price"
   },
   {
    "fieldname": "tall_units_price_row",
    "fieldtype": "Link",
    "label": "Tall Units Price",
-   "options": "Item Price",
-   "reqd": 1
+   "options": "Item Price"
   },
   {
    "fieldname": "drawer_packs_price_row",
    "fieldtype": "Link",
    "label": "Drawer Packs Price",
-   "options": "Item Price",
-   "reqd": 1
+   "options": "Item Price"
   },
   {
    "fieldname": "cabinet_price_options_html",
@@ -130,7 +126,7 @@
   }
  ],
  "links": [],
- "modified": "2026-10-16 19:46:59.277800",
+ "modified": "2026-11-04 14:52:17.197215",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender Configuration Template",
