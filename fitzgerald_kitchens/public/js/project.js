@@ -186,6 +186,7 @@ function setup_site_report_buttons(frm) {
 	for (const [label, report] of [
 		[__("Material Requirements"), "Site Material Requirements"],
 		[__("Project Overview"), "Site Project Overview"],
+		[__("Material Order Plan"), "Material Order Plan"],
 	]) {
 		frm.add_custom_button(label, () => frappe.set_route("query-report", report, { site_project: site }), __("Reports"));
 	}

@@ -3,30 +3,23 @@
 
 """What a site's unit projects need in materials, set against stock (BRD 8.2 indicative stock check).
 
-Each unit project's production Manifest lists its cabinets, with the BOM to build each from, and
-its bought-in items. Cabinets are exploded through their BOM into raw materials, needed by the
-unit's Manufacturing task; bought-in items are needed as they are, by its Delivery task. The
-tender manifest's spec-only rows (board, door ... kept for reference) are left out.
-
-Per item: available = in stock - reserved; shortfall = needed - (available + on order) (BR-PPP-10).
-Read only: nothing is reserved or ordered.
+The needs come from manufacturing.site_demand (cabinets exploded through their BOMs, plus bought-in
+items). Per item: available = in stock - reserved; shortfall = needed - (available + on order)
+(BR-PPP-10). Read only: nothing is reserved or ordered.
 """
-
-import json
 
 import frappe
 from frappe import _
 from frappe.utils import add_days, flt, getdate, today
 
 from erpnext.manufacturing.doctype.bom.bom import get_valuation_rate
-from fitzgerald_kitchens.manufacturing.project_manifest import (
-	get_active_bom_no,
-	is_manufacturing_item,
-	resolve_project_effective_manifest,
+from fitzgerald_kitchens.manufacturing.site_demand import (
+	demand_lines,
+	item_details,
+	stock_by_item,
+	stock_warehouses,
+	unit_projects,
 )
-
-MAKE_TASK_TYPE = "Manufacturing"
-DELIVERY_TASK_TYPE = "Delivery"
 
 # most urgent first
 STATUS_ORDER = ["Order Now", "Short", "Covered by Orders", "In Stock", "Not a Stock Item"]
@@ -38,7 +31,7 @@ def execute(filters=None):
 		return get_columns(), []
 
 	company = frappe.db.get_value("Project", filters.site_project, "company")
-	needs = _needs(_unit_projects(filters.site_project))
+	needs = _totals(demand_lines(unit_projects(filters.site_project)))
 	rows = _with_stock(needs, company, filters)
 
 	if filters.get("item_group"):
@@ -51,101 +44,25 @@ def execute(filters=None):
 	return get_columns(), rows
 
 
-def _unit_projects(site_project: str) -> list[str]:
-	return frappe.get_all(
-		"Project", filters={"fk_parent_project": site_project, "status": ["!=", "Cancelled"]}, pluck="name"
-	)
-
-
-def _needs(projects: list[str]) -> dict:
-	"""Item code -> needed qty, the units needing it, the earliest date and where it comes from."""
+def _totals(lines: list[dict]) -> dict:
+	"""Item code -> total qty, the units needing it, the earliest date and where it comes from."""
 	needs = {}
-	exploded_cache, spec_only_cache = {}, {}
-	for project in projects:
-		manifest = resolve_project_effective_manifest(project)
-		if not manifest:
-			continue
-		dates = _task_dates(project)
-		spec_only = _spec_only_items(project, spec_only_cache)
-		lines = frappe.get_all(
-			"Manifest Item", filters={"parent": manifest}, fields=["item_code", "qty", "linked_bom"], order_by="idx"
-		)
-		for line in lines:
-			qty = flt(line.qty)
-			if not line.item_code or qty <= 0:
-				continue
-			if is_manufacturing_item(line.item_code, line.linked_bom):
-				bom = get_active_bom_no(line.item_code, line.linked_bom)
-				if bom not in exploded_cache:
-					exploded_cache[bom] = _exploded(bom)
-				for item_code, per_unit in exploded_cache[bom].items():
-					_add(needs, item_code, per_unit * qty, project, dates[MAKE_TASK_TYPE], _("BOM"))
-			elif line.item_code not in spec_only:
-				_add(needs, line.item_code, qty, project, dates[DELIVERY_TASK_TYPE], _("Bought-in"))
+	for line in lines:
+		need = needs.setdefault(line["item_code"], {"qty": 0.0, "projects": set(), "needed_by": None, "sources": set()})
+		need["qty"] += line["qty"]
+		need["projects"].add(line["project"])
+		need["sources"].add(line["source"])
+		if line["needed_by"] and (not need["needed_by"] or line["needed_by"] < need["needed_by"]):
+			need["needed_by"] = line["needed_by"]
 	return needs
-
-
-def _exploded(bom: str) -> dict:
-	"""Raw materials for one unit of the BOM's item, from its exploded items (all levels)."""
-	bom_qty = flt(frappe.db.get_value("BOM", bom, "quantity")) or 1
-	out = {}
-	for row in frappe.get_all("BOM Explosion Item", filters={"parent": bom}, fields=["item_code", "stock_qty"]):
-		out[row.item_code] = out.get(row.item_code, 0) + flt(row.stock_qty) / bom_qty
-	return out
-
-
-def _task_dates(project: str) -> dict:
-	"""When the unit needs its materials: its Manufacturing task's start for what goes into its
-	cabinets, its Delivery task's start for bought-in items; the project's dates if it has neither."""
-	start, end = frappe.db.get_value("Project", project, ["expected_start_date", "expected_end_date"])
-	dates = {MAKE_TASK_TYPE: start, DELIVERY_TASK_TYPE: end or start}
-	for task_type in dates:
-		first = frappe.get_all(
-			"Task",
-			filters={"project": project, "type": task_type, "exp_start_date": ["is", "set"]},
-			order_by="exp_start_date asc",
-			limit=1,
-			pluck="exp_start_date",
-		)
-		first = first[0] if first else None
-		if first:
-			dates[task_type] = first
-	return {k: getdate(v) if v else None for k, v in dates.items()}
-
-
-def _spec_only_items(project: str, cache: dict) -> set:
-	"""Items on the unit's tender manifest only as a spec reference (not priced, not supplied as such)."""
-	tender_manifest = frappe.db.get_value("Project", project, "fk_tender_manifest")
-	if not tender_manifest:
-		return set()
-	if tender_manifest not in cache:
-		rows = json.loads(frappe.db.get_value("Tender Manifest", tender_manifest, "config_rows_json") or "[]")
-		cache[tender_manifest] = {r.get("item_code") for r in rows if r.get("exclude_from_price") and r.get("item_code")}
-	return cache[tender_manifest]
-
-
-def _add(needs: dict, item_code: str, qty: float, project: str, needed_by, source: str):
-	need = needs.setdefault(item_code, {"qty": 0.0, "projects": set(), "needed_by": None, "sources": set()})
-	need["qty"] += qty
-	need["projects"].add(project)
-	need["sources"].add(source)
-	if needed_by and (not need["needed_by"] or needed_by < need["needed_by"]):
-		need["needed_by"] = needed_by
 
 
 def _with_stock(needs: dict, company: str, filters) -> list[dict]:
 	if not needs:
 		return []
 	codes = list(needs)
-	items = {
-		i.name: i
-		for i in frappe.get_all(
-			"Item",
-			filters={"name": ["in", codes]},
-			fields=["name", "item_name", "item_group", "stock_uom", "is_stock_item", "lead_time_days"],
-		)
-	}
-	stock = _stock(codes, _warehouses(company, filters.get("warehouse")))
+	items = item_details(codes)
+	stock = stock_by_item(codes, stock_warehouses(company, filters.get("warehouse")))
 	now = getdate(today())
 
 	rows = []
@@ -193,48 +110,6 @@ def _with_stock(needs: dict, company: str, filters) -> list[dict]:
 			}
 		)
 	return rows
-
-
-def _warehouses(company: str, warehouse: str | None) -> list[str]:
-	"""The stock warehouses to count: the chosen one (and those under it), else all the company's."""
-	if warehouse:
-		names = set(frappe.db.get_descendants("Warehouse", warehouse)) | {warehouse}
-		filters = {"name": ["in", list(names)], "is_group": 0}
-	else:
-		filters = {"company": company, "is_group": 0}
-	return frappe.get_all("Warehouse", filters=filters, pluck="name")
-
-
-def _stock(codes: list[str], warehouses: list[str]) -> dict:
-	if not warehouses:
-		return {}
-	bins = frappe.get_all(
-		"Bin",
-		filters={"item_code": ["in", codes], "warehouse": ["in", warehouses]},
-		fields=[
-			"item_code",
-			"actual_qty",
-			"reserved_qty",
-			"reserved_qty_for_production",
-			"reserved_qty_for_sub_contract",
-			"reserved_stock",
-			"ordered_qty",
-			"indented_qty",
-		],
-	)
-	out = {}
-	for b in bins:
-		s = out.setdefault(b.item_code, {"actual": 0.0, "reserved": 0.0, "ordered": 0.0, "requested": 0.0})
-		s["actual"] += flt(b.actual_qty)
-		s["reserved"] += (
-			flt(b.reserved_qty)
-			+ flt(b.reserved_qty_for_production)
-			+ flt(b.reserved_qty_for_sub_contract)
-			+ flt(b.reserved_stock)
-		)
-		s["ordered"] += flt(b.ordered_qty)
-		s["requested"] += flt(b.indented_qty)
-	return out
 
 
 def get_columns() -> list[dict]:
