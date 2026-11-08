@@ -309,7 +309,7 @@ function show_totals(frm, totals) {
 function manifests_html(manifests, locked) {
 	const esc = frappe.utils.escape_html;
 	const add_btn = frappe.model.can_create("Tender Manifest") && !locked
-		? `<button class="btn btn-${manifests.length ? "xs" : "sm"} btn-default add-manifest-btn">${__("+ New Tender Manifest")}</button>`
+		? `<button class="btn btn-${manifests.length ? "xs" : "sm"} btn-default add-manifest-btn">${__("+ New Pre Production Manifest")}</button>`
 		: "";
 	const style = `
 		<style>
@@ -355,7 +355,7 @@ function manifests_html(manifests, locked) {
 			<table class="tender-manifest-table">
 				<thead>
 					<tr>
-						<th>${__("Tender Manifest")}</th>
+						<th>${__("Pre Production Manifest")}</th>
 						<th>${__("Name")}</th>
 						<th>${__("Type")}</th>
 						<th>${__("Template")}</th>
