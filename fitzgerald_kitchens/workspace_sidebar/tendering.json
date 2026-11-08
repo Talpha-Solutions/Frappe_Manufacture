@@ -36,8 +36,8 @@
    "icon": "file-spreadsheet",
    "indent": 0,
    "keep_closed": 0,
-   "label": "Tender Manifest",
-   "link_to": "Tender Manifest",
+   "label": "Pre Production Manifest",
+   "link_to": "Pre Production Manifest",
    "link_type": "DocType",
    "show_arrow": 0,
    "type": "Link"
@@ -161,7 +161,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-11-08 07:22:26.784874",
+ "modified": "2026-11-08 07:46:21.228212",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tendering",

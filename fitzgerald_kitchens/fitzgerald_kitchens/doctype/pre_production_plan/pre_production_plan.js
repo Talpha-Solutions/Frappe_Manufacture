@@ -257,7 +257,7 @@ function add_download_buttons(frm) {
 
 // a manifest for this tender, starting from the tender's defaults
 function new_manifest(frm) {
-	frappe.new_doc("Tender Manifest", {
+	frappe.new_doc("Pre Production Manifest", {
 		pre_production_plan: frm.doc.name,
 		tender_name: frm.doc.tender_name,
 		template: frm.doc.template,
@@ -290,7 +290,7 @@ function render_manifests(frm) {
 			container.html(manifests_html(manifests, LOCKED_STATUSES.includes(frm.doc.status)));
 			container.find(".add-manifest-btn").on("click", () => new_manifest(frm));
 			container.find(".manifest-row").on("click", function () {
-				frappe.set_route("Form", "Tender Manifest", $(this).data("name"));
+				frappe.set_route("Form", "Pre Production Manifest", $(this).data("name"));
 			});
 		},
 	});
@@ -308,7 +308,7 @@ function show_totals(frm, totals) {
 
 function manifests_html(manifests, locked) {
 	const esc = frappe.utils.escape_html;
-	const add_btn = frappe.model.can_create("Tender Manifest") && !locked
+	const add_btn = frappe.model.can_create("Pre Production Manifest") && !locked
 		? `<button class="btn btn-${manifests.length ? "xs" : "sm"} btn-default add-manifest-btn">${__("+ New Pre Production Manifest")}</button>`
 		: "";
 	const style = `

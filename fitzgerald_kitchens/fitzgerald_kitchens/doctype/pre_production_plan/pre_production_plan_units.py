@@ -23,7 +23,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_manifest_excel import (
+from fitzgerald_kitchens.fitzgerald_kitchens.utils.pre_production_manifest_excel import (
 	FONT,
 	HEADER_FILL,
 	THIN,
@@ -205,7 +205,7 @@ def _write_manifest_sheet(ws, m):
 		cell.font = Font(name=FONT, size=10, bold=True)
 		cell.fill = HEADER_FILL
 		ws.column_dimensions[get_column_letter(col)].width = width
-	doc = frappe.get_doc("Tender Manifest", m.name)
+	doc = frappe.get_doc("Pre Production Manifest", m.name)
 	row = 5
 	for line in _manifest_rows(doc):
 		values = [line["section"], line["label"], line["item_code"], line["item_name"], line["qty"], line["uom"], line["specification"]]
@@ -606,7 +606,7 @@ def _sync_state(site: str | None, site_name: str, apartments: dict) -> dict:
 	left = _match_projects(apartments.values(), projects)
 	by_name = {p.name: p for p in projects}
 	labels = {"project_name": _("Name"), "fk_unit_name": _("Unit Name"), "fk_floor": _("Floor"), "fk_unit_qty": _("Qty"),
-	          "fk_tender_manifest": _("Manifest"), "fk_unit_configuration": _("Apt Type")}
+	          "fk_pre_production_manifest": _("Manifest"), "fk_unit_configuration": _("Apt Type")}
 	for apt in apartments.values():
 		changes, missing = [], []
 		configuration = build_configuration_code(apt["type"], site_name) if apt["type"] else None
@@ -618,7 +618,7 @@ def _sync_state(site: str | None, site_name: str, apartments: dict) -> dict:
 					missing.append(label)
 					continue
 				want = {"project_name": build_unit_project_name(site_name, apt["number"], label), "fk_unit_name": apt["name"] or None,
-				        "fk_floor": apt["floor"] or None, "fk_unit_qty": 1, "fk_tender_manifest": row["manifest"],
+				        "fk_floor": apt["floor"] or None, "fk_unit_qty": 1, "fk_pre_production_manifest": row["manifest"],
 				        "fk_unit_configuration": configuration}
 				for field, value in want.items():
 					if cstr(p.get(field) or "") != cstr(value or ""):
@@ -639,7 +639,7 @@ def _unit_projects(site: str) -> list:
 	"""The unit projects on a site, oldest first."""
 	return frappe.get_all("Project", filters={"fk_parent_project": site},
 	                      fields=["name", "project_name", "project_type", "fk_house_number", "fk_unit_name", "fk_floor",
-	                              "fk_unit_qty", "fk_tender_manifest", "fk_unit_configuration"],
+	                              "fk_unit_qty", "fk_pre_production_manifest", "fk_unit_configuration"],
 	                      order_by="creation asc")
 
 
@@ -717,7 +717,7 @@ def build_unit_projects(tender: str):
 			# the type's configuration points at the manifests of its first apartment
 			first = {r["project_type"]: r["manifest"] for r in apartments[0]["rows"]}
 			slots = {CONFIGURATION_SLOT[pt]: production[m] for pt, m in first.items() if pt in CONFIGURATION_SLOT}
-			frappe.db.set_value("Project Unit Configuration", code, {"tender_manifest": first.get(KITCHEN_PROJECT_TYPE), **slots})
+			frappe.db.set_value("Project Unit Configuration", code, {"pre_production_manifest": first.get(KITCHEN_PROJECT_TYPE), **slots})
 			stats["configurations"] += 1
 
 			for apt in apartments:
@@ -796,7 +796,7 @@ def _upsert_production_manifest(apt_type, site_name, configuration, tender_manif
 	code = f"{apt_type.strip()}-{tender_manifest}-{normalize_site_scope(site_name)}"
 	category = MANIFEST_CATEGORY.get(project_type, "Unit")
 	items = []
-	for line in _manifest_rows(frappe.get_doc("Tender Manifest", tender_manifest)):
+	for line in _manifest_rows(frappe.get_doc("Pre Production Manifest", tender_manifest)):
 		bom = resolve_manifest_linked_bom(line["item_code"])
 		items.append({
 			"item_code": line["item_code"],
@@ -848,7 +848,7 @@ def _upsert_unit(doc, site, site_name, customer, configuration, apt, row, unit, 
 		"fk_unit_qty": 1,
 		"fk_parent_unit_project": parent_unit,
 		"fk_unit_configuration": configuration,
-		"fk_tender_manifest": row["manifest"],
+		"fk_pre_production_manifest": row["manifest"],
 		"company": doc.company,
 		"customer": customer,
 		"fk_developer": customer,
@@ -901,7 +901,7 @@ def _site_name(doc) -> str:
 
 def _tender_manifests(tender: str) -> list:
 	"""The tender's manifests, kitchens first."""
-	manifests = frappe.get_all("Tender Manifest", filters={"pre_production_plan": tender}, fields=["name", "tender_name", "project_type", "kitchens_to_tender"], order_by="name")
+	manifests = frappe.get_all("Pre Production Manifest", filters={"pre_production_plan": tender}, fields=["name", "tender_name", "project_type", "kitchens_to_tender"], order_by="name")
 	return sorted(manifests, key=lambda m: (m.project_type not in (None, "", KITCHEN_PROJECT_TYPE), m.name))
 
 

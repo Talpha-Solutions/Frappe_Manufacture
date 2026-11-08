@@ -14,8 +14,10 @@ def execute():
 	tables (Frappe doesn't drop columns) and are copied. Fixtures are synced after patches, so the new
 	Project custom field is made here, as the fixture has it, before its values are copied.
 	"""
-	if frappe.db.has_column("Tender Manifest", "tender") and frappe.db.has_column("Tender Manifest", "pre_production_plan"):
-		rename_field("Tender Manifest", "tender", "pre_production_plan")
+	# the manifest doctype may already be renamed too (Tender Manifest -> Pre Production Manifest)
+	manifest = "Pre Production Manifest" if frappe.db.exists("DocType", "Pre Production Manifest") else "Tender Manifest"
+	if frappe.db.has_column(manifest, "tender") and frappe.db.has_column(manifest, "pre_production_plan"):
+		rename_field(manifest, "tender", "pre_production_plan")
 
 	if frappe.db.exists("Custom Field", "Project-fk_tender"):
 		create_custom_field(

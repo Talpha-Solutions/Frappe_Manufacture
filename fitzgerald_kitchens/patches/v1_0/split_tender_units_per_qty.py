@@ -21,7 +21,7 @@ def execute():
 		doc = frappe.get_doc("Pre Production Plan", tender)
 		rows, units = [], {}
 		for r in doc.unit_types:
-			project_type = r.project_type or frappe.db.get_value("Tender Manifest", r.manifest, "project_type") or KITCHEN_PROJECT_TYPE
+			project_type = r.project_type or frappe.db.get_value("Pre Production Manifest", r.manifest, "project_type") or KITCHEN_PROJECT_TYPE
 			for _i in range(max(1, cint(qtys.get(r.name)))):
 				key = ((r.number or "").upper(), project_type)
 				units[key] = units.get(key, 0) + 1

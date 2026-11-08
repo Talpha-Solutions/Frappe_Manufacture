@@ -1,11 +1,11 @@
 const METHOD_BASE =
-	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_manifest.tender_manifest";
+	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_manifest.pre_production_manifest";
 const SPEC_OPTIONS_METHOD =
 	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.item_spec.item_spec.get_spec_options";
 const EXCEL_METHOD =
-	"fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_manifest_excel.download_tender_excel";
+	"fitzgerald_kitchens.fitzgerald_kitchens.utils.pre_production_manifest_excel.download_tender_excel";
 
-frappe.ui.form.on("Tender Manifest", {
+frappe.ui.form.on("Pre Production Manifest", {
 	setup(frm) {
 		// the tender's party's own templates if they have any, otherwise those for everyone
 		frm.set_query("template", () => ({

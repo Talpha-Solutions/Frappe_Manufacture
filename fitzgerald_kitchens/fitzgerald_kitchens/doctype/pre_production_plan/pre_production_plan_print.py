@@ -11,7 +11,7 @@ import frappe
 from frappe.contacts.doctype.address.address import get_company_address
 from frappe.utils import cint, flt, money_in_words
 
-from fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_manifest_excel import (
+from fitzgerald_kitchens.fitzgerald_kitchens.utils.pre_production_manifest_excel import (
 	_group_rows,
 	_line_values,
 	_refs,
@@ -30,8 +30,8 @@ def get_tender_document(tender: str) -> dict:
 	currency = (company and frappe.get_cached_value("Company", company, "default_currency")) or "EUR"
 
 	manifests = [
-		frappe.get_doc("Tender Manifest", name)
-		for name in frappe.get_all("Tender Manifest", filters={"pre_production_plan": doc.name}, pluck="name", order_by="creation asc")
+		frappe.get_doc("Pre Production Manifest", name)
+		for name in frappe.get_all("Pre Production Manifest", filters={"pre_production_plan": doc.name}, pluck="name", order_by="creation asc")
 	]
 	bills = [_bill(number, m) for number, m in enumerate(manifests, start=1)]
 	total = sum(b["total"] for b in bills)

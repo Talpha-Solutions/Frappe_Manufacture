@@ -3,7 +3,7 @@
 
 """Excel export of a Tender: a summary sheet across its tender manifests, then one bill per manifest.
 
-Detailed and simplified follow the Tender Manifest export: detailed is the internal costing (cost,
+Detailed and simplified follow the Pre Production Manifest export: detailed is the internal costing (cost,
 margin, specs, notes); simplified is the client's copy at tender price, item lines only.
 """
 
@@ -17,7 +17,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, Side
 from openpyxl.utils import get_column_letter
 
-from fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_manifest_excel import (
+from fitzgerald_kitchens.fitzgerald_kitchens.utils.pre_production_manifest_excel import (
 	FONT,
 	HEADER_FILL,
 	MONEY,
@@ -35,7 +35,7 @@ from fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_manifest_excel import 
 DETAILED_COLUMNS = [
 	("#", "number", "ref"),
 	("Unit Type", "tender_name", "text"),
-	("Tender Manifest", "name", "text"),
+	("Pre Production Manifest", "name", "text"),
 	("Units", "kitchens_to_tender", "qty"),
 	("Cost / Unit", "total_cost_per_kitchen", "money"),
 	("Cost Base", "cost_base", "money"),
@@ -64,11 +64,11 @@ def download_tender_excel(name: str, simplified: int | str = 0):
 	client = bool(int(simplified or 0))
 
 	manifest_names = frappe.get_all(
-		"Tender Manifest", filters={"pre_production_plan": name}, pluck="name", order_by="creation asc"
+		"Pre Production Manifest", filters={"pre_production_plan": name}, pluck="name", order_by="creation asc"
 	)
 	if not manifest_names:
 		frappe.throw(_("Add a tender manifest to this tender before downloading it."))
-	manifests = [frappe.get_doc("Tender Manifest", m) for m in manifest_names]
+	manifests = [frappe.get_doc("Pre Production Manifest", m) for m in manifest_names]
 	for manifest in manifests:
 		manifest.check_permission("read")
 

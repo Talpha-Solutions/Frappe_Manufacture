@@ -15,7 +15,7 @@ PARTY_TYPES = ("Lead", "Customer")
 
 class TenderConfigurationTemplate(Document):
 	def validate(self):
-		# cabinet prices are optional here; Tender Manifest asks for them when it prices a tender
+		# cabinet prices are optional here; Pre Production Manifest asks for them when it prices a tender
 		self._validate_party()
 
 	def _validate_party(self):

@@ -26,7 +26,7 @@ STANDARD_SELLING_PRICE_LIST = "Standard Selling"
 LOCKED_TENDER_STATUSES = ("Submitted", "Lost", "Cancelled")
 
 
-class TenderManifest(Document):
+class PreProductionManifest(Document):
 	def before_insert(self):
 		if not self.naming_series:
 			self.naming_series = "KC-.YYYY.-.#####"
@@ -68,7 +68,7 @@ class TenderManifest(Document):
 		update_tender_totals(self.pre_production_plan)
 
 	def _check_tender_lock(self):
-		previous = None if self.is_new() else frappe.db.get_value("Tender Manifest", self.name, "pre_production_plan")
+		previous = None if self.is_new() else frappe.db.get_value("Pre Production Manifest", self.name, "pre_production_plan")
 		for tender in {self.pre_production_plan, previous} - {None, ""}:
 			status = frappe.db.get_value("Pre Production Plan", tender, "status")
 			if status in LOCKED_TENDER_STATUSES:
@@ -357,7 +357,7 @@ def _apply_item_spec(row: dict):
 		row["specification"] = spec.specification if spec else ""
 
 
-def _apply_cabinet_costing(doc: TenderManifest, cabinet_prices: dict) -> float:
+def _apply_cabinet_costing(doc: PreProductionManifest, cabinet_prices: dict) -> float:
 	cabinet_total = 0.0
 	for key in CABINET_KEYS:
 		price_data = cabinet_prices.get(key) or {}
@@ -370,7 +370,7 @@ def _apply_cabinet_costing(doc: TenderManifest, cabinet_prices: dict) -> float:
 	return cabinet_total
 
 
-def _apply_tender_pricing(doc: TenderManifest):
+def _apply_tender_pricing(doc: PreProductionManifest):
 	doc.cost_base = flt(doc.grand_total_cost)
 	doc.target_margin_pct = flt(doc.target_margin_pct)
 	doc.margin_amount = flt(doc.cost_base) * (flt(doc.target_margin_pct) / 100.0)

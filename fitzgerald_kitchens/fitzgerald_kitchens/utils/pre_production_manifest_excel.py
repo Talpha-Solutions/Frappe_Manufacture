@@ -1,7 +1,7 @@
 # Copyright (c) 2026, talpha solutions and contributors
 # For license information, please see license.txt
 
-"""Excel export of a Tender Manifest, laid out like a contractor's trade bill (BoQ).
+"""Excel export of a Pre Production Manifest, laid out like a contractor's trade bill (BoQ).
 
 Two versions: the detailed bill is the internal costing (cost rates, margin, reference-only specs,
 notes); the simplified bill is for the client, priced at tender price with the margin spread over
@@ -46,7 +46,7 @@ CABINET_UNITS = (
 
 @frappe.whitelist()
 def download_tender_excel(name: str, simplified: int | str = 0):
-	doc = frappe.get_doc("Tender Manifest", name)
+	doc = frappe.get_doc("Pre Production Manifest", name)
 	doc.check_permission("read")
 	client = bool(int(simplified or 0))
 

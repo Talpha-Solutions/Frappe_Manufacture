@@ -54,9 +54,9 @@ class PreProductionPlan(Document):
 			for field in ("unit_type", "floor", "number", "unit_name"):
 				row.set(field, (row.get(field) or "").strip())
 			label = frappe.bold(row.number)
-			project_type = frappe.db.get_value("Tender Manifest", row.manifest, "project_type") if row.manifest else None
+			project_type = frappe.db.get_value("Pre Production Manifest", row.manifest, "project_type") if row.manifest else None
 			row.project_type = project_type
-			if row.manifest and frappe.db.get_value("Tender Manifest", row.manifest, "tender") != self.name:
+			if row.manifest and frappe.db.get_value("Pre Production Manifest", row.manifest, "pre_production_plan") != self.name:
 				frappe.throw(_("Apt {0}: manifest {1} isn't one of this tender's manifests.").format(label, frappe.bold(row.manifest)))
 			apt = apartments.setdefault(row.number.upper(), {"row": row, "project_types": {}})
 			first = apt["row"]
@@ -87,7 +87,7 @@ def update_tender_totals(tender: str | None):
 
 
 def _calculate_totals(tender: str) -> dict:
-	manifests = frappe.get_all("Tender Manifest", filters={"pre_production_plan": tender}, fields=list(TOTAL_FIELDS))
+	manifests = frappe.get_all("Pre Production Manifest", filters={"pre_production_plan": tender}, fields=list(TOTAL_FIELDS))
 	totals = {total: sum(flt(m.get(field)) for m in manifests) for field, total in TOTAL_FIELDS.items()}
 	totals["manifest_count"] = len(manifests)
 	return totals
@@ -106,7 +106,7 @@ def get_tender_manifests(tender: str) -> dict:
 	"""
 	doc = frappe.get_doc("Pre Production Plan", tender)
 	doc.check_permission("read")
-	if not frappe.has_permission("Tender Manifest", "read"):
+	if not frappe.has_permission("Pre Production Manifest", "read"):
 		frappe.throw(_("Not permitted"), frappe.PermissionError)
 
 	totals = _calculate_totals(tender)
@@ -114,7 +114,7 @@ def get_tender_manifests(tender: str) -> dict:
 		frappe.db.set_value("Pre Production Plan", tender, totals, update_modified=False)
 
 	manifests = frappe.get_all(
-		"Tender Manifest",
+		"Pre Production Manifest",
 		filters={"pre_production_plan": tender},
 		fields=[
 			"name",

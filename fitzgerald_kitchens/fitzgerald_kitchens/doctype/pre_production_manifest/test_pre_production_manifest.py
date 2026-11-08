@@ -13,9 +13,9 @@ IGNORE_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
 
 
 
-class IntegrationTestTenderManifest(IntegrationTestCase):
+class IntegrationTestPreProductionManifest(IntegrationTestCase):
 	"""
-	Integration tests for TenderManifest.
+	Integration tests for Pre Production Manifest.
 	Use this class for testing interactions between multiple components.
 	"""
 
