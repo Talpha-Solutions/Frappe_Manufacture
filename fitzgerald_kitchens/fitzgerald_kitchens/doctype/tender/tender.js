@@ -215,7 +215,7 @@ function units_preview_html(p, frm) {
 					const diff = m.allocated - m.tendered;
 					const pill = diff === 0
 						? `<span class="indicator-pill green">${__("Matches")}</span>`
-						: `<span class="indicator-pill orange">${diff < 0 ? __("{0} short", [-diff]) : __("{0} over", [diff])}</span>`;
+						: `<span class="indicator-pill orange">${diff < 0 ? __("{0} unallocated", [-diff]) : __("{0} over", [diff])}</span>`;
 					return `<tr><td>${manifest_link({ manifest: m.manifest, manifest_name: m.label.split(" · ").slice(1).join(" · ") })}</td>
 						<td>${esc(__(m.project_type))}</td><td class="num">${m.tendered}</td><td class="num">${m.allocated}</td>
 						<td class="num">${m.apartments}</td><td>${pill}</td></tr>`;
