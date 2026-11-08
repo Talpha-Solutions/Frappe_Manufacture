@@ -82,3 +82,4 @@ fitzgerald_kitchens.patches.v1_0.move_tender_manifest_links_to_pre_production_ma
 fitzgerald_kitchens.patches.v1_0.retire_cabinet_unit_costing
 fitzgerald_kitchens.patches.v1_0.retire_specs
 fitzgerald_kitchens.patches.v1_0.match_cost_sources_to_item_type
+fitzgerald_kitchens.patches.v1_0.remove_pre_production_plan_workflow

@@ -1,8 +1,8 @@
 # Copyright (c) 2026, talpha solutions and contributors
 # For license information, please see license.txt
 
-"""What to order now so it arrives in time, across every Pre Production Plan (except Lost or Cancelled
-ones), or only the plans chosen in the filter.
+"""What to order now so it arrives in time, across every Pre Production Plan, or only the plans chosen
+in the filter.
 
 Demand is each plan's manifests x its units: a unit on the plan's Units table brings its manifest and its
 delivery date; a plan without a Units table counts each manifest x its Kitchens to Tender, needed on the
@@ -186,8 +186,8 @@ def get_demand(filters) -> list[dict]:
 
 
 def _plans(filters) -> list[str]:
-	"""The plans chosen in the filter; with none chosen, every plan that isn't Lost or Cancelled (of the
-	filter's company, or with no company). Only plans the user can read."""
+	"""The plans chosen in the filter; with none chosen, every plan (of the filter's company, or with no
+	company). Only plans the user can read."""
 	value = filters.get("pre_production_plan")
 	if isinstance(value, str):
 		value = frappe.parse_json(value) if value.startswith("[") else [value]
@@ -197,8 +197,7 @@ def _plans(filters) -> list[str]:
 			frappe.has_permission("Pre Production Plan", "read", plan, throw=True)
 		return chosen
 	company = filters.get("company")
-	return [p.name for p in frappe.get_list("Pre Production Plan", filters={"status": ["not in", ["Lost", "Cancelled"]]},
-	                                         fields=["name", "company"], order_by="name")
+	return [p.name for p in frappe.get_list("Pre Production Plan", fields=["name", "company"], order_by="name")
 	        if not company or p.company in (company, None, "")]
 
 

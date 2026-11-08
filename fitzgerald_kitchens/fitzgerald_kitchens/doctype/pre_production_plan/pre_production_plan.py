@@ -13,7 +13,7 @@ from fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_manifest_tem
 	validate_template_party,
 )
 
-# tasks for the unit projects a won tender creates, unless another template is picked
+# tasks for the unit projects a tender creates, unless another template is picked
 DEFAULT_PROJECT_TEMPLATE = "Main Development Template"
 
 # manifest field -> tender total it adds up into
@@ -36,10 +36,7 @@ class PreProductionPlan(Document):
 		self.update(_calculate_totals(self.name) if not self.is_new() else _empty_totals())
 
 	def _set_unit_defaults(self):
-		"""A won tender's Units tab starts with the site name, company and task template filled in
-		(the workflow saves the tender when it's marked Won)."""
-		if self.status != "Won":
-			return
+		"""The Units tab starts with the site name, company and task template filled in."""
 		self.unit_site_name = self.unit_site_name or self.tender_name
 		self.company = self.company or frappe.defaults.get_user_default("Company") or frappe.defaults.get_global_default("company")
 		if not self.project_template and frappe.db.exists("Project Template", DEFAULT_PROJECT_TEMPLATE):

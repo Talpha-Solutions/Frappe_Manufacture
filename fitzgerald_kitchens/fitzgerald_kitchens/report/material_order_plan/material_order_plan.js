@@ -32,7 +32,7 @@ frappe.query_reports["Material Order Plan"] = {
 			label: __("Pre Production Plans"),
 			fieldtype: "MultiSelectList",
 			get_data: (txt) => frappe.db.get_link_options("Pre Production Plan", txt),
-			description: __("Leave blank for every plan (except Lost or Cancelled)"),
+			description: __("Leave blank for every plan"),
 		},
 		{
 			fieldname: "company",

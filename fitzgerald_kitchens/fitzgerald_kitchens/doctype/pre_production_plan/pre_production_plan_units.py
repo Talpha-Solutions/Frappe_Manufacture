@@ -1,7 +1,7 @@
 # Copyright (c) 2026, talpha solutions and contributors
 # For license information, please see license.txt
 
-"""Units tab of a won Tender: the units table, its workbook, a preview and project creation.
+"""Units tab of a Tender: the units table, its workbook, a preview and project creation.
 
 The Units table has a row per unit: per apartment, per manifest, per one of its Qty (Apt Type, Floor,
 Apt No, Unit Name, Manifest, No.), and the project made for it. Rows sharing an Apt No are one
@@ -63,7 +63,7 @@ CONFIGURATION_SLOT = {
 
 @frappe.whitelist()
 def download_unit_workbook(tender: str):
-	doc = _get_won_tender(tender, "read")
+	doc = _get_tender(tender, "read")
 	manifests = _tender_manifests(doc.name)
 	if not manifests:
 		frappe.throw(_("This tender has no manifests."))
@@ -229,7 +229,7 @@ def _write_manifest_sheet(ws, m):
 def upload_unit_workbook(tender: str, file_url: str | None = None) -> dict:
 	"""Read the workbook's Units sheet into the Units table (replacing it), if it passes the checks.
 	The Tender Units page uploads the file to the tender first and passes its file_url."""
-	doc = _get_won_tender(tender, "write")
+	doc = _get_tender(tender, "write")
 	if file_url:
 		if not frappe.db.exists("File", {"file_url": file_url, "attached_to_doctype": "Pre Production Plan", "attached_to_name": doc.name}):
 			frappe.throw(_("That file isn't attached to this tender."))
@@ -319,7 +319,7 @@ def _type_headers(project_type: str) -> list[str]:
 @frappe.whitelist()
 def get_unit_editor(tender: str) -> dict:
 	"""Everything the Tender Units page needs: the tender, its manifests, the apartments and their state."""
-	doc = _get_won_tender(tender, "read")
+	doc = _get_tender(tender, "read")
 	manifests = _tender_manifests(doc.name)
 	plan = _plan(doc, _table_rows(doc), _site_name(doc), where=_where_apartment)
 	sync = {a["number"].upper(): {"sync": a.get("sync"), "changes": a.get("changes")} for a in plan["apartments"]}
@@ -350,7 +350,7 @@ def get_unit_editor(tender: str) -> dict:
 def save_unit_editor(tender: str, apartments: str | list, settings: str | dict | None = None) -> dict:
 	"""Save the page's apartments into the Units table (a row per apartment per manifest), and its
 	Site Name, Company and Project Template, if they pass the checks."""
-	doc = _get_won_tender(tender, "write")
+	doc = _get_tender(tender, "write")
 	if isinstance(apartments, str):
 		apartments = json.loads(apartments)
 	if isinstance(settings, str):
@@ -399,7 +399,7 @@ def save_unit_editor(tender: str, apartments: str | list, settings: str | dict |
 @frappe.whitelist()
 def preview_units(tender: str) -> dict:
 	"""What Create Projects would build from the Units table, with errors and warnings."""
-	doc = _get_won_tender(tender, "read")
+	doc = _get_tender(tender, "read")
 	plan = _plan(doc, _table_rows(doc), _site_name(doc), where=_where_apartment)
 	status = "Failed" if plan["errors"] else "Ready" if doc.get("unit_types") else "Not Started"
 	if doc.unit_import_status not in ("Creating", "Completed") or plan["errors"]:
@@ -667,7 +667,7 @@ def _match_projects(apartments, projects: list) -> list:
 
 @frappe.whitelist()
 def create_unit_projects(tender: str):
-	doc = _get_won_tender(tender, "write")
+	doc = _get_tender(tender, "write")
 	if not doc.company:
 		frappe.throw(_("Set the Company on the Tender Units page first."))
 	if not frappe.has_permission("Project", "create"):
@@ -887,11 +887,9 @@ def _apply_template_if_no_tasks(project: str, template: str | None):
 # ---------------------------------------------------------------- shared
 
 
-def _get_won_tender(tender: str, ptype: str):
+def _get_tender(tender: str, ptype: str):
 	doc = frappe.get_doc("Pre Production Plan", tender)
 	doc.check_permission(ptype)
-	if doc.status != "Won":
-		frappe.throw(_("Units are set up once the tender is Won."))
 	return doc
 
 
