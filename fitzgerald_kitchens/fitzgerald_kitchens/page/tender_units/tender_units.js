@@ -3,7 +3,7 @@
 // Company and Project Template; the unit workbook is downloaded and uploaded here, and the projects
 // are created and synced from here. The tender's Units tab only shows the result.
 
-const TU_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender_units";
+const TU_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_plan.pre_production_plan_units";
 const TU_COLOURS = ["#4C6EF5", "#12B886", "#F59F00", "#E64980", "#7950F2", "#15AABF", "#FA5252", "#82C91E", "#FD7E14", "#868E96"];
 const TU_SYNC = {
 	new: { label: __("New"), colour: "blue" },
@@ -55,8 +55,8 @@ class TenderUnits {
 			df: {
 				fieldtype: "Link",
 				fieldname: "tender",
-				options: "Tender",
-				label: __("Tender"),
+				options: "Pre Production Plan",
+				label: __("Pre Production Plan"),
 				get_query: () => ({ filters: { status: "Won" } }),
 				change: () => {
 					const value = this.tender_field.get_value();
@@ -67,7 +67,7 @@ class TenderUnits {
 			render_input: true,
 		});
 		this.page.set_primary_action(__("Save"), () => this.save(), "save");
-		this.page.add_inner_button(__("Open Tender"), () => this.data && frappe.set_route("Form", "Tender", this.data.tender.name));
+		this.page.add_inner_button(__("Open Pre Production Plan"), () => this.data && frappe.set_route("Form", "Pre Production Plan", this.data.tender.name));
 		this.page.add_menu_item(__("Reload"), () => this.confirm_discard(() => this.load()));
 		this.page.add_inner_button(__("Download"), () => this.download_workbook(), __("Workbook"));
 		this.page.add_inner_button(__("Upload"), () => this.upload_workbook(), __("Workbook"));
@@ -85,7 +85,7 @@ class TenderUnits {
 	upload_workbook() {
 		if (!this.data?.tender.can_write) return;
 		this.confirm_discard(() => new frappe.ui.FileUploader({
-			doctype: "Tender",
+			doctype: "Pre Production Plan",
 			docname: this.data.tender.name,
 			restrictions: { allowed_file_types: [".xlsx"] },
 			on_success: (file) => frappe.call({

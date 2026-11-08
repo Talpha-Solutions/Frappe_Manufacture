@@ -1,0 +1,492 @@
+# Copyright (c) 2026, talpha solutions and contributors
+# For license information, please see license.txt
+
+"""Excel export of a Pre Production Manifest, laid out like a contractor's trade bill (BoQ).
+
+Two versions: the detailed bill is the internal costing (cost rates and where they come from, margin,
+notes); the simplified bill is for the client, priced at tender price with the margin spread over
+every line: item lines only, without notes, cost rates or margin.
+"""
+
+import json
+import math
+from decimal import ROUND_HALF_UP, Decimal
+from io import BytesIO
+
+import frappe
+from frappe import _
+from frappe.utils import flt, formatdate, getdate, nowdate
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
+
+FONT = "Arial"
+MONEY = '#,##0.00;[Red]\\-#,##0.00'
+# cost rates can have more than 2 decimals (a BOM's unit cost), shown so qty x rate can be checked
+RATE = '#,##0.00##;[Red]\\-#,##0.00##'
+QTY = "#,##0.###"
+THIN = Side(style="thin", color="808080")
+GRID = Side(style="thin", color="BFBFBF")
+HEADER_FILL = PatternFill("solid", fgColor="E7E9ED")
+SECTION_FILL = PatternFill("solid", fgColor="F4F5F7")
+TOTAL_FILL = PatternFill("solid", fgColor="EEF1F6")
+NOTE_FILL = PatternFill("solid", fgColor="FFF8E1")
+
+# Bill columns: gutter | Ref | Description | Qty/Unit | Unit | Rate | € per Unit | € Total
+# Note rows span Description → € Total (C:H) under their item.
+BILL_WIDTHS = [2, 5, 62, 10, 7, 11, 13, 14]
+FIRST_COL, LAST_COL = 2, 8
+DESC_CHARS_PER_LINE = 72
+WIDE_CHARS_PER_LINE = 125
+UNIT_NAMES = {"Nos": "nr", "Meter": "m", "Hour": "hr", "M²": "m²", "HRS/KIT": "hr"}
+
+
+@frappe.whitelist()
+def download_tender_excel(name: str, simplified: int | str = 0):
+	doc = frappe.get_doc("Pre Production Manifest", name)
+	doc.check_permission("read")
+	client = bool(int(simplified or 0))
+
+	wb = Workbook()
+	bill = wb.active
+	bill.title = "Tender Bill"
+	summary = wb.create_sheet("Summary")
+
+	header = _header_lines(doc, client)
+	section_totals = _write_bill(bill, doc, header, client)
+	_write_summary(summary, doc, header, section_totals, client)
+
+	out = BytesIO()
+	wb.save(out)
+	suffix = " (Simplified)" if client else ""
+	frappe.response["filename"] = f"{doc.name} - {doc.tender_name or 'Tender'}{suffix}.xlsx".replace("/", "-")
+	frappe.response["filecontent"] = out.getvalue()
+	frappe.response["type"] = "binary"
+
+
+def _header_lines(doc, client: bool = False) -> list[str]:
+	company = frappe.defaults.get_user_default("Company") or frappe.db.get_single_value(
+		"Global Defaults", "default_company"
+	)
+	return [
+		f"From: {company}" if company else "",
+		f"Project: {doc.tender_name}",
+		f"Tender: {doc.name}{'' if client else f' · Template: {doc.template}'}"
+		f" · Units to tender: {int(flt(doc.kitchens_to_tender))}"
+		f" · Date: {formatdate(nowdate())}",
+	]
+
+
+def _write_title(ws, title: str, header: list[str]) -> int:
+	ws["B2"] = title
+	ws["B2"].font = Font(name=FONT, size=16, bold=True)
+	row = 3
+	for line in header:
+		if line:
+			ws.cell(row=row, column=2, value=line).font = Font(name=FONT, size=10)
+			row += 1
+	return row + 1
+
+
+def _box_row(ws, row: int, first_col: int, last_col: int, top: Side = GRID, bottom: Side = GRID):
+	"""Grid border on every cell of a row, so each line of the bill reads as its own box."""
+	for col in range(first_col, last_col + 1):
+		ws.cell(row=row, column=col).border = Border(left=GRID, right=GRID, top=top, bottom=bottom)
+
+
+def _write_bill(
+	ws, doc, header, client: bool = False, title: str = "Tender Bill", with_totals: bool = False
+) -> list[tuple[str, float, float]]:
+	"""Write the priced bill; returns (section name, € per unit, € total) for the summary.
+
+	with_totals adds the cost / margin / tender price lines under the last section, for a bill
+	that has no summary sheet of its own (the Tender's workbook).
+	"""
+	for i, width in enumerate(BILL_WIDTHS, start=1):
+		ws.column_dimensions[get_column_letter(i)].width = width
+
+	row = _write_title(ws, title, header)
+
+	# units to tender sits in one cell so every line total refers to it
+	ws.cell(row=row, column=3, value="Units to tender").font = Font(name=FONT, size=10, bold=True)
+	units = ws.cell(row=row, column=4, value=flt(doc.kitchens_to_tender))
+	units.font = Font(name=FONT, size=10, bold=True)
+	units.number_format = QTY
+	units.border = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
+	unit_count = flt(doc.kitchens_to_tender)
+	row += 2
+
+	header_row = row
+	for col, label in enumerate(
+		["Ref", "Description", "Qty / Unit", "Unit", "Rate", "€ per Unit", "€ Total"], start=FIRST_COL
+	):
+		cell = ws.cell(row=row, column=col, value=label)
+		cell.font = Font(name=FONT, size=10, bold=True)
+		cell.fill = HEADER_FILL
+		cell.alignment = Alignment(horizontal="right" if col in (4, 6, 7, 8) else "left", vertical="center")
+	_box_row(ws, row, FIRST_COL, LAST_COL, top=THIN, bottom=THIN)
+	ws.freeze_panes = ws.cell(row=row + 1, column=1)
+	row += 1
+
+	section_totals = []
+	for number, (section, rows) in enumerate(_group_rows(doc, client), start=1):
+		title = ws.cell(row=row, column=FIRST_COL, value=f"({number}) {section.title()}")
+		title.font = Font(name=FONT, size=11, bold=True)
+		ws.merge_cells(start_row=row, start_column=FIRST_COL, end_row=row, end_column=LAST_COL)
+		for col in range(FIRST_COL, LAST_COL + 1):
+			ws.cell(row=row, column=col).fill = SECTION_FILL
+		_box_row(ws, row, FIRST_COL, LAST_COL, top=THIN, bottom=THIN)
+		ws.row_dimensions[row].height = 18
+		row += 1
+
+		for ref, line in zip(_refs(), rows):
+			row = _write_item(ws, row, ref, line, unit_count, client)
+		if not rows:
+			row = _write_wide(ws, row, _("No other costs added."), Font(name=FONT, size=9, italic=True, color="808080"))
+
+		# values, not formulas: openpyxl can't store calculated results, so previews and Excel's
+		# Protected View would show formula totals as blank/0 until the file is recalculated
+		if client:
+			section_per_unit = _cents(sum(line["per_unit"] for line in rows))
+			section_total = _cents(sum(line["total"] for line in rows))
+		else:
+			# the saved amounts added up, then rounded, as the manifest's own totals are
+			section_per_unit = _cents(sum(flt(line.get("amount")) for line in rows))
+			section_total = _cents(sum(flt(line.get("amount")) for line in rows) * unit_count)
+		label = ws.cell(row=row, column=3, value=f"{section.title()} total")
+		per_unit = ws.cell(row=row, column=7, value=section_per_unit)
+		total = ws.cell(row=row, column=8, value=section_total)
+		for cell in (label, per_unit, total):
+			cell.font = Font(name=FONT, size=10, bold=True)
+		for cell in (per_unit, total):
+			cell.number_format = MONEY
+		for col in range(FIRST_COL, LAST_COL + 1):
+			ws.cell(row=row, column=col).fill = TOTAL_FILL
+		_box_row(ws, row, FIRST_COL, LAST_COL, top=THIN, bottom=THIN)
+		section_totals.append((section.title(), section_per_unit, section_total))
+		row += 2
+
+	if with_totals:
+		_write_bill_totals(ws, row, doc, client)
+	_page_setup(ws, header_row, last_column="H")
+	return section_totals
+
+
+def _write_item(ws, row: int, ref: str, line: dict, unit_count: float, client: bool = False) -> int:
+	"""One item block: the priced line, then its note as a full-width row under it.
+
+	The simplified (client) bill has the priced line only.
+	"""
+	first = row
+	row = _write_line(ws, row, line, unit_count, client)
+
+	note = "" if client else (line.get("remark") or "").strip()
+	if note:
+		row = _write_wide(ws, row, f"Note: {note}", Font(name=FONT, size=9, italic=True), fill=NOTE_FILL)
+
+	# the ref spans the whole block, with a darker rule above it, so each item is easy to pick out
+	ref_cell = ws.cell(row=first, column=FIRST_COL, value=ref)
+	ref_cell.font = Font(name=FONT, size=10, bold=True)
+	ref_cell.alignment = Alignment(horizontal="center", vertical="top")
+	if row - 1 > first:
+		ws.merge_cells(start_row=first, start_column=FIRST_COL, end_row=row - 1, end_column=FIRST_COL)
+	for col in range(FIRST_COL, LAST_COL + 1):
+		cell = ws.cell(row=first, column=col)
+		cell.border = Border(left=cell.border.left, right=cell.border.right, top=THIN, bottom=cell.border.bottom)
+	for r in range(first, row):
+		cell = ws.cell(row=r, column=FIRST_COL)
+		cell.border = Border(left=GRID, right=GRID, top=THIN if r == first else GRID, bottom=GRID)
+	return row
+
+
+def _line_values(line: dict, unit_count: float, client: bool = False) -> str:
+	"""A bill line's description, and its € per unit and € total (set on the line); shared by the
+	Excel bill and the Tender's print format so both show the same figures."""
+	item = line.get("item_name") or line.get("item_code") or _("Not selected")
+	if line.get("is_charge"):
+		# a charge's description is its own wording; show the item only if it adds something
+		item = line.get("item_name") or line.get("item_code") or ""
+		head = line.get("label") if not item or item == line.get("label") else f"{line.get('label')} ({item})"
+	else:
+		head = f"{line.get('label')}: {item}"
+	source = "" if client or line.get("is_charge") else _cost_source(line)
+	description = (
+		head
+		+ (f" ({source})" if source else "")
+		+ (" (rate adjusted)" if line.get("rate_override") and not client else "")
+	)
+	# the row amount the server saved on the tender, so the bill matches the form exactly
+	if client:
+		# marked-up amounts are already whole cents (see _group_rows)
+		line["per_unit"] = flt(line.get("amount"))
+		line["total"] = _cents(line["per_unit"] * unit_count)
+	else:
+		line["per_unit"] = _cents(line.get("amount"))
+		line["total"] = _cents(flt(line.get("amount")) * unit_count)
+	return description
+
+
+def _cost_source(line: dict) -> str:
+	"""Where the line's cost rate comes from, for the detailed bill: its BOM, price list or last
+	purchase rate."""
+	if line.get("bom"):
+		return _("BOM {0}").format(line["bom"])
+	if line.get("price_list"):
+		return line["price_list"]
+	if line.get("cost_from") == "Last Purchase Rate":
+		return _("last purchase rate")
+	return ""
+
+
+def _write_line(ws, row: int, line: dict, unit_count: float, client: bool = False) -> int:
+	description = _line_values(line, unit_count, client)
+
+	values = {
+		3: description,
+		4: flt(line.get("qty")),
+		5: _unit(line),
+		6: flt(line.get("rate")) or None,
+		7: line["per_unit"],
+		8: line["total"],
+	}
+	for col, value in values.items():
+		cell = ws.cell(row=row, column=col, value=value)
+		cell.font = Font(name=FONT, size=10)
+		cell.alignment = Alignment(vertical="top", wrap_text=col == 3)
+	ws.cell(row=row, column=4).number_format = QTY
+	ws.cell(row=row, column=6).number_format = MONEY if client else RATE
+	for col in (7, 8):
+		ws.cell(row=row, column=col).number_format = MONEY
+
+	_box_row(ws, row, FIRST_COL, LAST_COL)
+	ws.row_dimensions[row].height = _height(description, DESC_CHARS_PER_LINE, 13)
+	return row + 1
+
+
+def _write_wide(ws, row: int, text: str, font: Font, fill: PatternFill | None = None) -> int:
+	"""A full-width row under an item (Description → € Total), used for its note."""
+	cell = ws.cell(row=row, column=3, value=text)
+	cell.font = font
+	cell.alignment = Alignment(wrap_text=True, vertical="top")
+	ws.merge_cells(start_row=row, start_column=3, end_row=row, end_column=LAST_COL)
+	if fill:
+		for col in range(3, LAST_COL + 1):
+			ws.cell(row=row, column=col).fill = fill
+	_box_row(ws, row, FIRST_COL, LAST_COL)
+	ws.row_dimensions[row].height = _height(text, WIDE_CHARS_PER_LINE, 11.5)
+	return row + 1
+
+
+def _write_summary(ws, doc, header, section_totals, client: bool = False):
+	for i, width in enumerate([2, 40, 18, 18], start=1):
+		ws.column_dimensions[get_column_letter(i)].width = width
+
+	row = _write_title(ws, "Tender Summary", header)
+	for col, label in enumerate(["Section", "€ per Unit", "€ Total"], start=2):
+		cell = ws.cell(row=row, column=col, value=label)
+		cell.font = Font(name=FONT, size=10, bold=True)
+		cell.fill = HEADER_FILL
+		cell.alignment = Alignment(horizontal="left" if col == 2 else "right")
+	_box_row(ws, row, 2, 4, top=THIN, bottom=THIN)
+	header_row = row
+	row += 1
+
+	first = row
+	for section, per_unit, total in section_totals:
+		ws.cell(row=row, column=2, value=section)
+		ws.cell(row=row, column=3, value=per_unit)
+		ws.cell(row=row, column=4, value=total)
+		_box_row(ws, row, 2, 4)
+		row += 1
+
+	for label, per_unit, total, bold in _price_lines(doc, client):
+		ws.cell(row=row, column=2, value=label)
+		ws.cell(row=row, column=3, value=per_unit)
+		ws.cell(row=row, column=4, value=total)
+		for col in (2, 3, 4):
+			ws.cell(row=row, column=col).font = Font(name=FONT, size=10, bold=bold)
+		if label == "Tender price":
+			for col in (2, 3, 4):
+				ws.cell(row=row, column=col).fill = TOTAL_FILL
+			_box_row(ws, row, 2, 4, top=THIN, bottom=Side(style="double", color="808080"))
+		else:
+			_box_row(ws, row, 2, 4, top=THIN if label.startswith("Cost") else GRID)
+		row += 1
+
+	for r in range(first, row):
+		for col in (3, 4):
+			ws.cell(row=r, column=col).number_format = MONEY
+		for col in (2, 3, 4):
+			if not ws.cell(row=r, column=col).font.bold:
+				ws.cell(row=r, column=col).font = Font(name=FONT, size=10)
+
+	_page_setup(ws, header_row, last_column="D")
+
+
+def _price_lines(doc, client: bool = False) -> list[tuple[str, float, float, bool]]:
+	"""(label, € per unit, € total, bold) for the closing lines: cost and margin, then tender price.
+
+	The tender's own saved figures, rounded to the cent halves up as the form shows them (written
+	unrounded, Excel can show a figure like 3109.515 a cent low, as it's stored as 3109.51499...).
+	"""
+	units = flt(doc.kitchens_to_tender)
+	if client:
+		# the client's copy adds up its own rounded lines, so its tender price matches them
+		return [("Tender price", *client_tender_price(doc), True)]
+	lines = [
+		("Cost per unit / Cost base", _cents(doc.total_cost_per_kitchen), _cents(doc.cost_base), True),
+		(
+			f"Margin ({flt(doc.target_margin_pct):g}% on cost)",
+			_cents(flt(doc.margin_amount) / units) if units else 0,
+			_cents(doc.margin_amount),
+			False,
+		),
+	]
+	lines.append(("Tender price", _cents(doc.tender_price_per_kitchen), _cents(doc.tender_price_total), True))
+	return lines
+
+
+def _write_bill_totals(ws, row: int, doc, client: bool = False) -> int:
+	"""The closing cost / margin / tender price lines under a bill (used on the Tender's workbook)."""
+	for label, per_unit, total, bold in _price_lines(doc, client):
+		is_price = label == "Tender price"
+		cells = (
+			ws.cell(row=row, column=3, value=label),
+			ws.cell(row=row, column=7, value=per_unit),
+			ws.cell(row=row, column=8, value=total),
+		)
+		for cell in cells:
+			cell.font = Font(name=FONT, size=10, bold=bold)
+		for cell in cells[1:]:
+			cell.number_format = MONEY
+		if is_price:
+			for col in range(FIRST_COL, LAST_COL + 1):
+				ws.cell(row=row, column=col).fill = TOTAL_FILL
+		_box_row(
+			ws, row, FIRST_COL, LAST_COL,
+			top=THIN if is_price or label.startswith("Cost") else GRID,
+			bottom=Side(style="double", color="808080") if is_price else GRID,
+		)
+		row += 1
+	return row
+
+
+def _group_rows(doc, client: bool = False) -> list[tuple[str, list[dict]]]:
+	rows = json.loads(doc.config_rows_json or "[]")
+	item_names = dict(
+		frappe.get_all(
+			"Item",
+			filters={"name": ["in", [r["item_code"] for r in rows if r.get("item_code")]]},
+			fields=["name", "item_name"],
+			as_list=True,
+		)
+	)
+
+	# rows saved before cost sources have only the price; name its price list for the detailed bill
+	price_lists = dict(
+		frappe.get_all(
+			"Item Price",
+			filters={"name": ["in", [r["price_row"] for r in rows if r.get("price_row") and not r.get("price_list")]]},
+			fields=["name", "price_list"],
+			as_list=True,
+		)
+	) if any(r.get("price_row") and not r.get("price_list") for r in rows) else {}
+
+	grouped: dict[str, list[dict]] = {}
+	for line in rows:
+		if line.get("price_row") and not line.get("price_list"):
+			line["price_list"] = price_lists.get(line["price_row"], "")
+		# rows with no item chosen cost nothing (a typed rate needs an item), so they're left off;
+		# a section with none chosen doesn't appear
+		if not line.get("item_code"):
+			continue
+		line["item_name"] = item_names.get(line.get("item_code"))
+		grouped.setdefault(line.get("section") or "Items", []).append(line)
+
+	# charges added in the Other Costs section (per unit, priced like any other line); the
+	# section is always shown, like on the form, even when no charges were added
+	charges = json.loads(doc.other_costs_json or "[]")
+	grouped["OTHER COSTS"] = [
+		{
+			"label": charge.get("description") or charge.get("item_code"),
+			"item_code": charge.get("item_code"),
+			"item_name": frappe.db.get_value("Item", charge["item_code"], "item_name") if charge.get("item_code") else None,
+			"qty": charge.get("qty"),
+			"rate": charge.get("rate"),
+			"amount": charge.get("amount"),
+			"remark": charge.get("remark"),
+			"is_charge": 1,
+		}
+		for charge in charges
+	]
+	if not client:
+		return list(grouped.items())
+
+	# simplified (client) version: each line at tender price (the margin spread over every line),
+	# rounded to the cent: the rate first, then qty x rate, so every line can be checked by hand
+	markup = _markup(doc)
+	client_groups = []
+	for section, lines in grouped.items():
+		for line in lines:
+			line["rate"] = _cents(flt(line.get("rate")) * markup)
+			line["amount"] = _cents(flt(line.get("qty")) * line["rate"])
+		if lines:
+			client_groups.append((section, lines))
+	return client_groups
+
+
+def client_tender_price(doc) -> tuple[float, float]:
+	"""(€ per unit, € total) of the client's copy: the sum of its rounded lines, so it can differ
+	from the manifest's own tender price by a cent or so where a marked-up rate isn't whole cents."""
+	per_unit = _cents(sum(flt(line.get("amount")) for _section, lines in _group_rows(doc, True) for line in lines))
+	return per_unit, _cents(per_unit * flt(doc.kitchens_to_tender))
+
+
+def _cents(value: float) -> float:
+	"""Round to the cent, halves up (as on an invoice), not banker's rounding."""
+	return float(Decimal(str(flt(value))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def _markup(doc) -> float:
+	"""Tender price over cost, so marked-up lines add up to the tender price exactly."""
+	cost = flt(doc.cost_base)
+	return flt(doc.tender_price_total) / cost if cost else 1 + flt(doc.target_margin_pct) / 100
+
+
+def _refs():
+	"""A, B, C … like the bill (skipping I and O, which read as numbers), then AA, AB …"""
+	letters = [c for c in "ABCDEFGHJKLMNPQRSTUVWXYZ"]
+	yield from letters
+	for first in letters:
+		for second in letters:
+			yield first + second
+
+
+def _unit(line: dict) -> str:
+	"""Unit the line is priced in: the price's own UOM (m, hr), or the template's qty label for 'Nos' prices."""
+	uom = line.get("uom")
+	qty_label = line.get("qty_label")
+	if uom and uom != "Nos":
+		return UNIT_NAMES.get(uom, uom)
+	if qty_label and qty_label != "QTY":
+		return UNIT_NAMES.get(qty_label, qty_label)
+	return UNIT_NAMES.get(uom, uom or "nr")
+
+
+def _height(text: str, chars_per_line: int, line_height: float) -> float:
+	"""Row height for wrapped text (Excel doesn't auto-fit rows written by openpyxl)."""
+	lines = sum(max(1, math.ceil(len(part) / chars_per_line)) for part in (text or "").split("\n"))
+	return max(15, lines * line_height + 3)
+
+
+def _page_setup(ws, header_row: int, last_column: str):
+	ws.sheet_view.showGridLines = False
+	ws.page_setup.orientation = "landscape"
+	ws.page_setup.paperSize = ws.PAPERSIZE_A4
+	ws.page_setup.fitToWidth = 1
+	ws.page_setup.fitToHeight = 0
+	ws.sheet_properties.pageSetUpPr.fitToPage = True
+	ws.print_title_rows = f"{header_row}:{header_row}"
+	ws.print_area = f"A1:{last_column}{ws.max_row}"
+	ws.oddFooter.center.text = "Page &P of &N"
+	ws.oddFooter.right.text = f"Printed {formatdate(getdate())}"

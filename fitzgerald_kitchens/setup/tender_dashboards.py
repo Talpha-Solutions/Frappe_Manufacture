@@ -8,8 +8,8 @@ def add_tenders(data):
 	"""Lead and Customer connections: their tenders and the tender templates made for them (both
 	link through Party Type + Party)."""
 	fieldnames = data.setdefault("non_standard_fieldnames", {})
-	fieldnames["Tender"] = fieldnames["Tender Configuration Template"] = "party_name"
+	fieldnames["Pre Production Plan"] = fieldnames["Pre Production Manifest Template"] = "party_name"
 	data.setdefault("transactions", []).append(
-		{"label": _("Tendering"), "items": ["Tender", "Tender Configuration Template"]}
+		{"label": _("Tendering"), "items": ["Pre Production Plan", "Pre Production Manifest Template"]}
 	)
 	return data
