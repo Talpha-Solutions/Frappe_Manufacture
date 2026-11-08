@@ -4,8 +4,6 @@
 const TENDER_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_plan.pre_production_plan";
 const TEMPLATE_QUERY = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_manifest_template.pre_production_manifest_template.template_query";
 const EXCEL_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_excel.download_tender_excel";
-// matches LOCKED_TENDER_STATUSES in tender_manifest.py: manifests are fixed while with the client or closed
-const LOCKED_STATUSES = ["Submitted", "Lost", "Cancelled"];
 const UNITS_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_plan.pre_production_plan_units";
 
 frappe.ui.form.on("Pre Production Plan", {
@@ -32,13 +30,23 @@ frappe.ui.form.on("Pre Production Plan", {
 			__("Templates for this tender's Lead or Customer, or for everyone if they don't have their own")
 		);
 		add_download_buttons(frm);
+		add_material_order_plan_button(frm);
 		render_manifests(frm);
 		render_units_preview(frm);
 		listen_for_unit_projects(frm);
 	},
 });
 
-// ---------------------------------------------------------------- Units tab (won tenders)
+// what to order for this plan's units, and by when
+function add_material_order_plan_button(frm) {
+	if (frm.is_new()) return;
+	frm.add_custom_button(__("Material Order Plan"), () => {
+		frappe.route_options = { pre_production_plan: [frm.doc.name], ...(frm.doc.company ? { company: frm.doc.company } : {}) };
+		frappe.set_route("query-report", "Material Order Plan");
+	});
+}
+
+// ---------------------------------------------------------------- Units tab
 // The tab only shows the units and their projects; they're set up on the Tender Units page.
 
 function open_units_editor(frm) {
@@ -48,8 +56,7 @@ function open_units_editor(frm) {
 
 function render_units_preview(frm) {
 	const field = frm.fields_dict.units_preview_html;
-	if (!field) return;
-	if (frm.doc.status !== "Won") return;
+	if (!field || frm.is_new()) return;
 	if (!(frm.doc.unit_types || []).length) {
 		show_units_panel(frm, units_empty_html(frm));
 		return;
@@ -286,7 +293,7 @@ function render_manifests(frm) {
 			if (requested !== frm.doc.name) return;
 			const { manifests = [], totals = {} } = r.message || {};
 			show_totals(frm, totals);
-			container.html(manifests_html(manifests, LOCKED_STATUSES.includes(frm.doc.status)));
+			container.html(manifests_html(manifests));
 			container.find(".add-manifest-btn").on("click", () => new_manifest(frm));
 			container.find(".manifest-row").on("click", function () {
 				frappe.set_route("Form", "Pre Production Manifest", $(this).data("name"));
@@ -305,9 +312,9 @@ function show_totals(frm, totals) {
 	}
 }
 
-function manifests_html(manifests, locked) {
+function manifests_html(manifests) {
 	const esc = frappe.utils.escape_html;
-	const add_btn = frappe.model.can_create("Pre Production Manifest") && !locked
+	const add_btn = frappe.model.can_create("Pre Production Manifest")
 		? `<button class="btn btn-${manifests.length ? "xs" : "sm"} btn-default add-manifest-btn">${__("+ New Pre Production Manifest")}</button>`
 		: "";
 	const style = `

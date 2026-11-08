@@ -1,4 +1,4 @@
-// Tender Units: a full-width spreadsheet editor for a Won tender's apartments, without the desk sidebar.
+// Tender Units: a full-width spreadsheet editor for a tender's apartments, without the desk sidebar.
 // Save writes them to the tender's Units table (a row per apartment per manifest) with the Site Name,
 // Company and Project Template; the unit workbook is downloaded and uploaded here, and the projects
 // are created and synced from here. The tender's Units tab only shows the result.
@@ -57,7 +57,6 @@ class TenderUnits {
 				fieldname: "tender",
 				options: "Pre Production Plan",
 				label: __("Pre Production Plan"),
-				get_query: () => ({ filters: { status: "Won" } }),
 				change: () => {
 					const value = this.tender_field.get_value();
 					if (value && value !== this.data?.tender.name) this.set_tender(value);
@@ -289,7 +288,7 @@ class TenderUnits {
 		if (!this.data) {
 			this.$top.find(".fk-tu-setup").empty();
 			this.$body.html(`<div class="fk-tu-empty">
-				<p>${__("Pick a Won tender above to set up its apartments.")}</p></div>`);
+				<p>${__("Pick a tender above to set up its apartments.")}</p></div>`);
 			return;
 		}
 		const t = this.data.tender;
@@ -317,7 +316,7 @@ class TenderUnits {
 	render_setup() {
 		const t = this.data.tender;
 		const $setup = this.$top.find(".fk-tu-setup").empty();
-		// Site Name and Company come from the tender (set when it's won) and are shown, not changed, here
+		// Site Name and Company come from the tender and are shown, not changed, here
 		const fields = [
 			{ fieldname: "site_name", fieldtype: "Data", label: __("Site Name"), read_only: 1 },
 			{ fieldname: "company", fieldtype: "Link", options: "Company", label: __("Company"), read_only: 1 },

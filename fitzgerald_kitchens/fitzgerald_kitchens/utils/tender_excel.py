@@ -183,7 +183,6 @@ def _tender_header(tender, client: bool) -> list[str]:
 		f"Number of units: {tender.number_of_units}" if tender.number_of_units else "",
 		f"Site: {site}" if site else "",
 		dates,
-		"" if client else f"Status: {tender.status}",
 	]
 
 

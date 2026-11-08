@@ -9,7 +9,6 @@
  "field_order": [
   "naming_series",
   "tender_name",
-  "status",
   "number_of_units",
   "column_break_details",
   "party_type",
@@ -70,16 +69,6 @@
    "in_list_view": 1,
    "label": "Tender Name",
    "reqd": 1
-  },
-  {
-   "default": "Draft",
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Status",
-   "options": "Draft\nIn Progress\nSubmitted\nWon\nLost\nCancelled",
-   "read_only": 1
   },
   {
    "description": "Houses / apartments on the site. One unit can take several pre production manifests (kitchen, robe, utility…)",
@@ -227,7 +216,6 @@
    "label": "Notes"
   },
   {
-   "depends_on": "eval:doc.status=='Won'",
    "fieldname": "units_tab",
    "fieldtype": "Tab Break",
    "label": "Units"
@@ -338,7 +326,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-08 08:40:10.800336",
+ "modified": "2026-11-08 12:58:57.483073",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Pre Production Plan",
@@ -383,7 +371,7 @@
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
- "search_fields": "tender_name,party_title,status",
+ "search_fields": "tender_name,party_title",
  "show_title_field_in_link": 1,
  "sort_field": "creation",
  "sort_order": "DESC",
