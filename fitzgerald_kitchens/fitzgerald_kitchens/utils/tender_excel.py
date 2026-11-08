@@ -59,12 +59,12 @@ FIRST_COL = 2
 
 @frappe.whitelist()
 def download_tender_excel(name: str, simplified: int | str = 0):
-	tender = frappe.get_doc("Tender", name)
+	tender = frappe.get_doc("Pre Production Plan", name)
 	tender.check_permission("read")
 	client = bool(int(simplified or 0))
 
 	manifest_names = frappe.get_all(
-		"Tender Manifest", filters={"tender": name}, pluck="name", order_by="creation asc"
+		"Tender Manifest", filters={"pre_production_plan": name}, pluck="name", order_by="creation asc"
 	)
 	if not manifest_names:
 		frappe.throw(_("Add a tender manifest to this tender before downloading it."))

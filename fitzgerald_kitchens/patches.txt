@@ -4,6 +4,7 @@
 fitzgerald_kitchens.patches.v1_0.rename_kitchen_configuration_to_tender_configuration
 fitzgerald_kitchens.patches.v1_0.rename_tender_configuration_to_tender_manifest
 fitzgerald_kitchens.patches.v1_0.rename_kitchen_configuration_template_to_tender_configuration_template
+fitzgerald_kitchens.patches.v1_0.rename_tender_to_pre_production_plan
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -74,3 +75,4 @@ fitzgerald_kitchens.patches.v1_0.move_tender_customer_to_party
 fitzgerald_kitchens.patches.v1_0.rename_tender_from_to_party_type
 fitzgerald_kitchens.patches.v1_0.move_template_customer_to_party
 fitzgerald_kitchens.patches.v1_0.split_tender_units_per_qty
+fitzgerald_kitchens.patches.v1_0.move_tender_links_to_pre_production_plan

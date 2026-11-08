@@ -231,7 +231,7 @@ def upload_unit_workbook(tender: str, file_url: str | None = None) -> dict:
 	The Tender Units page uploads the file to the tender first and passes its file_url."""
 	doc = _get_won_tender(tender, "write")
 	if file_url:
-		if not frappe.db.exists("File", {"file_url": file_url, "attached_to_doctype": "Tender", "attached_to_name": doc.name}):
+		if not frappe.db.exists("File", {"file_url": file_url, "attached_to_doctype": "Pre Production Plan", "attached_to_name": doc.name}):
 			frappe.throw(_("That file isn't attached to this tender."))
 		doc.unit_workbook = file_url
 	if not doc.unit_workbook:
@@ -403,7 +403,7 @@ def preview_units(tender: str) -> dict:
 	plan = _plan(doc, _table_rows(doc), _site_name(doc), where=_where_apartment)
 	status = "Failed" if plan["errors"] else "Ready" if doc.get("unit_types") else "Not Started"
 	if doc.unit_import_status not in ("Creating", "Completed") or plan["errors"]:
-		frappe.db.set_value("Tender", doc.name, "unit_import_status", status, update_modified=False)
+		frappe.db.set_value("Pre Production Plan", doc.name, "unit_import_status", status, update_modified=False)
 	plan["status"] = status
 	return plan
 
@@ -540,9 +540,9 @@ def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
 		if a["allocated"] != a["tendered"]:
 			count_warnings.append(_("{0}: {1} in the units, {2} tendered.").format(frappe.bold(a["label"]), a["allocated"], a["tendered"]))
 	warnings += count_warnings
-	site = frappe.db.get_value("Project", {"project_type": SITE_PROJECT_TYPE, "project_name": site_name}, ["name", "fk_tender"], as_dict=True)
-	if site and site.fk_tender and site.fk_tender != doc.name:
-		errors.append(_("Site project {0} already belongs to tender {1}. Change the Site Name.").format(frappe.bold(site_name), site.fk_tender))
+	site = frappe.db.get_value("Project", {"project_type": SITE_PROJECT_TYPE, "project_name": site_name}, ["name", "fk_pre_production_plan"], as_dict=True)
+	if site and site.fk_pre_production_plan and site.fk_pre_production_plan != doc.name:
+		errors.append(_("Site project {0} already belongs to Pre Production Plan {1}. Change the Site Name.").format(frappe.bold(site_name), site.fk_pre_production_plan))
 	sync = _sync_state(site.name if site else None, site_name, apartments)
 
 	order = lambda pt: (pt != KITCHEN_PROJECT_TYPE, pt)
@@ -681,10 +681,10 @@ def create_unit_projects(tender: str):
 	if preview_units(doc.name)["errors"]:
 		frappe.throw(_("Fix the errors in the preview first."))
 
-	frappe.db.set_value("Tender", doc.name, {"unit_import_status": "Creating", "unit_import_summary": ""}, update_modified=False)
+	frappe.db.set_value("Pre Production Plan", doc.name, {"unit_import_status": "Creating", "unit_import_summary": ""}, update_modified=False)
 	frappe.db.commit()
 	frappe.enqueue(
-		"fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender_units.build_unit_projects",
+		"fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_plan.pre_production_plan_units.build_unit_projects",
 		queue="long",
 		timeout=3600,
 		tender=doc.name,
@@ -694,7 +694,7 @@ def create_unit_projects(tender: str):
 
 def build_unit_projects(tender: str):
 	"""Background job: create (or update) the site, apartment types and apartment projects."""
-	doc = frappe.get_doc("Tender", tender)
+	doc = frappe.get_doc("Pre Production Plan", tender)
 	stats = {"configurations": 0, "manifests": 0, "created": 0, "updated": 0}
 	try:
 		site_name = _site_name(doc)
@@ -733,19 +733,19 @@ def build_unit_projects(tender: str):
 							frappe.db.set_value("Tender Unit Type", unit["child"], "project", project, update_modified=False)
 				done += 1
 				if done % 10 == 0 or done == total:
-					frappe.publish_progress(done * 100 / total, title=_("Creating unit projects"), doctype="Tender", docname=doc.name,
+					frappe.publish_progress(done * 100 / total, title=_("Creating unit projects"), doctype="Pre Production Plan", docname=doc.name,
 					                        description=_("{0} of {1} apartments").format(done, total))
 			frappe.db.commit()
 
 		summary = _(
 			"Site {0}: {1} unit projects created, {2} updated; {3} apartment types and {4} manifests set up."
 		).format(site, stats["created"], stats["updated"], stats["configurations"], stats["manifests"])
-		frappe.db.set_value("Tender", doc.name, {"unit_import_status": "Completed", "unit_import_summary": summary, "project": site}, update_modified=False)
+		frappe.db.set_value("Pre Production Plan", doc.name, {"unit_import_status": "Completed", "unit_import_summary": summary, "project": site}, update_modified=False)
 		frappe.db.commit()
 		frappe.publish_realtime("tender_units_done", {"tender": doc.name, "ok": True, "site": site, "summary": summary}, user=frappe.session.user)
 	except Exception:
 		frappe.db.rollback()
-		frappe.db.set_value("Tender", tender, {"unit_import_status": "Failed", "unit_import_summary": frappe.get_traceback()[-4000:]}, update_modified=False)
+		frappe.db.set_value("Pre Production Plan", tender, {"unit_import_status": "Failed", "unit_import_summary": frappe.get_traceback()[-4000:]}, update_modified=False)
 		frappe.db.commit()
 		frappe.publish_realtime("tender_units_done", {"tender": tender, "ok": False}, user=frappe.session.user)
 		raise
@@ -764,7 +764,7 @@ def _party_customer(doc) -> str:
 		new.insert()
 		customer = new.name
 	title = frappe.db.get_value("Customer", customer, "customer_name") or customer
-	frappe.db.set_value("Tender", doc.name, {"party_type": "Customer", "party_name": customer, "party_title": title}, update_modified=False)
+	frappe.db.set_value("Pre Production Plan", doc.name, {"party_type": "Customer", "party_name": customer, "party_title": title}, update_modified=False)
 	# the lead's own tender templates follow it
 	for name in frappe.get_all("Tender Configuration Template", filters={"party_type": "Lead", "party_name": lead}, pluck="name"):
 		frappe.db.set_value("Tender Configuration Template", name, {"party_type": "Customer", "party_name": customer, "party_title": title}, update_modified=False)
@@ -774,7 +774,7 @@ def _party_customer(doc) -> str:
 
 def _ensure_site(doc, site_name: str, customer: str) -> str:
 	site = frappe.db.get_value("Project", {"project_type": SITE_PROJECT_TYPE, "project_name": site_name}, "name")
-	values = {"customer": customer, "fk_developer": customer, "fk_tender": doc.name}
+	values = {"customer": customer, "fk_developer": customer, "fk_pre_production_plan": doc.name}
 	if site:
 		frappe.db.set_value("Project", site, values)
 		return site
@@ -888,7 +888,7 @@ def _apply_template_if_no_tasks(project: str, template: str | None):
 
 
 def _get_won_tender(tender: str, ptype: str):
-	doc = frappe.get_doc("Tender", tender)
+	doc = frappe.get_doc("Pre Production Plan", tender)
 	doc.check_permission(ptype)
 	if doc.status != "Won":
 		frappe.throw(_("Units are set up once the tender is Won."))
@@ -901,7 +901,7 @@ def _site_name(doc) -> str:
 
 def _tender_manifests(tender: str) -> list:
 	"""The tender's manifests, kitchens first."""
-	manifests = frappe.get_all("Tender Manifest", filters={"tender": tender}, fields=["name", "tender_name", "project_type", "kitchens_to_tender"], order_by="name")
+	manifests = frappe.get_all("Tender Manifest", filters={"pre_production_plan": tender}, fields=["name", "tender_name", "project_type", "kitchens_to_tender"], order_by="name")
 	return sorted(manifests, key=lambda m: (m.project_type not in (None, "", KITCHEN_PROJECT_TYPE), m.name))
 
 

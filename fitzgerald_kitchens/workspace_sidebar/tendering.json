@@ -24,8 +24,8 @@
    "icon": "clipboard-list",
    "indent": 0,
    "keep_closed": 0,
-   "label": "Tender",
-   "link_to": "Tender",
+   "label": "Pre Production Plan",
+   "link_to": "Pre Production Plan",
    "link_type": "DocType",
    "show_arrow": 0,
    "type": "Link"
@@ -161,7 +161,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-10-16 17:11:13.611633",
+ "modified": "2026-11-08 07:22:26.784874",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tendering",

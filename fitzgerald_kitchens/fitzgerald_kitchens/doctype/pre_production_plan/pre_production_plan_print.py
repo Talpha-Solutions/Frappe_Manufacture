@@ -22,7 +22,7 @@ from fitzgerald_kitchens.setup.project_unit_fields import KITCHEN_PROJECT_TYPE
 
 def get_tender_document(tender: str) -> dict:
 	"""For the print format (a Jinja method): the tender's summary and one priced bill per manifest."""
-	doc = frappe.get_doc("Tender", tender)
+	doc = frappe.get_doc("Pre Production Plan", tender)
 	doc.check_permission("print")
 	company = doc.company or frappe.defaults.get_user_default("Company") or frappe.db.get_single_value(
 		"Global Defaults", "default_company"
@@ -31,7 +31,7 @@ def get_tender_document(tender: str) -> dict:
 
 	manifests = [
 		frappe.get_doc("Tender Manifest", name)
-		for name in frappe.get_all("Tender Manifest", filters={"tender": doc.name}, pluck="name", order_by="creation asc")
+		for name in frappe.get_all("Tender Manifest", filters={"pre_production_plan": doc.name}, pluck="name", order_by="creation asc")
 	]
 	bills = [_bill(number, m) for number, m in enumerate(manifests, start=1)]
 	total = sum(b["total"] for b in bills)

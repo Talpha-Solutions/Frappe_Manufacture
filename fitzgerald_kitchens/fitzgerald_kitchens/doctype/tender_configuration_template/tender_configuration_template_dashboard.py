@@ -7,6 +7,6 @@ def get_data():
 		"non_standard_fieldnames": {"Tender Configuration Template": "based_on"},
 		"transactions": [
 			{"label": _("Customer Templates"), "items": ["Tender Configuration Template"]},
-			{"label": _("Used On"), "items": ["Tender", "Tender Manifest"]},
+			{"label": _("Used On"), "items": ["Pre Production Plan", "Tender Manifest"]},
 		],
 	}

@@ -56,12 +56,12 @@
  ],
  "fields": [
   {
-   "default": "TDR-.YYYY.-.####",
+   "default": "PPP-.YYYY.-.####",
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "hidden": 1,
    "label": "Series",
-   "options": "TDR-.YYYY.-.####",
+   "options": "PPP-.YYYY.-.####",
    "reqd": 1
   },
   {
@@ -194,11 +194,11 @@
    "read_only": 1
   },
   {
+   "description": "Units added up across all tender manifests; a unit with a kitchen and a robe manifest counts twice",
    "fieldname": "total_units",
    "fieldtype": "Float",
    "label": "Manifest Units",
-   "read_only": 1,
-   "description": "Units added up across all tender manifests; a unit with a kitchen and a robe manifest counts twice"
+   "read_only": 1
   },
   {
    "fieldname": "column_break_totals",
@@ -241,10 +241,10 @@
    "label": "Units"
   },
   {
+   "description": "One row per apartment per manifest; an apartment with a kitchen and a robe has two rows",
    "fieldname": "section_break_unit_setup",
    "fieldtype": "Section Break",
-   "label": "Unit Setup",
-   "description": "One row per apartment per manifest; an apartment with a kitchen and a robe has two rows"
+   "label": "Unit Setup"
   },
   {
    "description": "The Site project's name; defaults to the tender name",
@@ -288,18 +288,18 @@
    "fieldtype": "Section Break"
   },
   {
+   "description": "An import template: a Units sheet with a row per apartment and a Manifest + Qty column pair per project type, plus a sheet per manifest for reference.",
    "fieldname": "download_unit_workbook",
    "fieldtype": "Button",
    "hidden": 1,
-   "label": "Download Workbook",
-   "description": "An import template: a Units sheet with a row per apartment and a Manifest + Qty column pair per project type, plus a sheet per manifest for reference."
+   "label": "Download Workbook"
   },
   {
+   "description": "Attaching the workbook replaces the Units table with its rows",
    "fieldname": "unit_workbook",
    "fieldtype": "Attach",
    "hidden": 1,
-   "label": "Unit Workbook",
-   "description": "Attaching the workbook replaces the Units table with its rows"
+   "label": "Unit Workbook"
   },
   {
    "fieldname": "units_preview_html",
@@ -317,18 +317,18 @@
    "fieldtype": "Select",
    "hidden": 1,
    "label": "Unit Projects Status",
+   "no_copy": 1,
    "options": "Not Started\nReady\nCreating\nCompleted\nFailed",
-   "read_only": 1,
-   "no_copy": 1
+   "read_only": 1
   },
   {
    "fieldname": "project",
    "fieldtype": "Link",
    "hidden": 1,
    "label": "Site Project",
+   "no_copy": 1,
    "options": "Project",
-   "read_only": 1,
-   "no_copy": 1
+   "read_only": 1
   },
   {
    "fieldname": "column_break_unit_projects",
@@ -339,22 +339,33 @@
    "fieldtype": "Long Text",
    "hidden": 1,
    "label": "Summary",
-   "read_only": 1,
-   "no_copy": 1
+   "no_copy": 1,
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-20 11:16:11.630168",
+ "modified": "2026-11-08 07:22:26.784874",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
- "name": "Tender",
+ "name": "Pre Production Plan",
  "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -362,29 +373,18 @@
    "print": 1,
    "read": 1,
    "report": 1,
-   "share": 1,
-   "write": 1
-  },
-  {
    "role": "Tender Manager",
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
    "share": 1,
    "write": 1
   },
   {
-   "role": "Tender User",
    "create": 1,
    "email": 1,
    "export": 1,
    "print": 1,
    "read": 1,
    "report": 1,
+   "role": "Tender User",
    "share": 1,
    "write": 1
   }

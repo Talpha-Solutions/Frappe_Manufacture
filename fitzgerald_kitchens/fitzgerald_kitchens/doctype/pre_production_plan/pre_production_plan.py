@@ -25,7 +25,7 @@ TOTAL_FIELDS = {
 }
 
 
-class Tender(Document):
+class PreProductionPlan(Document):
 	def validate(self):
 		validate_party_type(self.party_type)
 		self.party_title = party_title(self.party_type, self.party_name)
@@ -81,13 +81,13 @@ class Tender(Document):
 
 def update_tender_totals(tender: str | None):
 	"""Re-add the linked manifests into a tender's totals (called when a manifest changes)."""
-	if not tender or not frappe.db.exists("Tender", tender):
+	if not tender or not frappe.db.exists("Pre Production Plan", tender):
 		return
-	frappe.db.set_value("Tender", tender, _calculate_totals(tender), update_modified=False)
+	frappe.db.set_value("Pre Production Plan", tender, _calculate_totals(tender), update_modified=False)
 
 
 def _calculate_totals(tender: str) -> dict:
-	manifests = frappe.get_all("Tender Manifest", filters={"tender": tender}, fields=list(TOTAL_FIELDS))
+	manifests = frappe.get_all("Tender Manifest", filters={"pre_production_plan": tender}, fields=list(TOTAL_FIELDS))
 	totals = {total: sum(flt(m.get(field)) for m in manifests) for field, total in TOTAL_FIELDS.items()}
 	totals["manifest_count"] = len(manifests)
 	return totals
@@ -104,18 +104,18 @@ def get_tender_manifests(tender: str) -> dict:
 	The totals are recalculated here too and corrected if the stored ones are out of date (e.g. a
 	manifest changed without a save), so the form always shows the same figures as the table.
 	"""
-	doc = frappe.get_doc("Tender", tender)
+	doc = frappe.get_doc("Pre Production Plan", tender)
 	doc.check_permission("read")
 	if not frappe.has_permission("Tender Manifest", "read"):
 		frappe.throw(_("Not permitted"), frappe.PermissionError)
 
 	totals = _calculate_totals(tender)
 	if any(flt(doc.get(field), 2) != flt(value, 2) for field, value in totals.items()):
-		frappe.db.set_value("Tender", tender, totals, update_modified=False)
+		frappe.db.set_value("Pre Production Plan", tender, totals, update_modified=False)
 
 	manifests = frappe.get_all(
 		"Tender Manifest",
-		filters={"tender": tender},
+		filters={"pre_production_plan": tender},
 		fields=[
 			"name",
 			"tender_name",

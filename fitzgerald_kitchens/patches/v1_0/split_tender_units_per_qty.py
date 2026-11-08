@@ -1,7 +1,7 @@
 import frappe
 from frappe.utils import cint
 
-from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender_units import link_unit_projects
+from fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_plan.pre_production_plan_units import link_unit_projects
 from fitzgerald_kitchens.setup.project_unit_fields import KITCHEN_PROJECT_TYPE
 
 
@@ -17,8 +17,8 @@ def execute():
 	if frappe.db.has_column("Tender Unit Type", "qty"):
 		qtys = dict(frappe.db.sql("select name, qty from `tabTender Unit Type`"))
 
-	for tender in frappe.get_all("Tender Unit Type", filters={"parenttype": "Tender"}, pluck="parent", distinct=True):
-		doc = frappe.get_doc("Tender", tender)
+	for tender in frappe.get_all("Tender Unit Type", filters={"parenttype": "Pre Production Plan"}, pluck="parent", distinct=True):
+		doc = frappe.get_doc("Pre Production Plan", tender)
 		rows, units = [], {}
 		for r in doc.unit_types:
 			project_type = r.project_type or frappe.db.get_value("Tender Manifest", r.manifest, "project_type") or KITCHEN_PROJECT_TYPE
@@ -29,7 +29,7 @@ def execute():
 					"unit_type": r.unit_type, "floor": r.floor, "number": r.number, "unit_name": r.unit_name,
 					"manifest": r.manifest, "project_type": project_type, "unit_no": units[key],
 				})
-		frappe.db.delete("Tender Unit Type", {"parenttype": "Tender", "parent": doc.name})
+		frappe.db.delete("Tender Unit Type", {"parenttype": "Pre Production Plan", "parent": doc.name})
 		doc.set("unit_types", rows)
 		for row in doc.unit_types:
 			row.db_insert()

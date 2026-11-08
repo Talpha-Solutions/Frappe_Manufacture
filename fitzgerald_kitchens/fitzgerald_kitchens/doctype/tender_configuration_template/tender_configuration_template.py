@@ -47,7 +47,7 @@ def tender_party(tender: str | None) -> tuple[str | None, str | None]:
 	"""(party type, party) a tender is for, or (None, None)."""
 	if not tender:
 		return None, None
-	party = frappe.db.get_value("Tender", tender, ["party_type", "party_name"], as_dict=True)
+	party = frappe.db.get_value("Pre Production Plan", tender, ["party_type", "party_name"], as_dict=True)
 	return (party.party_type, party.party_name) if party and party.party_name else (None, None)
 
 

@@ -8,7 +8,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cint, cstr, flt
 
-from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender import update_tender_totals
+from fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_plan.pre_production_plan import update_tender_totals
 from fitzgerald_kitchens.setup.project_unit_fields import SITE_PROJECT_TYPE
 from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template import (
 	tender_party,
@@ -37,7 +37,7 @@ class TenderManifest(Document):
 			frappe.throw(_("A tender manifest prices a unit's room, so its Project Type can't be Site."))
 		if not self.template:
 			frappe.throw(_("Template is required."))
-		validate_template_party(self.template, *tender_party(self.tender))
+		validate_template_party(self.template, *tender_party(self.pre_production_plan))
 
 		rows = _parse_rows_json(self.config_rows_json)
 		template_rows = _get_template_rows(self.template)
@@ -57,20 +57,20 @@ class TenderManifest(Document):
 	def on_update(self):
 		# keep the tender's totals in step; if the manifest moved, the old tender loses it
 		previous = self.get_doc_before_save()
-		update_tender_totals(self.tender)
-		if previous and previous.tender and previous.tender != self.tender:
-			update_tender_totals(previous.tender)
+		update_tender_totals(self.pre_production_plan)
+		if previous and previous.pre_production_plan and previous.pre_production_plan != self.pre_production_plan:
+			update_tender_totals(previous.pre_production_plan)
 
 	def on_trash(self):
 		self._check_tender_lock()
 
 	def after_delete(self):
-		update_tender_totals(self.tender)
+		update_tender_totals(self.pre_production_plan)
 
 	def _check_tender_lock(self):
-		previous = None if self.is_new() else frappe.db.get_value("Tender Manifest", self.name, "tender")
-		for tender in {self.tender, previous} - {None, ""}:
-			status = frappe.db.get_value("Tender", tender, "status")
+		previous = None if self.is_new() else frappe.db.get_value("Tender Manifest", self.name, "pre_production_plan")
+		for tender in {self.pre_production_plan, previous} - {None, ""}:
+			status = frappe.db.get_value("Pre Production Plan", tender, "status")
 			if status in LOCKED_TENDER_STATUSES:
 				frappe.throw(
 					_("Tender {0} is {1}, so its manifests can't be changed. Revise the tender to change them.").format(

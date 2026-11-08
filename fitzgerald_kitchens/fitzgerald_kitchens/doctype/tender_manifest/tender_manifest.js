@@ -10,7 +10,7 @@ frappe.ui.form.on("Tender Manifest", {
 		// the tender's party's own templates if they have any, otherwise those for everyone
 		frm.set_query("template", () => ({
 			query: "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template.template_query",
-			filters: { tender: frm.doc.tender || "" },
+			filters: { tender: frm.doc.pre_production_plan || "" },
 		}));
 	},
 	async refresh(frm) {
@@ -38,11 +38,11 @@ frappe.ui.form.on("Tender Manifest", {
 		recalculate_totals_from_rows(frm);
 		await render_builder(frm);
 	},
-	async tender(frm) {
+	async pre_production_plan(frm) {
 		load_tender_party(frm);
 		// a new manifest starts from its tender's defaults; anything already filled in is kept
-		if (!frm.is_new() || !frm.doc.tender) return;
-		const { message: t } = await frappe.db.get_value("Tender", frm.doc.tender, [
+		if (!frm.is_new() || !frm.doc.pre_production_plan) return;
+		const { message: t } = await frappe.db.get_value("Pre Production Plan", frm.doc.pre_production_plan, [
 			"tender_name",
 			"template",
 			"target_margin_pct",
@@ -75,10 +75,10 @@ frappe.ui.form.on("Tender Manifest", {
 
 async function load_tender_party(frm) {
 	frm.__fk_tender_party = null;
-	if (!frm.doc.tender) return;
-	const tender = frm.doc.tender;
-	const { message: t } = await frappe.db.get_value("Tender", tender, ["party_type", "party_name"]);
-	if (frm.doc.tender !== tender || !t?.party_name) return;
+	if (!frm.doc.pre_production_plan) return;
+	const tender = frm.doc.pre_production_plan;
+	const { message: t } = await frappe.db.get_value("Pre Production Plan", tender, ["party_type", "party_name"]);
+	if (frm.doc.pre_production_plan !== tender || !t?.party_name) return;
 	frm.__fk_tender_party = { party_type: t.party_type, party_name: t.party_name };
 }
 

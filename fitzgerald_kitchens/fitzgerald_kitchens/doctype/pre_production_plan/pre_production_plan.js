@@ -1,14 +1,14 @@
 // Copyright (c) 2026, talpha solutions and contributors
 // For license information, please see license.txt
 
-const TENDER_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender";
+const TENDER_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_plan.pre_production_plan";
 const TEMPLATE_QUERY = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template.template_query";
 const EXCEL_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_excel.download_tender_excel";
 // matches LOCKED_TENDER_STATUSES in tender_manifest.py: manifests are fixed while with the client or closed
 const LOCKED_STATUSES = ["Submitted", "Lost", "Cancelled"];
-const UNITS_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender.tender_units";
+const UNITS_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_plan.pre_production_plan_units";
 
-frappe.ui.form.on("Tender", {
+frappe.ui.form.on("Pre Production Plan", {
 	setup(frm) {
 		frm.set_query("party_type", () => ({ filters: { name: ["in", ["Lead", "Customer"]] } }));
 		// the customer's own templates if they have any, otherwise those for everyone
@@ -258,7 +258,7 @@ function add_download_buttons(frm) {
 // a manifest for this tender, starting from the tender's defaults
 function new_manifest(frm) {
 	frappe.new_doc("Tender Manifest", {
-		tender: frm.doc.name,
+		pre_production_plan: frm.doc.name,
 		tender_name: frm.doc.tender_name,
 		template: frm.doc.template,
 		target_margin_pct: frm.doc.target_margin_pct,

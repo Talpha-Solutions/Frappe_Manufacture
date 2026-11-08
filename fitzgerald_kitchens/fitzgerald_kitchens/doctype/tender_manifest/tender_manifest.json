@@ -8,7 +8,7 @@
  "field_order": [
   "top_intro",
   "section_break_details",
-  "tender",
+  "pre_production_plan",
   "tender_name",
   "kitchens_to_tender",
   "column_break_details",
@@ -61,12 +61,12 @@
   },
   {
    "description": "The tender this manifest is part of",
-   "fieldname": "tender",
+   "fieldname": "pre_production_plan",
    "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Tender",
-   "options": "Tender",
+   "label": "Pre Production Plan",
+   "options": "Pre Production Plan",
    "search_index": 1
   },
   {
@@ -315,7 +315,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-18 09:40:55.234309",
+ "modified": "2026-11-08 07:22:26.784874",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tender Manifest",
@@ -323,7 +323,18 @@
  "owner": "Administrator",
  "permissions": [
   {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -331,29 +342,18 @@
    "print": 1,
    "read": 1,
    "report": 1,
-   "share": 1,
-   "write": 1
-  },
-  {
    "role": "Tender Manager",
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
    "share": 1,
    "write": 1
   },
   {
-   "role": "Tender User",
    "create": 1,
    "email": 1,
    "export": 1,
    "print": 1,
    "read": 1,
    "report": 1,
+   "role": "Tender User",
    "share": 1,
    "write": 1
   }
