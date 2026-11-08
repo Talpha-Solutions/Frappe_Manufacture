@@ -15,9 +15,16 @@ from fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_manifest_tem
 	validate_template_party,
 )
 
-# template row details a tender row always follows (its item, qty, spec, etc. are its own)
+# template row details a tender row always follows (its item, qty, costing, etc. are its own)
 TEMPLATE_ROW_FIELDS = ("tag", "subtitle", "item_group", "qty_label")
-STANDARD_SELLING_PRICE_LIST = "Standard Selling"
+
+# where a row's rate comes from: a manufactured item (Default Material Request Type "Manufacture")
+# costs what one of its BOMs costs; any other item is bought in and costs a price from any price list,
+# or its last purchase rate
+MANUFACTURE_REQUEST_TYPE = "Manufacture"
+COST_FROM_BOM = "BOM"
+COST_FROM_PRICE_LIST = "Price List"
+COST_FROM_LAST_PURCHASE = "Last Purchase Rate"
 
 
 # while a tender is with the client, or closed, its manifests are fixed; Revise (or Reopen) the tender
@@ -37,7 +44,10 @@ class PreProductionManifest(Document):
 		if not self.template:
 			frappe.throw(_("Template is required."))
 		validate_template_party(self.template, *tender_party(self.pre_production_plan))
+		self.calculate_costs()
 
+	def calculate_costs(self):
+		"""Cost every row and charge, and work out the totals and tender price."""
 		rows = _parse_rows_json(self.config_rows_json)
 		template_rows = _get_template_rows(self.template)
 		rows_total = _validate_and_calculate_rows(rows, template_rows)
@@ -92,8 +102,6 @@ class PreProductionManifest(Document):
 		other_total = 0.0
 
 		for row in rows:
-			if row.get("exclude_from_price"):
-				continue
 			amount = flt(row.get("amount"))
 			section = row.get("section") or ""
 			item_group = (row.get("item_group") or "").strip()
@@ -197,51 +205,150 @@ def _validate_and_calculate_rows(rows: list[dict], template_rows: list[dict]) ->
 		template_row = template_by_key[(row.get("section"), row.get("label"))]
 		for field in TEMPLATE_ROW_FIELDS:
 			row[field] = template_row.get(field)
-		row["exclude_from_price"] = 1 if template_row.get("exclude_from_price") else 0
 		row["remark"] = cstr(row.get("remark")).strip()
 		row["qty"] = flt(row.get("qty"))
 		if row["qty"] < 0:
 			frappe.throw(_("Qty cannot be negative for row {0}.").format(row.get("label")))
 
-		if row["exclude_from_price"]:
-			# spec-only: any item in the row's group, priced or not. Its cost is worked out for
-			# reference but never added to the tender price.
-			_validate_spec_only_item(row)
-			_apply_reference_price(row)
-			_apply_item_spec(row)
-			continue
-
-		if not row.get("price_row"):
-			row["item_code"] = ""
-			_apply_rate(row, 0)
-			_apply_item_spec(row)
-			continue
-
-		item_price = frappe.db.get_value(
-			"Item Price",
-			row["price_row"],
-			["name", "item_code", "price_list_rate", "currency", "uom"],
-			as_dict=True,
-		)
-		if not item_price:
-			frappe.throw(_("Invalid price selection for row {0}.").format(row.get("label")))
-
-		actual_group = frappe.db.get_value("Item", item_price.item_code, "item_group")
-		if row.get("item_group") and actual_group != row.get("item_group"):
-			frappe.throw(
-				_("Selected item does not belong to Item Group {0} for row {1}.").format(
-					row.get("item_group"), row.get("label")
-				)
-			)
-
-		row["item_code"] = item_price.item_code
-		row["currency"] = item_price.currency
-		row["uom"] = item_price.uom
-		_apply_rate(row, item_price.price_list_rate)
+		_apply_costing(row)
 		total += flt(row["amount"])
-		_apply_item_spec(row)
 
 	return total
+
+
+def _apply_costing(row: dict):
+	"""Check the row's item and where its cost comes from, and set its rate and amount.
+
+	The row is costed by what it has chosen: a BOM (its unit cost), else an Item Price (any price
+	list), else the item's Last Purchase Rate. The choice has to suit the item: a manufactured item
+	(Default Material Request Type "Manufacture") is costed from a BOM and a bought-in item isn't, so
+	a row whose item has changed type is moved to the item's default source first (see
+	_match_cost_source).
+	"""
+	item_code = row.get("item_code") or ""
+	if not item_code:
+		row.update(item_code="", cost_from="", bom="", price_row="", price_list="", uom="", currency="")
+		_apply_rate(row, 0)
+		return
+
+	item = frappe.db.get_value(
+		"Item", item_code, ["item_group", "stock_uom", "last_purchase_rate", "default_material_request_type"], as_dict=True
+	)
+	if not item:
+		frappe.throw(_("Item {0} not found for row {1}.").format(item_code, row.get("label")))
+	if row.get("item_group") and item.item_group != row.get("item_group"):
+		frappe.throw(
+			_("Selected item does not belong to Item Group {0} for row {1}.").format(
+				row.get("item_group"), row.get("label")
+			)
+		)
+
+	_match_cost_source(row, item_code, item)
+
+	# rows saved before costing sources had a Standard Selling price only
+	cost_from = row.get("cost_from") or (COST_FROM_PRICE_LIST if row.get("price_row") else "")
+	if row.get("bom"):
+		cost_from = COST_FROM_BOM
+	row.update(cost_from=cost_from, uom=item.stock_uom, currency=_default_currency())
+
+	if cost_from == COST_FROM_BOM and row.get("bom"):
+		bom = frappe.db.get_value(
+			"BOM", row["bom"], ["item", "docstatus", "is_active", "total_cost", "quantity", "currency"], as_dict=True
+		)
+		if not bom or bom.docstatus != 1 or not bom.is_active:
+			frappe.throw(_("BOM {0} for row {1} isn't a submitted, active BOM.").format(frappe.bold(row["bom"]), row.get("label")))
+		if bom.item != item_code:
+			frappe.throw(
+				_("BOM {0} is for {1}, not {2} (row {3}).").format(frappe.bold(row["bom"]), bom.item, item_code, row.get("label"))
+			)
+		row.update(price_row="", price_list="", currency=bom.currency or row["currency"])
+		_apply_rate(row, _bom_unit_cost(bom))
+		return
+
+	row["bom"] = ""
+	if cost_from == COST_FROM_PRICE_LIST and row.get("price_row"):
+		price = frappe.db.get_value(
+			"Item Price", row["price_row"], ["item_code", "price_list", "price_list_rate", "currency", "uom"], as_dict=True
+		)
+		if not price or price.item_code != item_code:
+			frappe.throw(_("Invalid price selection for row {0}.").format(row.get("label")))
+		row.update(price_list=price.price_list, uom=price.uom or item.stock_uom, currency=price.currency)
+		_apply_rate(row, price.price_list_rate)
+		return
+
+	row.update(price_row="", price_list="")
+	if cost_from == COST_FROM_LAST_PURCHASE:
+		_apply_rate(row, item.last_purchase_rate)
+		return
+
+	# an item with no cost source yet: 0, unless a rate was typed in for this tender
+	row["cost_from"] = ""
+	_apply_rate(row, 0)
+
+
+def _match_cost_source(row: dict, item_code: str, item) -> bool:
+	"""Move a row to the item's default cost source if its current one doesn't suit the item: a
+	manufactured item costed from a price or its last purchase rate, or a bought-in item costed
+	from a BOM. Returns whether the row changed. A rate typed in for the old source is dropped.
+
+	Defaults (the same as the builder's): a manufactured item's default BOM, else its newest active
+	BOM, else nothing (not costed until it has one); a bought-in item's price in a buying price
+	list, else its last purchase rate if it has one, else any price, else its last purchase rate.
+	"""
+	manufactured = item.default_material_request_type == MANUFACTURE_REQUEST_TYPE
+	if manufactured:
+		if row.get("bom"):
+			return False
+		bom = frappe.get_all(
+			"BOM",
+			filters={"item": item_code, "docstatus": 1, "is_active": 1},
+			order_by="is_default desc, creation desc",
+			pluck="name",
+			limit=1,
+		)
+		source = {"cost_from": COST_FROM_BOM, "bom": bom[0]} if bom else {"cost_from": ""}
+		if not bom and not (row.get("price_row") or row.get("cost_from")):
+			return False  # already not costed
+	else:
+		if not row.get("bom"):
+			return False
+		source = _default_bought_in_source(item_code, item)
+
+	row.update(cost_from="", bom="", price_row="", price_list="", rate_override=0)
+	row.update(source)
+	return True
+
+
+def _default_bought_in_source(item_code: str, item) -> dict:
+	ItemPrice = frappe.qb.DocType("Item Price")
+	PriceList = frappe.qb.DocType("Price List")
+	prices = (
+		frappe.qb.from_(ItemPrice)
+		.inner_join(PriceList)
+		.on(PriceList.name == ItemPrice.price_list)
+		.select(ItemPrice.name, PriceList.buying)
+		.where(ItemPrice.item_code == item_code)
+		.where(PriceList.enabled == 1)
+		.orderby(PriceList.buying, order=frappe.qb.desc)
+		.orderby(ItemPrice.price_list)
+		.orderby(ItemPrice.uom)
+		.run(as_dict=True)
+	)
+	if prices and prices[0].buying:
+		return {"cost_from": COST_FROM_PRICE_LIST, "price_row": prices[0].name}
+	if flt(item.last_purchase_rate) or not prices:
+		return {"cost_from": COST_FROM_LAST_PURCHASE}
+	return {"cost_from": COST_FROM_PRICE_LIST, "price_row": prices[0].name}
+
+
+def _bom_unit_cost(bom) -> float:
+	"""What one of the BOM's item costs to make: its total cost (materials, operations, less scrap)
+	over its quantity."""
+	return flt(bom.total_cost) / (flt(bom.quantity) or 1)
+
+
+def _default_currency() -> str:
+	return frappe.db.get_default("currency") or ""
 
 
 def _validate_and_calculate_other_costs(charges: list[dict]) -> float:
@@ -267,42 +374,8 @@ def _validate_and_calculate_other_costs(charges: list[dict]) -> float:
 	return total
 
 
-def _validate_spec_only_item(row: dict):
-	item_code = row.get("item_code")
-	if not item_code:
-		row["item_code"] = ""
-		return
-	item = frappe.db.get_value("Item", item_code, ["item_group", "stock_uom"], as_dict=True)
-	if not item:
-		frappe.throw(_("Item {0} not found for row {1}.").format(item_code, row.get("label")))
-	if row.get("item_group") and item.item_group != row.get("item_group"):
-		frappe.throw(
-			_("Selected item does not belong to Item Group {0} for row {1}.").format(
-				row.get("item_group"), row.get("label")
-			)
-		)
-	row["uom"] = item.stock_uom
-	row["currency"] = ""
-
-
-def _apply_reference_price(row: dict):
-	"""Rate and amount for a spec-only row, from its selling price if it has one (else 0)."""
-	price = None
-	if row.get("item_code") and row.get("price_row"):
-		price = frappe.db.get_value(
-			"Item Price", row["price_row"], ["item_code", "price_list_rate", "currency", "uom"], as_dict=True
-		)
-		if not price or price.item_code != row["item_code"]:
-			price = None
-	row["price_row"] = row.get("price_row") if price else ""
-	if price:
-		row["currency"] = price.currency
-		row["uom"] = price.uom
-	_apply_rate(row, price.price_list_rate if price else 0)
-
-
 def _apply_rate(row: dict, list_rate: float):
-	"""Use the price-list rate, unless the rate was changed on the tender (rate_override)."""
+	"""Use the rate from the cost source, unless the rate was changed on the tender (rate_override)."""
 	row["list_rate"] = flt(list_rate)
 	if cint(row.get("rate_override")) and row.get("item_code"):
 		row["rate"] = flt(row.get("rate"))
@@ -314,41 +387,6 @@ def _apply_rate(row: dict, list_rate: float):
 		row["rate"] = row["list_rate"]
 		row["rate_override"] = 0
 	row["amount"] = flt(row["qty"]) * flt(row["rate"])
-
-
-def _apply_item_spec(row: dict):
-	"""Check the row's Item Spec belongs to its item and set the spec details stored on the row.
-
-	A spec written or edited on the tender (spec_custom) keeps its text as typed; any Item Spec link
-	is kept only to show where it came from. Otherwise the text is refreshed from the Item Spec.
-	"""
-	spec = None
-	if row.get("item_spec") and row.get("item_code"):
-		spec = frappe.db.get_value(
-			"Item Spec",
-			row["item_spec"],
-			["item_code", "spec_list", "spec_reference", "specification"],
-			as_dict=True,
-		)
-		if spec and spec.item_code != row["item_code"]:
-			if not row.get("spec_custom"):
-				frappe.throw(
-					_("Selected spec does not belong to item {0} for row {1}.").format(
-						row["item_code"], row.get("label")
-					)
-				)
-			spec = None
-
-	row["item_spec"] = row.get("item_spec") if spec else ""
-	row["spec_list"] = spec.spec_list if spec else ""
-	row["spec_reference"] = (spec.spec_reference or "") if spec else ""
-
-	if row.get("spec_custom"):
-		row["specification"] = cstr(row.get("specification")).strip()
-		row["spec_custom"] = 1 if row["specification"] else 0
-	else:
-		row["spec_custom"] = 0
-		row["specification"] = spec.specification if spec else ""
 
 
 def _apply_tender_pricing(doc: PreProductionManifest):
@@ -379,39 +417,79 @@ def _get_template_rows(template: str) -> list[dict]:
 			"item_group",
 			"qty_label",
 			"default_qty",
-			"exclude_from_price",
 		],
 		order_by="idx asc",
 	)
 	for row in rows:
-		# spec-only rows may default to 0 (fill in if useful); costed rows default to at least 1
-		row["qty"] = flt(row.get("default_qty")) if row.get("exclude_from_price") else flt(row.get("default_qty") or 1)
+		row["qty"] = flt(row.get("default_qty") or 1)
 	return rows
 
 
 @frappe.whitelist()
-def get_price_options(item_group: str):
-	if not item_group:
-		return []
+def get_cost_options(item_codes: str | list) -> dict:
+	"""Where each item's cost can come from, for the builder's Cost From picker.
 
-	rows = frappe.db.sql(
-		"""
-		select
-			ip.name as price_row,
-			i.name as item_code,
-			i.item_name,
-			ip.price_list,
-			ip.price_list_rate as rate,
-			ip.currency,
-			ip.uom
-		from `tabItem Price` ip
-		inner join `tabItem` i on i.name = ip.item_code
-		where i.disabled = 0
-		  and i.item_group = %s
-		  and ip.price_list = %s
-		order by i.item_name asc, ip.uom asc
-		""",
-		(item_group, STANDARD_SELLING_PRICE_LIST),
-		as_dict=True,
+	{item_code: {"manufactured", "stock_uom", "boms": [{name, is_default, unit_cost, currency}],
+	"prices": [{price_row, price_list, buying, selling, rate, currency, uom}], "last_purchase_rate"}}.
+	An item whose Default Material Request Type is Manufacture is costed from one of its submitted,
+	active BOMs; any other item is bought in and costed from a price list or its last purchase rate.
+	"""
+	if isinstance(item_codes, str):
+		item_codes = json.loads(item_codes)
+	codes = sorted({c for c in item_codes or [] if c})
+	if not codes:
+		return {}
+	frappe.has_permission("Pre Production Manifest", "read", throw=True)
+
+	options = {
+		i.name: {
+			"manufactured": i.default_material_request_type == MANUFACTURE_REQUEST_TYPE,
+			"stock_uom": i.stock_uom,
+			"last_purchase_rate": flt(i.last_purchase_rate),
+			"boms": [],
+			"prices": [],
+		}
+		for i in frappe.get_all(
+			"Item",
+			filters={"name": ["in", codes]},
+			fields=["name", "default_material_request_type", "stock_uom", "last_purchase_rate"],
+		)
+	}
+	manufactured = [code for code, o in options.items() if o["manufactured"]]
+	bought_in = [code for code, o in options.items() if not o["manufactured"]]
+	for bom in frappe.get_all(
+		"BOM",
+		filters={"item": ["in", manufactured or [""]], "docstatus": 1, "is_active": 1},
+		fields=["name", "item", "is_default", "total_cost", "quantity", "currency"],
+		order_by="is_default desc, creation desc",
+	):
+		options[bom.item]["boms"].append(
+			{"name": bom.name, "is_default": bom.is_default, "unit_cost": _bom_unit_cost(bom), "currency": bom.currency}
+		)
+
+	ItemPrice = frappe.qb.DocType("Item Price")
+	PriceList = frappe.qb.DocType("Price List")
+	prices = (
+		frappe.qb.from_(ItemPrice)
+		.inner_join(PriceList)
+		.on(PriceList.name == ItemPrice.price_list)
+		.select(
+			ItemPrice.name.as_("price_row"),
+			ItemPrice.item_code,
+			ItemPrice.price_list,
+			PriceList.buying,
+			PriceList.selling,
+			ItemPrice.price_list_rate.as_("rate"),
+			ItemPrice.currency,
+			ItemPrice.uom,
+		)
+		.where(ItemPrice.item_code.isin(bought_in or [""]))
+		.where(PriceList.enabled == 1)
+		.orderby(PriceList.buying, order=frappe.qb.desc)
+		.orderby(ItemPrice.price_list)
+		.orderby(ItemPrice.uom)
+		.run(as_dict=True)
 	)
-	return rows
+	for price in prices:
+		options[price.pop("item_code")]["prices"].append(price)
+	return options

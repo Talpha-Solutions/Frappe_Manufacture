@@ -1,7 +1,5 @@
 const METHOD_BASE =
 	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_manifest.pre_production_manifest";
-const SPEC_OPTIONS_METHOD =
-	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.item_spec.item_spec.get_spec_options";
 const EXCEL_METHOD =
 	"fitzgerald_kitchens.fitzgerald_kitchens.utils.pre_production_manifest_excel.download_tender_excel";
 
@@ -44,10 +42,9 @@ frappe.ui.form.on("Pre Production Manifest", {
 			"tender_name",
 			"template",
 			"target_margin_pct",
-			"spec_list",
 		]);
 		if (!t) return;
-		for (const field of ["tender_name", "template", "target_margin_pct", "spec_list"]) {
+		for (const field of ["tender_name", "template", "target_margin_pct"]) {
 			if (!frm.doc[field] && t[field]) await frm.set_value(field, t[field]);
 		}
 	},
@@ -89,12 +86,12 @@ function render_top_intro(frm) {
 	if (!intro) return;
 	intro.$wrapper.html(
 		`<p class="text-muted" style="margin-bottom: 0;">${__(
-			"Choose the items and specs for one unit. Costs roll up into the totals below."
+			"Choose the items for one unit and where each one's cost comes from: a BOM for manufactured items, a price list or the last purchase rate for bought-in ones. Costs roll up into the totals below."
 		)}</p>`
 	);
 }
 
-const TAG_COLOURS = { MATERIAL: "blue", LABOUR: "orange", INDIRECT: "gray", FIXED: "purple", SPEC: "green" };
+const TAG_COLOURS = { MATERIAL: "blue", LABOUR: "orange", INDIRECT: "gray", FIXED: "purple" };
 
 function title_case(value) {
 	return (value || "").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -131,7 +128,6 @@ async function render_builder(frm) {
 			.fk-row:last-child { border-bottom: none; }
 			.fk-row .frappe-control.form-group { margin-bottom: 0; }
 			.fk-item-ctl .awesomplete > ul { min-width: 320px !important; }
-			.fk-spec-ctl .awesomplete > ul { min-width: 420px !important; }
 			.fk-rate { margin-top: 2px; font-size: var(--text-xs); color: var(--text-muted); }
 			.fk-rate:empty { display: none; }
 			/* rate can be changed per tender: click the rate under the item */
@@ -145,23 +141,13 @@ async function render_builder(frm) {
 			.fk-sub { font-size: var(--text-sm); color: var(--text-muted); line-height: 1.3; }
 			.fk-amount, .fk-cols .col-amount { text-align: right; font-variant-numeric: tabular-nums; }
 			.fk-amount { color: var(--text-color); font-weight: var(--weight-medium); white-space: nowrap; }
-			/* rows ticked "Exclude from Tender Price" on the template: recorded, not costed */
-			.fk-excluded .fk-amount { color: var(--text-muted); font-weight: normal; }
-			.fk-not-priced { text-align: right; font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+			.fk-cost-ctl select:disabled { color: var(--text-muted); }
 			.fk-remark-btn, .fk-remark-remove { width: 28px; height: 28px; padding: 0; border: none; border-radius: var(--border-radius); background: transparent; color: var(--text-muted); display: flex; align-items: center; justify-content: center; }
 			.fk-remark-btn { opacity: 0; transition: opacity 0.15s; }
 			.fk-row:hover .fk-remark-btn, .fk-remark-btn:focus-visible { opacity: 1; }
 			.fk-remark-btn:hover, .fk-remark-remove:hover { background: var(--fg-hover-color); color: var(--text-color); }
 			.fk-has-remark .fk-remark-btn { opacity: 1; color: var(--primary-color); }
 			@media (hover: none) { .fk-remark-btn { opacity: 1; } }
-			/* spec box: shown once the row has a spec, or when "+ Add new spec" opens it */
-			.fk-spec-box { display: none; grid-column: 1 / -1; padding: var(--padding-xs) var(--padding-sm); border: 1px solid var(--border-color); border-left: 3px solid var(--primary-color); border-radius: var(--border-radius); background: var(--subtle-fg); }
-			.fk-has-spec .fk-spec-box, .fk-spec-open .fk-spec-box { display: block; }
-			.fk-spec-head { display: flex; align-items: center; gap: var(--margin-xs); margin-bottom: var(--padding-xs); font-size: var(--text-sm); color: var(--text-muted); font-weight: var(--weight-medium); }
-			.fk-spec-title { flex: 1; }
-			.fk-spec-input { min-height: 34px; height: auto; overflow-y: hidden; font-size: var(--text-sm) !important; background: var(--fg-color) !important; resize: none; }
-			.fk-spec-remove { width: 24px; height: 24px; padding: 0; border: none; border-radius: var(--border-radius); background: transparent; color: var(--text-muted); display: flex; align-items: center; justify-content: center; }
-			.fk-spec-remove:hover { background: var(--fg-hover-color); color: var(--text-color); }
 			/* always shown under the item once it has a remark; otherwise only when opened via the button */
 			.fk-remark-wrap { display: none; grid-column: 1 / -1; align-items: center; gap: var(--margin-xs); }
 			.fk-remark { flex: 1; font-size: var(--text-sm) !important; }
@@ -195,7 +181,7 @@ async function render_builder(frm) {
 				<div class="fk-cols">
 					<div>${__("Item")}</div>
 					<div>${__("Selection")}</div>
-					<div>${__("Spec")}</div>
+					<div>${__("Cost From")}</div>
 					<div>${escape_html(qtyLabel === "QTY" ? __("Qty") : qtyLabel)}</div>
 					<div class="col-amount">${__("Cost (€)")}</div>
 					<div></div>
@@ -204,27 +190,16 @@ async function render_builder(frm) {
 
 		for (const row of sectionRows) {
 			html += `
-				<div class="fk-row${row.remark ? " fk-has-remark" : ""}${row.specification ? " fk-has-spec" : ""}${row.exclude_from_price ? " fk-excluded" : ""}" data-row-key="${escape_html(get_row_key(row))}">
+				<div class="fk-row${row.remark ? " fk-has-remark" : ""}" data-row-key="${escape_html(get_row_key(row))}">
 					<div>
 						<div class="fk-label">${escape_html(row.label || "")}</div>
 						<div class="fk-sub">${escape_html(row.subtitle || "")}</div>
 					</div>
 					<div><div class="fk-item-ctl"></div><div class="fk-rate">${rate_html(row)}</div><div class="fk-rate-ctl hide"></div></div>
-					<div class="fk-spec-ctl"></div>
+					<div class="fk-cost-ctl"></div>
 					<div class="fk-qty-ctl"></div>
-					<div>
-						<div class="fk-amount">${format_currency(flt(row.amount || 0))}</div>
-						${row.exclude_from_price ? `<div class="fk-not-priced" title="${__("Shown for reference; not included in the tender price")}">${__("Not in price")}</div>` : ""}
-					</div>
+					<div class="fk-amount">${format_currency(flt(row.amount || 0))}</div>
 					<button type="button" class="fk-remark-btn" title="${__("Add / edit remark")}">${frappe.utils.icon("small-message", "sm")}</button>
-					<div class="fk-spec-box">
-						<div class="fk-spec-head">
-							<span class="fk-spec-title"></span>
-							<button type="button" class="btn btn-xs btn-default fk-spec-save">${__("Save to spec list…")}</button>
-							<button type="button" class="fk-spec-remove" title="${__("Remove spec")}">${frappe.utils.icon("close", "sm")}</button>
-						</div>
-						<textarea class="fk-spec-input form-control" rows="1" placeholder="${__("Write the specification for this item")}">${escape_html(row.specification || "")}</textarea>
-					</div>
 					<div class="fk-remark-wrap">
 						<input class="fk-remark form-control" type="text" placeholder="${__("Add a remark")}" value="${escape_html(row.remark || "")}" />
 						<button type="button" class="fk-remark-remove" title="${__("Remove remark")}">${frappe.utils.icon("close", "sm")}</button>
@@ -269,8 +244,6 @@ async function render_builder(frm) {
 	if (!is_current()) return;
 	render_other_costs(frm, $builder);
 	wrapper.empty().append($builder);
-	// spec boxes can only be sized once they're on the page
-	$builder.find(".fk-spec-input").each((_, textarea) => fit_to_text(textarea));
 }
 
 function parse_other_costs(frm) {
@@ -431,7 +404,7 @@ async function load_template_rows(frm, forceReload) {
 		return [];
 	}
 	if (rows.length && !forceReload) {
-		// follow the current template's row details (group, labels, spec-only tick); in the browser
+		// follow the current template's row details (group, labels); in the browser
 		// only, so opening a tender doesn't mark it changed. The server applies the same on save.
 		const r = await frappe.call({
 			method: `${METHOD_BASE}.get_template_rows`,
@@ -442,7 +415,7 @@ async function load_template_rows(frm, forceReload) {
 		for (const row of rows) {
 			const t = current[get_row_key(row)];
 			if (!t) continue;
-			for (const field of ["tag", "subtitle", "item_group", "qty_label", "exclude_from_price"]) {
+			for (const field of ["tag", "subtitle", "item_group", "qty_label"]) {
 				row[field] = t[field];
 			}
 		}
@@ -454,17 +427,17 @@ async function load_template_rows(frm, forceReload) {
 		});
 		rows = (r.message || []).map((row) => ({
 			...row,
-			price_row: "",
 			item_code: "",
+			cost_from: "",
+			bom: "",
+			price_row: "",
+			price_list: "",
 			rate: 0,
+			list_rate: 0,
+			rate_override: 0,
 			currency: "",
 			uom: "",
 			amount: 0,
-			item_spec: "",
-			spec_list: "",
-			spec_reference: "",
-			specification: "",
-			spec_custom: 0,
 		}));
 		save_rows(frm, rows);
 	}
@@ -472,24 +445,21 @@ async function load_template_rows(frm, forceReload) {
 }
 
 async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
-	// one call per item group, all at once, rather than one per row in turn
-	const groups = [...new Set(rows.map((r) => r.item_group).filter(Boolean))];
-	const [specOptions, groupPrices] = await Promise.all([
-		fetch_spec_options(rows.map((r) => r.item_code)),
-		Promise.all(
-			groups.map((item_group) =>
-				frappe
-					.call({ method: `${METHOD_BASE}.get_price_options`, args: { item_group } })
-					.then((r) => r.message || [])
-			)
-		),
-	]);
+	// every row's cost options in one call
+	const costOptions = await fetch_cost_options(rows.map((r) => r.item_code));
 	if (!is_current()) return;
-	const pricesByGroup = Object.fromEntries(groups.map((group, i) => [group, groupPrices[i]]));
 
 	// rows don't depend on each other, so they're bound side by side
+	const rematched = [];
 	const elements = wrapper.find(".fk-row").toArray();
 	await Promise.all(elements.map((el) => bind_row(el)));
+	if (rematched.length) {
+		save_rows(frm, rows);
+		frappe.show_alert({
+			message: __("Cost source updated to suit the item for: {0}. Save to keep it.", [rematched.join(", ")]),
+			indicator: "orange",
+		}, 10);
+	}
 
 	async function bind_row(el) {
 		const $row = $(el);
@@ -497,171 +467,68 @@ async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 		const row = rows.find((r) => get_row_key(r) === key);
 		if (!row) return;
 
-		// spec-only rows: any item in the group, priced for reference but kept out of the tender price
-		const specOnly = !!row.exclude_from_price;
-		const priceOptions = pricesByGroup[row.item_group] || [];
-
-		const pricedCodes = [...new Set(priceOptions.map((o) => o.item_code))];
-
-		// apply the new item to the row, refresh cost/rate, and reload its specs if the item changed
-		const on_item_changed = async (itemChanged, apply) => {
-			apply();
-			// a different item starts from its own price
-			row.list_rate = row.rate;
-			row.rate_override = 0;
+		const show_cost = () => {
+			row.amount = flt(row.qty) * flt(row.rate);
 			$row.find(".fk-amount").text(format_currency(row.amount));
 			$row.find(".fk-rate").html(rate_html(row));
-			if (itemChanged) {
-				const specs = (await fetch_spec_options([row.item_code]))[row.item_code] || [];
-				if (row.spec_custom && row.specification) {
-					// keep text written on the tender, but it no longer belongs to the old item's spec
-					row.item_spec = row.spec_list = row.spec_reference = "";
-				} else {
-					// a different item starts with no spec; the user picks one from the list
-					set_row_spec(row, null);
-					$row.find(".fk-spec-input").val(row.specification);
-				}
-				await fill_spec_control(specControl, specs, row);
-				update_spec_box($row, row, specs);
-			}
-			save_rows(frm, rows);
 		};
+
+		// an item that has changed type since the row was costed (e.g. now Manufacture, but the row
+		// still uses a selling price) moves to its default source; the server does the same on save
+		const options = costOptions[row.item_code];
+		if (row.item_code && options && (options.manufactured ? !row.bom : !!row.bom)) {
+			const choice = default_cost_choice(cost_choices({ item_code: row.item_code }, options));
+			if (choice.value || cost_value(row)) {
+				apply_cost_choice(row, choice);
+				show_cost();
+				rematched.push(row.label);
+			}
+		}
+
+		// Cost From: the item's BOMs if it's manufactured, else its prices and last purchase rate
+		let choices = [];
+		const costControl = make_row_control($row.find(".fk-cost-ctl"), {
+			fieldtype: "Select",
+			fieldname: "cost_from",
+			change: () => {
+				if (costControl.__fk_silent) return;
+				const choice = choices.find((c) => c.value === (costControl.get_value() || ""));
+				if (!choice) return;
+				apply_cost_choice(row, choice);
+				show_cost();
+				save_rows(frm, rows);
+			},
+		});
+		const refresh_cost_control = async () => {
+			choices = cost_choices(row, costOptions[row.item_code]);
+			costControl.df.options = choices.map(({ value, label }) => ({ value, label }));
+			costControl.set_options();
+			costControl.$input.prop("disabled", !row.item_code);
+			await set_silently(costControl, cost_value(row));
+		};
+		await refresh_cost_control();
 
 		const itemControl = make_row_control($row.find(".fk-item-ctl"), {
 			fieldtype: "Link",
 			fieldname: "item_code",
 			options: "Item",
 			placeholder: __("Select item"),
-			filter_description: specOnly
-				? __("{0} items", [row.item_group])
-				: __("{0} items with a selling price", [row.item_group]),
-			// costed rows: only items with a Standard Selling price; spec-only rows: any item in the group
-			get_query: () =>
-				specOnly
-					? { filters: { item_group: row.item_group, disabled: 0, has_variants: 0 } }
-					: { filters: { name: ["in", pricedCodes.length ? pricedCodes : [""]] } },
+			filter_description: __("{0} items", [row.item_group]),
+			get_query: () => ({ filters: { item_group: row.item_group, disabled: 0, has_variants: 0 } }),
 			change: async () => {
 				if (itemControl.__fk_silent) return;
 				const code = itemControl.get_value() || "";
-				const matches = priceOptions.filter((o) => o.item_code === code);
-				if (specOnly) {
-					// unpriced items are fine here; they just show no rate
-					const opt = matches.find((o) => o.uom === row.uom) || matches[0];
-					await on_item_changed(code !== row.item_code, () => {
-						row.item_code = code;
-						row.price_row = opt?.price_row || "";
-						row.rate = flt(opt?.rate);
-						row.currency = opt?.currency || "";
-						row.uom = opt?.uom || "";
-						row.amount = flt(row.qty) * flt(row.rate);
-					});
-					return;
-				}
-				const opt = matches.find((o) => o.uom === row.uom) || matches[0];
-				if (code && !opt) {
-					frappe.show_alert({
-						message: __("{0} has no Standard Selling price in this group, so it can't be costed here.", [code]),
-						indicator: "orange",
-					});
-					await set_silently(itemControl, row.item_code || "");
-					return;
-				}
-				await on_item_changed(row.item_code !== (opt?.item_code || ""), () => {
-					row.price_row = opt?.price_row || "";
-					row.item_code = opt?.item_code || "";
-					row.rate = flt(opt?.rate);
-					row.currency = opt?.currency || "";
-					row.uom = opt?.uom || "";
-					row.amount = flt(row.qty) * flt(row.rate);
-				});
+				if (code === (row.item_code || "")) return;
+				if (code && !costOptions[code]) Object.assign(costOptions, await fetch_cost_options([code]));
+				row.item_code = code;
+				// a different item starts from its own default cost source (and its own rate)
+				apply_cost_choice(row, default_cost_choice(cost_choices({ item_code: code }, costOptions[code])));
+				await refresh_cost_control();
+				show_cost();
+				save_rows(frm, rows);
 			},
 		});
 		await set_silently(itemControl, row.item_code || "");
-
-		const specControl = make_row_control($row.find(".fk-spec-ctl"), {
-			fieldtype: "Link",
-			fieldname: "item_spec",
-			options: "Item Spec",
-			get_query: () => {
-				specControl.df.filter_description = row.item_code
-					? __("Specs for {0}", [row.item_code])
-					: __("Select an item first");
-				return { filters: { item_code: row.item_code || "__no_item__" } };
-			},
-			change: async () => {
-				if (specControl.__fk_silent) return;
-				const value = specControl.get_value();
-				let specs = specControl.__fk_specs || [];
-				if (value && !specs.some((s) => s.name === value)) {
-					// e.g. picked through Advanced Search, or created since the row loaded
-					specs = (await fetch_spec_options([row.item_code]))[row.item_code] || [];
-					specControl.__fk_specs = specs;
-				}
-				set_row_spec(row, specs.find((s) => s.name === value) || null);
-				specInput.val(row.specification);
-				update_spec_box($row, row, specs);
-				save_rows(frm, rows);
-			},
-		});
-		// the dropdown's "Create a new Item Spec" opens the spec box under the item instead of a dialog
-		specControl.new_doc = () => {
-			if (!row.item_code) {
-				frappe.msgprint(__("Select an item for {0} first, then add its spec.", [row.label || __("this row")]));
-				return;
-			}
-			set_row_spec(row, null);
-			row.spec_custom = 1;
-			set_silently(specControl, "");
-			specInput.val("");
-			$row.addClass("fk-spec-open");
-			update_spec_box($row, row, specControl.__fk_specs || []);
-			specInput.trigger("focus");
-			save_rows(frm, rows);
-		};
-		await fill_spec_control(specControl, specOptions[row.item_code] || [], row);
-
-		const specInput = $row.find(".fk-spec-input");
-		update_spec_box($row, row, specOptions[row.item_code] || []);
-
-		specInput.on("input", (e) => {
-			const specs = specControl.__fk_specs || [];
-			const linked = specs.find((s) => s.name === row.item_spec);
-			row.specification = e.target.value;
-			// edited away from the linked spec (or written from scratch) = specific to this tender
-			row.spec_custom = linked && (linked.specification || "").trim() === row.specification.trim() ? 0 : 1;
-			update_spec_box($row, row, specs);
-			save_rows(frm, rows);
-		});
-
-		specInput.on("blur", () => {
-			row.specification = (row.specification || "").trim();
-			specInput.val(row.specification);
-			if (!row.specification && !row.item_spec) row.spec_custom = 0;
-			$row.removeClass("fk-spec-open");
-			update_spec_box($row, row, specControl.__fk_specs || []);
-			save_rows(frm, rows);
-		});
-
-		$row.find(".fk-spec-remove").on("click", async () => {
-			set_row_spec(row, null);
-			specInput.val("");
-			$row.removeClass("fk-spec-open");
-			await set_silently(specControl, "");
-			update_spec_box($row, row, specControl.__fk_specs || []);
-			save_rows(frm, rows);
-		});
-
-		// mousedown keeps the textarea's blur from hiding the box before the click lands
-		$row.find(".fk-spec-save").on("mousedown", (e) => e.preventDefault()).on("click", () => {
-			save_spec_to_list(row, specControl.__fk_specs || [], async (savedSpec) => {
-				const specs = (await fetch_spec_options([row.item_code]))[row.item_code] || [];
-				set_row_spec(row, specs.find((s) => s.name === savedSpec) || null);
-				specInput.val(row.specification);
-				await fill_spec_control(specControl, specs, row);
-				update_spec_box($row, row, specs);
-				save_rows(frm, rows);
-			});
-		});
 
 		const qtyControl = make_row_control($row.find(".fk-qty-ctl"), {
 			fieldtype: "Float",
@@ -670,14 +537,13 @@ async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 			change: () => {
 				if (qtyControl.__fk_silent) return;
 				row.qty = flt(qtyControl.get_value());
-				row.amount = flt(row.qty) * flt(row.rate);
-				$row.find(".fk-amount").text(format_currency(row.amount));
+				show_cost();
 				save_rows(frm, rows);
 			},
 		});
 		await set_silently(qtyControl, flt(row.qty));
 
-		// rate: click it to change it for this tender (kept on save); "reset" goes back to the price list
+		// rate: click it to change it for this tender (kept on save); "reset" goes back to the cost source
 		if (row.list_rate === undefined) row.list_rate = row.rate;
 		const $rate = $row.find(".fk-rate");
 		const $rateCtl = $row.find(".fk-rate-ctl");
@@ -685,9 +551,7 @@ async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 		const apply_rate = (rate, override) => {
 			row.rate = flt(rate);
 			row.rate_override = override && row.rate !== flt(row.list_rate) ? 1 : 0;
-			row.amount = flt(row.qty) * flt(row.rate);
-			$row.find(".fk-amount").text(format_currency(row.amount));
-			$rate.html(rate_html(row));
+			show_cost();
 			save_rows(frm, rows);
 		};
 		$rate.on("click", ".fk-rate-reset", (e) => {
@@ -743,11 +607,116 @@ async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 	}
 }
 
-async function fetch_spec_options(itemCodes) {
+// {item_code: {stock_uom, boms, prices, last_purchase_rate}} for the given items
+async function fetch_cost_options(itemCodes) {
 	const codes = [...new Set(itemCodes.filter(Boolean))];
 	if (!codes.length) return {};
-	const r = await frappe.call({ method: SPEC_OPTIONS_METHOD, args: { item_codes: codes } });
+	const r = await frappe.call({ method: `${METHOD_BASE}.get_cost_options`, args: { item_codes: codes } });
 	return r.message || {};
+}
+
+function default_currency() {
+	return frappe.defaults.get_default("currency") || frappe.boot.sysdefaults?.currency || "";
+}
+
+// the Cost From choices for a row's item: its BOMs if it's manufactured (Default Material Request
+// Type "Manufacture"), otherwise each price list it has a price in and its last purchase rate
+function cost_choices(row, options) {
+	if (!row.item_code) return [{ value: "", label: __("Select an item first") }];
+	const money = (rate, currency, uom) => `${format_currency(flt(rate), currency)}${uom ? ` / ${uom}` : ""}`;
+	const choices = [];
+	if (options?.manufactured) {
+		for (const bom of options.boms) {
+			choices.push({
+				value: `bom:${bom.name}`,
+				label: `${bom.name}${bom.is_default ? ` (${__("default")})` : ""} · ${money(bom.unit_cost, bom.currency, options.stock_uom)}`,
+				cost_from: "BOM",
+				bom: bom.name,
+				rate: bom.unit_cost,
+				currency: bom.currency,
+				uom: options.stock_uom,
+				is_default: bom.is_default,
+			});
+		}
+	} else if (options) {
+		for (const price of options.prices) {
+			choices.push({
+				value: `price:${price.price_row}`,
+				label: `${price.price_list} · ${money(price.rate, price.currency, price.uom)}`,
+				cost_from: "Price List",
+				price_row: price.price_row,
+				price_list: price.price_list,
+				rate: price.rate,
+				currency: price.currency,
+				uom: price.uom || options.stock_uom,
+				buying: price.buying,
+			});
+		}
+		choices.push({
+			value: "lpr",
+			label: `${__("Last Purchase Rate")} · ${
+				options.last_purchase_rate ? money(options.last_purchase_rate, default_currency(), options.stock_uom) : __("none yet")
+			}`,
+			cost_from: "Last Purchase Rate",
+			rate: options.last_purchase_rate,
+			currency: default_currency(),
+			uom: options.stock_uom,
+		});
+	}
+	// keep what the row already uses, even if it's no longer offered (e.g. a price on an item that has
+	// since got a BOM), so opening the manifest never changes its cost
+	const current = cost_value(row);
+	if (current && !choices.some((c) => c.value === current)) {
+		choices.unshift({
+			value: current,
+			label: `${row.bom || row.price_list || __(row.cost_from)} · ${money(row.list_rate ?? row.rate, row.currency, row.uom)}`,
+			cost_from: row.cost_from || (row.bom ? "BOM" : "Price List"),
+			bom: row.bom,
+			price_row: row.price_row,
+			price_list: row.price_list,
+			rate: row.list_rate ?? row.rate,
+			currency: row.currency,
+			uom: row.uom,
+		});
+	}
+	if (!current) {
+		const label = options?.manufactured && !options.boms.length ? __("No active BOM yet") : __("Not costed");
+		choices.unshift({ value: "", label });
+	}
+	return choices;
+}
+
+// the row's current choice, as a Cost From value
+function cost_value(row) {
+	if (row.bom) return `bom:${row.bom}`;
+	if (row.price_row) return `price:${row.price_row}`;
+	if (row.cost_from === "Last Purchase Rate") return "lpr";
+	return "";
+}
+
+// for a newly picked item: its default BOM; else a buying price, its last purchase rate, any price
+function default_cost_choice(choices) {
+	const real = choices.filter((c) => c.value);
+	return (
+		real.find((c) => c.bom && c.is_default) ||
+		real.find((c) => c.bom) ||
+		real.find((c) => c.price_row && c.buying) ||
+		real.find((c) => c.value === "lpr" && flt(c.rate)) ||
+		real.find((c) => c.price_row) ||
+		real.find((c) => c.value === "lpr") || { value: "" }
+	);
+}
+
+function apply_cost_choice(row, choice) {
+	row.cost_from = choice.cost_from || "";
+	row.bom = choice.bom || "";
+	row.price_row = choice.price_row || "";
+	row.price_list = choice.price_list || "";
+	row.currency = choice.currency || "";
+	row.uom = choice.uom || "";
+	row.list_rate = flt(choice.rate);
+	row.rate = row.list_rate;
+	row.rate_override = 0;
 }
 
 function make_row_control($parent, df) {
@@ -773,132 +742,17 @@ async function set_silently(control, value) {
 	}
 }
 
-// rate under the item: click to change it; an edited rate shows the list price and a reset link
+// rate under the item: click to change it; an edited rate shows the source's rate and a reset link
 function rate_html(row) {
 	if (!row.item_code) return "";
 	const per = (value) => `${format_currency(flt(value), row.currency)}${row.uom ? ` / ${row.uom}` : ""}`;
 	if (row.rate_override) {
 		return `<span class="fk-rate-value edited" title="${__("Rate changed for this tender. Click to edit")}">${escape_html(per(row.rate))}</span>
-			<span> · ${__("list {0}", [escape_html(format_currency(flt(row.list_rate), row.currency))])}</span>
+			<span> · ${__("was {0}", [escape_html(format_currency(flt(row.list_rate), row.currency))])}</span>
 			<a class="fk-rate-reset">${__("reset")}</a>`;
 	}
 	const label = flt(row.rate) ? per(row.rate) : __("Set rate");
 	return `<span class="fk-rate-value" title="${__("Click to change the rate for this tender")}">${escape_html(label)}</span>`;
-}
-
-async function fill_spec_control(specControl, specs, row) {
-	specControl.__fk_specs = specs;
-	// so the Link shows "Standard Spec · N11 360" rather than the Item Spec's random name
-	for (const spec of specs) {
-		frappe.utils.add_link_title("Item Spec", spec.name, [spec.spec_list, spec.spec_reference].filter(Boolean).join(" · "));
-	}
-	const placeholder = row.spec_custom && !row.item_spec && row.specification
-		? __("Custom spec (below)")
-		: specs.length
-			? __("No spec")
-			: __("No specs for this item");
-	specControl.$input.attr("placeholder", placeholder);
-	await set_silently(specControl, row.item_spec || "");
-}
-
-// heading, save button and visibility of the spec box under an item
-function update_spec_box($row, row, specs) {
-	const source = [row.spec_list, row.spec_reference].filter(Boolean).join(" · ");
-	let title;
-	if (row.item_spec && !row.spec_custom) title = source;
-	else if (row.item_spec) title = __("{0} — edited for this tender", [source]);
-	else if (row.specification) title = __("Custom spec — not saved to a spec list");
-	else title = __("New spec");
-
-	$row.find(".fk-spec-title").text(title);
-	$row.find(".fk-spec-save").toggle(!!row.spec_custom && !!(row.specification || "").trim());
-	$row.toggleClass("fk-has-spec", !!row.specification);
-	fit_to_text($row.find(".fk-spec-input").get(0));
-}
-
-// grow a textarea to its content (only measurable while visible)
-function fit_to_text(textarea) {
-	if (!textarea || !textarea.offsetParent) return;
-	textarea.style.height = "auto";
-	textarea.style.height = `${textarea.scrollHeight + 2}px`;
-}
-
-function set_row_spec(row, spec) {
-	row.item_spec = spec?.name || "";
-	row.spec_list = spec?.spec_list || "";
-	row.spec_reference = spec?.spec_reference || "";
-	row.specification = spec?.specification || "";
-	row.spec_custom = 0;
-}
-
-// save the row's spec text as an Item Spec in a chosen spec list (new, or updating the item's spec there)
-function save_spec_to_list(row, specs, on_saved) {
-	if (!row.item_code) {
-		frappe.msgprint(__("Select an item for {0} first, then save its spec.", [row.label || __("this row")]));
-		return;
-	}
-
-	const dialog = new frappe.ui.Dialog({
-		title: __("Save Spec for {0}", [row.item_code]),
-		fields: [
-			{
-				fieldname: "spec_list",
-				fieldtype: "Link",
-				label: __("Spec List"),
-				options: "Spec List",
-				reqd: 1,
-				default: row.spec_list || undefined,
-				get_query: () => ({ filters: { enabled: 1 } }),
-			},
-			{
-				fieldname: "spec_reference",
-				fieldtype: "Data",
-				label: __("Spec Reference"),
-				default: row.spec_reference || undefined,
-				description: __("Clause in the source specification, e.g. N17 410"),
-			},
-		],
-		primary_action_label: __("Save"),
-		primary_action(values) {
-			const specification = (row.specification || "").trim();
-			const existing = specs.find((s) => s.spec_list === values.spec_list);
-			const save = () => {
-				dialog.disable_primary_action();
-				const request = existing
-					? frappe.db.set_value("Item Spec", existing.name, {
-							specification,
-							spec_reference: values.spec_reference || "",
-					  })
-					: frappe.db.insert({
-							doctype: "Item Spec",
-							item_code: row.item_code,
-							spec_list: values.spec_list,
-							spec_reference: values.spec_reference || "",
-							specification,
-					  });
-				request
-					.then((r) => {
-						dialog.hide();
-						frappe.show_alert({
-							message: existing ? __("Spec updated in {0}", [values.spec_list]) : __("Spec saved to {0}", [values.spec_list]),
-							indicator: "green",
-						});
-						on_saved(existing ? existing.name : r.name);
-					})
-					.catch(() => dialog.enable_primary_action());
-			};
-			// an item has one spec per spec list, so saving to a list it already has updates that spec
-			if (existing) {
-				frappe.confirm(
-					__("{0} already has a spec in {1}. Update it with this text?", [row.item_code, values.spec_list]),
-					save
-				);
-			} else {
-				save();
-			}
-		},
-	});
-	dialog.show();
 }
 
 function get_row_key(row) {
@@ -945,8 +799,7 @@ function set_if_changed(frm, fieldname, value) {
 
 function recalculate_totals_from_rows(frm) {
 	const rows = parse_rows(frm.doc.config_rows_json);
-	// rows excluded from the tender price keep their item and spec but add nothing to the cost
-	const rowsTotal = rows.reduce((sum, row) => sum + (row.exclude_from_price ? 0 : flt(row.amount)), 0);
+	const rowsTotal = rows.reduce((sum, row) => sum + flt(row.amount), 0);
 	const otherCosts = parse_rows(frm.doc.other_costs_json).reduce((sum, c) => sum + flt(c.qty) * flt(c.rate), 0);
 	const perKitchen = rowsTotal + otherCosts;
 	const kitchens = flt(frm.doc.kitchens_to_tender || 0);

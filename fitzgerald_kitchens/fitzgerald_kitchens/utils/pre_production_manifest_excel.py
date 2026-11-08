@@ -3,9 +3,9 @@
 
 """Excel export of a Pre Production Manifest, laid out like a contractor's trade bill (BoQ).
 
-Two versions: the detailed bill is the internal costing (cost rates, margin, reference-only specs,
+Two versions: the detailed bill is the internal costing (cost rates and where they come from, margin,
 notes); the simplified bill is for the client, priced at tender price with the margin spread over
-every line: item lines only, without specs, notes, cost rates, margin or reference-only lines.
+every line: item lines only, without notes, cost rates or margin.
 """
 
 import json
@@ -143,27 +143,21 @@ def _write_bill(
 
 		# values, not formulas: openpyxl can't store calculated results, so previews and Excel's
 		# Protected View would show formula totals as blank/0 until the file is recalculated
-		priced = [line for line in rows if not line.get("exclude_from_price")]
-		reference_only = bool(rows) and not priced
-		# a section of only spec rows gets a reference total; otherwise only priced lines count
-		counted = rows if reference_only else priced
-		section_per_unit = sum(line["per_unit"] for line in counted)
-		section_total = sum(line["total"] for line in counted)
+		section_per_unit = sum(line["per_unit"] for line in rows)
+		section_total = sum(line["total"] for line in rows)
 		if not client:
 			section_per_unit, section_total = flt(section_per_unit, 2), flt(section_total, 2)
-		title = f"{section.title()} total" + (" (reference only, not in tender price)" if reference_only else "")
-		label = ws.cell(row=row, column=3, value=title)
+		label = ws.cell(row=row, column=3, value=f"{section.title()} total")
 		per_unit = ws.cell(row=row, column=7, value=section_per_unit)
 		total = ws.cell(row=row, column=8, value=section_total)
 		for cell in (label, per_unit, total):
-			cell.font = Font(name=FONT, size=10, bold=True, italic=reference_only, color="808080" if reference_only else None)
+			cell.font = Font(name=FONT, size=10, bold=True)
 		for cell in (per_unit, total):
 			cell.number_format = MONEY
 		for col in range(FIRST_COL, LAST_COL + 1):
 			ws.cell(row=row, column=col).fill = TOTAL_FILL
 		_box_row(ws, row, FIRST_COL, LAST_COL, top=THIN, bottom=THIN)
-		if not reference_only:
-			section_totals.append((section.title(), section_per_unit, section_total))
+		section_totals.append((section.title(), section_per_unit, section_total))
 		row += 2
 
 	if with_totals:
@@ -173,20 +167,12 @@ def _write_bill(
 
 
 def _write_item(ws, row: int, ref: str, line: dict, unit_count: float, client: bool = False) -> int:
-	"""One item block: the priced line, then its spec, then its note, each a full-width row under it.
+	"""One item block: the priced line, then its note as a full-width row under it.
 
 	The simplified (client) bill has the priced line only.
 	"""
 	first = row
 	row = _write_line(ws, row, line, unit_count, client)
-
-	spec = "" if client else (line.get("specification") or "").strip()
-	if spec:
-		heading = " · ".join(filter(None, [line.get("spec_list"), line.get("spec_reference")]))
-		if heading and line.get("spec_custom"):
-			heading += ", edited for this tender"
-		text = f"Specification{f' ({heading})' if heading else ''}:\n{spec}"
-		row = _write_wide(ws, row, text, Font(name=FONT, size=9, color="404040"))
 
 	note = "" if client else (line.get("remark") or "").strip()
 	if note:
@@ -211,20 +197,19 @@ def _line_values(line: dict, unit_count: float, client: bool = False) -> str:
 	"""A bill line's description, and its € per unit and € total (set on the line); shared by the
 	Excel bill and the Tender's print format so both show the same figures."""
 	item = line.get("item_name") or line.get("item_code") or _("Not selected")
-	excluded = bool(line.get("exclude_from_price"))
 	if line.get("is_charge"):
 		# a charge's description is its own wording; show the item only if it adds something
 		item = line.get("item_name") or line.get("item_code") or ""
 		head = line.get("label") if not item or item == line.get("label") else f"{line.get('label')} ({item})"
 	else:
 		head = f"{line.get('label')}: {item}"
+	source = "" if client or line.get("is_charge") else _cost_source(line)
 	description = (
 		head
+		+ (f" ({source})" if source else "")
 		+ (" (rate adjusted)" if line.get("rate_override") and not client else "")
-		+ (" (not in tender price)" if excluded else "")
 	)
-	# the row amount the server saved on the tender, so the bill matches the form exactly;
-	# spec-only rows show their cost for reference but are left out of the totals
+	# the row amount the server saved on the tender, so the bill matches the form exactly
 	if client:
 		# marked-up values unrounded (the cells show 2dp), so the sections add up to the tender price
 		line["per_unit"] = flt(line.get("amount"))
@@ -235,9 +220,20 @@ def _line_values(line: dict, unit_count: float, client: bool = False) -> str:
 	return description
 
 
+def _cost_source(line: dict) -> str:
+	"""Where the line's cost rate comes from, for the detailed bill: its BOM, price list or last
+	purchase rate."""
+	if line.get("bom"):
+		return _("BOM {0}").format(line["bom"])
+	if line.get("price_list"):
+		return line["price_list"]
+	if line.get("cost_from") == "Last Purchase Rate":
+		return _("last purchase rate")
+	return ""
+
+
 def _write_line(ws, row: int, line: dict, unit_count: float, client: bool = False) -> int:
 	description = _line_values(line, unit_count, client)
-	excluded = bool(line.get("exclude_from_price"))
 
 	values = {
 		3: description,
@@ -254,9 +250,6 @@ def _write_line(ws, row: int, line: dict, unit_count: float, client: bool = Fals
 	ws.cell(row=row, column=4).number_format = QTY
 	for col in (6, 7, 8):
 		ws.cell(row=row, column=col).number_format = MONEY
-	if excluded:
-		for col in (3, 4, 5, 6, 7, 8):
-			ws.cell(row=row, column=col).font = Font(name=FONT, size=10, italic=True, color="808080")
 
 	_box_row(ws, row, FIRST_COL, LAST_COL)
 	ws.row_dimensions[row].height = _height(description, DESC_CHARS_PER_LINE, 13)
@@ -264,7 +257,7 @@ def _write_line(ws, row: int, line: dict, unit_count: float, client: bool = Fals
 
 
 def _write_wide(ws, row: int, text: str, font: Font, fill: PatternFill | None = None) -> int:
-	"""A full-width row under an item (Description → € Total), used for its spec and note."""
+	"""A full-width row under an item (Description → € Total), used for its note."""
 	cell = ws.cell(row=row, column=3, value=text)
 	cell.font = font
 	cell.alignment = Alignment(wrap_text=True, vertical="top")
@@ -403,17 +396,15 @@ def _group_rows(doc, client: bool = False) -> list[tuple[str, list[dict]]]:
 	if not client:
 		return list(grouped.items())
 
-	# simplified (client) version: priced lines only, each at tender price (the margin spread over
-	# every line)
+	# simplified (client) version: each line at tender price (the margin spread over every line)
 	markup = _markup(doc)
 	client_groups = []
 	for section, lines in grouped.items():
-		priced = [line for line in lines if not line.get("exclude_from_price")]
-		for line in priced:
+		for line in lines:
 			line["rate"] = flt(line.get("rate")) * markup
 			line["amount"] = flt(line.get("amount")) * markup
-		if priced:
-			client_groups.append((section, priced))
+		if lines:
+			client_groups.append((section, lines))
 	return client_groups
 
 

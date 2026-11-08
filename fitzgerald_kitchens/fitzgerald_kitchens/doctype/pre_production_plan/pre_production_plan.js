@@ -262,7 +262,6 @@ function new_manifest(frm) {
 		tender_name: frm.doc.tender_name,
 		template: frm.doc.template,
 		target_margin_pct: frm.doc.target_margin_pct,
-		spec_list: frm.doc.spec_list,
 	});
 }
 

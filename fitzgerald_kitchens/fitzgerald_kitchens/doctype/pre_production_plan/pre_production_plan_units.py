@@ -44,7 +44,7 @@ LISTS_SHEET = "Lists"
 # the Units sheet: these, then a "<Project Type> Manifest" + "<Project Type> Qty" pair per project type
 BASE_HEADERS = ["Apt Type", "Floor", "Apt No", "Unit Name", "Delivery Date"]
 UNIT_FIELDS = ["unit_type", "floor", "number", "unit_name", "delivery_date", "manifest", "unit_no", "project"]
-MANIFEST_HEADERS = ["Section", "Label", "Item Code", "Item Name", "Qty per Unit", "UOM", "Specification"]
+MANIFEST_HEADERS = ["Section", "Label", "Item Code", "Item Name", "Qty per Unit", "UOM", "BOM"]
 SITE_NAME_CELL = "B6"
 EDIT_FILL = PatternFill("solid", fgColor="FFF8E1")
 
@@ -200,7 +200,7 @@ def _write_manifest_sheet(ws, m):
 	ws["A1"].font = Font(name=FONT, size=14, bold=True)
 	ws["A2"] = _("{0} manifest. Reference only: pick it on the Units sheet; its items come from the tender manifest in the system.").format(_(m.project_type or KITCHEN_PROJECT_TYPE))
 	ws["A2"].font = Font(name=FONT, size=9, italic=True, color="808080")
-	for col, (label, width) in enumerate(zip(MANIFEST_HEADERS, [18, 26, 18, 34, 12, 8, 60]), start=1):
+	for col, (label, width) in enumerate(zip(MANIFEST_HEADERS, [18, 26, 18, 34, 12, 8, 24]), start=1):
 		cell = ws.cell(row=4, column=col, value=label)
 		cell.font = Font(name=FONT, size=10, bold=True)
 		cell.fill = HEADER_FILL
@@ -208,11 +208,11 @@ def _write_manifest_sheet(ws, m):
 	doc = frappe.get_doc("Pre Production Manifest", m.name)
 	row = 5
 	for line in _manifest_rows(doc):
-		values = [line["section"], line["label"], line["item_code"], line["item_name"], line["qty"], line["uom"], line["specification"]]
+		values = [line["section"], line["label"], line["item_code"], line["item_name"], line["qty"], line["uom"], line["bom"]]
 		for col, value in enumerate(values, start=1):
 			cell = ws.cell(row=row, column=col, value=value)
 			cell.font = Font(name=FONT, size=10)
-			cell.alignment = Alignment(vertical="top", wrap_text=col == 7)
+			cell.alignment = Alignment(vertical="top")
 		row += 1
 	charges = json.loads(doc.other_costs_json or "[]")
 	if charges:
@@ -797,7 +797,8 @@ def _upsert_production_manifest(apt_type, site_name, configuration, tender_manif
 	category = MANIFEST_CATEGORY.get(project_type, "Unit")
 	items = []
 	for line in _manifest_rows(frappe.get_doc("Pre Production Manifest", tender_manifest)):
-		bom = resolve_manifest_linked_bom(line["item_code"])
+		# the BOM the tender costed the row from, else the item's own
+		bom = line["bom"] or resolve_manifest_linked_bom(line["item_code"])
 		items.append({
 			"item_code": line["item_code"],
 			"description": line["item_name"],
@@ -806,7 +807,6 @@ def _upsert_production_manifest(apt_type, site_name, configuration, tender_manif
 			"room": "Appliances" if "APPLIANCE" in (line["section"] or "").upper() else category,
 			"linked_bom": bom,
 			"label_category": resolve_label_category(line["item_code"], bom),
-			"notes": line["specification"] or None,
 		})
 	if frappe.db.exists("Manifest", code):
 		manifest = frappe.get_doc("Manifest", code)
@@ -928,7 +928,7 @@ def _manifest_rows(manifest) -> list[dict]:
 			"qty": flt(r.get("qty")),
 			"uom": uom,
 			"uom_code": uom if frappe.db.exists("UOM", uom) else item.stock_uom,
-			"specification": (r.get("specification") or "").strip(),
+			"bom": r.get("bom") or "",
 		})
 	return out
 

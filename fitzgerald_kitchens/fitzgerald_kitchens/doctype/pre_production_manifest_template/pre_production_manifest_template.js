@@ -26,7 +26,7 @@ frappe.ui.form.on("Pre Production Manifest Template", {
 	},
 });
 
-const ROW_FIELDS = ["section", "tag", "label", "subtitle", "item_group", "qty_label", "default_qty", "exclude_from_price"];
+const ROW_FIELDS = ["section", "tag", "label", "subtitle", "item_group", "qty_label", "default_qty"];
 
 // fill this template's rows from a base template (Is Template); the user reviews them, then saves
 function add_get_from_template_button(frm) {

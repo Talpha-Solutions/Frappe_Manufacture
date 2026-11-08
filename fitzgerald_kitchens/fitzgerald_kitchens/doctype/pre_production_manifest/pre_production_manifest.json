@@ -14,7 +14,6 @@
   "column_break_details",
   "template",
   "project_type",
-  "spec_list",
   "naming_series",
   "section_break_builder",
   "configuration_builder",
@@ -88,13 +87,6 @@
    "label": "Project Type",
    "options": "Project Type",
    "reqd": 1
-  },
-  {
-   "description": "Specs from this list are picked first when choosing items",
-   "fieldname": "spec_list",
-   "fieldtype": "Link",
-   "label": "Spec List",
-   "options": "Spec List"
   },
   {
    "default": "KC-.YYYY.-.#####",
@@ -186,7 +178,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-08 08:12:04.310562",
+ "modified": "2026-11-08 08:40:10.800336",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Pre Production Manifest",

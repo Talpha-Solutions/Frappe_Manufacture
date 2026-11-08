@@ -24,7 +24,6 @@
   "template",
   "column_break_defaults",
   "target_margin_pct",
-  "spec_list",
   "section_break_manifests",
   "manifests_html",
   "section_break_totals",
@@ -164,13 +163,6 @@
    "fieldname": "target_margin_pct",
    "fieldtype": "Percent",
    "label": "Target Margin %"
-  },
-  {
-   "description": "Specs from this list are picked first in the pre production manifests",
-   "fieldname": "spec_list",
-   "fieldtype": "Link",
-   "label": "Spec List",
-   "options": "Spec List"
   },
   {
    "fieldname": "section_break_manifests",
@@ -346,7 +338,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-08 08:12:03.369269",
+ "modified": "2026-11-08 08:40:10.800336",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Pre Production Plan",
