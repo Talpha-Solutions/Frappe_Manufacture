@@ -28,12 +28,10 @@ frappe.ui.form.on("Pre Production Manifest", {
 		if (frm.is_new() && !frm.doc.naming_series) {
 			frm.set_value("naming_series", "KC-.YYYY.-.#####");
 		}
-		await load_template_cabinet_prices(frm);
 		recalculate_totals_from_rows(frm);
 		await render_builder(frm);
 	},
 	async template(frm) {
-		await load_template_cabinet_prices(frm, true);
 		await load_template_rows(frm, true);
 		recalculate_totals_from_rows(frm);
 		await render_builder(frm);
@@ -57,18 +55,6 @@ frappe.ui.form.on("Pre Production Manifest", {
 		recalculate_totals_from_rows(frm);
 	},
 	target_margin_pct(frm) {
-		recalculate_totals_from_rows(frm);
-	},
-	base_units(frm) {
-		recalculate_totals_from_rows(frm);
-	},
-	wall_units(frm) {
-		recalculate_totals_from_rows(frm);
-	},
-	tall_units(frm) {
-		recalculate_totals_from_rows(frm);
-	},
-	drawer_packs(frm) {
 		recalculate_totals_from_rows(frm);
 	},
 });
@@ -483,22 +469,6 @@ async function load_template_rows(frm, forceReload) {
 		save_rows(frm, rows);
 	}
 	return rows;
-}
-
-async function load_template_cabinet_prices(frm, forceReload = false) {
-	if (!frm.doc.template) {
-		frm.set_value("cabinet_prices_json", "");
-		return;
-	}
-	let cabinetPrices = parse_cabinet_prices(frm.doc.cabinet_prices_json);
-	if (!Object.keys(cabinetPrices).length || forceReload) {
-		const r = await frappe.call({
-			method: `${METHOD_BASE}.get_template_cabinet_prices`,
-			args: { template: frm.doc.template },
-		});
-		cabinetPrices = r.message || {};
-		frm.set_value("cabinet_prices_json", JSON.stringify(cabinetPrices));
-	}
 }
 
 async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
@@ -977,17 +947,14 @@ function recalculate_totals_from_rows(frm) {
 	const rows = parse_rows(frm.doc.config_rows_json);
 	// rows excluded from the tender price keep their item and spec but add nothing to the cost
 	const rowsTotal = rows.reduce((sum, row) => sum + (row.exclude_from_price ? 0 : flt(row.amount)), 0);
-	const cabinetPrices = parse_cabinet_prices(frm.doc.cabinet_prices_json);
-	const cabinetTotal = set_cabinet_cost_fields(frm, cabinetPrices);
 	const otherCosts = parse_rows(frm.doc.other_costs_json).reduce((sum, c) => sum + flt(c.qty) * flt(c.rate), 0);
-	const perKitchen = rowsTotal + cabinetTotal + otherCosts;
+	const perKitchen = rowsTotal + otherCosts;
 	const kitchens = flt(frm.doc.kitchens_to_tender || 0);
 	const costBase = perKitchen * kitchens;
 	const targetMarginPct = flt(frm.doc.target_margin_pct || 0);
 	const marginAmount = costBase * (targetMarginPct / 100);
 	const tenderPriceTotal = costBase + marginAmount;
 	const tenderPricePerKitchen = kitchens ? tenderPriceTotal / kitchens : 0;
-	set_if_changed(frm, "cabinets_total", cabinetTotal);
 	set_if_changed(frm, "other_costs_total", otherCosts);
 	set_if_changed(frm, "total_cost_per_kitchen", perKitchen);
 	set_if_changed(frm, "grand_total_cost", costBase);
@@ -997,34 +964,6 @@ function recalculate_totals_from_rows(frm) {
 	set_if_changed(frm, "tender_price_per_kitchen", tenderPricePerKitchen);
 	const wrapper = frm.get_field("configuration_builder").$wrapper;
 	wrapper.find(".fk-total-per-kitchen").text(format_currency(perKitchen));
-}
-
-function set_cabinet_cost_fields(frm, cabinetPrices) {
-	const cabinetMap = {
-		base_units: flt(frm.doc.base_units),
-		wall_units: flt(frm.doc.wall_units),
-		tall_units: flt(frm.doc.tall_units),
-		drawer_packs: flt(frm.doc.drawer_packs),
-	};
-	let total = 0;
-	for (const [key, qty] of Object.entries(cabinetMap)) {
-		const rate = flt(cabinetPrices[key]?.rate);
-		const amount = qty * rate;
-		set_if_changed(frm, `${key}_rate`, rate);
-		set_if_changed(frm, `${key}_amount`, amount);
-		total += amount;
-	}
-	return total;
-}
-
-function parse_cabinet_prices(value) {
-	if (!value) return {};
-	try {
-		const data = JSON.parse(value);
-		return data && typeof data === "object" ? data : {};
-	} catch (e) {
-		return {};
-	}
 }
 
 function escape_html(value) {

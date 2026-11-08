@@ -16,23 +16,6 @@
   "project_type",
   "spec_list",
   "naming_series",
-  "section_break_units",
-  "base_units",
-  "wall_units",
-  "column_break_units",
-  "tall_units",
-  "drawer_packs",
-  "section_break_cabinet_costing",
-  "base_units_rate",
-  "base_units_amount",
-  "wall_units_rate",
-  "wall_units_amount",
-  "column_break_cabinet_costing",
-  "tall_units_rate",
-  "tall_units_amount",
-  "drawer_packs_rate",
-  "drawer_packs_amount",
-  "cabinets_total",
   "section_break_builder",
   "configuration_builder",
   "section_break_tender_pricing",
@@ -43,7 +26,6 @@
   "margin_amount",
   "tender_price_per_kitchen",
   "tender_price_total",
-  "cabinet_prices_json",
   "config_rows_json",
   "other_costs_json",
   "total_cost_per_kitchen",
@@ -123,112 +105,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "section_break_units",
-   "fieldtype": "Section Break",
-   "label": "Cabinets"
-  },
-  {
-   "default": "0",
-   "fieldname": "base_units",
-   "fieldtype": "Float",
-   "label": "Base Units (per kitchen)"
-  },
-  {
-   "default": "0",
-   "fieldname": "wall_units",
-   "fieldtype": "Float",
-   "label": "Wall Units (per kitchen)"
-  },
-  {
-   "fieldname": "column_break_units",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "tall_units",
-   "fieldtype": "Float",
-   "label": "Tall Units (per kitchen)"
-  },
-  {
-   "default": "0",
-   "fieldname": "drawer_packs",
-   "fieldtype": "Float",
-   "label": "Drawer Packs (per kitchen)"
-  },
-  {
-   "fieldname": "section_break_cabinet_costing",
-   "fieldtype": "Section Break",
-   "hidden": 1,
-   "label": "Cabinet Costing"
-  },
-  {
-   "fieldname": "base_units_rate",
-   "fieldtype": "Currency",
-   "hidden": 1,
-   "label": "Base Units Rate",
-   "read_only": 1
-  },
-  {
-   "fieldname": "base_units_amount",
-   "fieldtype": "Currency",
-   "hidden": 1,
-   "label": "Base Units Amount",
-   "read_only": 1
-  },
-  {
-   "fieldname": "wall_units_rate",
-   "fieldtype": "Currency",
-   "hidden": 1,
-   "label": "Wall Units Rate",
-   "read_only": 1
-  },
-  {
-   "fieldname": "wall_units_amount",
-   "fieldtype": "Currency",
-   "hidden": 1,
-   "label": "Wall Units Amount",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_cabinet_costing",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "tall_units_rate",
-   "fieldtype": "Currency",
-   "hidden": 1,
-   "label": "Tall Units Rate",
-   "read_only": 1
-  },
-  {
-   "fieldname": "tall_units_amount",
-   "fieldtype": "Currency",
-   "hidden": 1,
-   "label": "Tall Units Amount",
-   "read_only": 1
-  },
-  {
-   "fieldname": "drawer_packs_rate",
-   "fieldtype": "Currency",
-   "hidden": 1,
-   "label": "Drawer Packs Rate",
-   "read_only": 1
-  },
-  {
-   "fieldname": "drawer_packs_amount",
-   "fieldtype": "Currency",
-   "hidden": 1,
-   "label": "Drawer Packs Amount",
-   "read_only": 1
-  },
-  {
-   "fieldname": "cabinets_total",
-   "fieldtype": "Currency",
-   "hidden": 1,
-   "label": "Cabinets Total",
-   "read_only": 1
-  },
-  {
    "fieldname": "section_break_builder",
    "fieldtype": "Section Break"
   },
@@ -283,11 +159,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "cabinet_prices_json",
-   "fieldtype": "Long Text",
-   "hidden": 1
-  },
-  {
    "fieldname": "config_rows_json",
    "fieldtype": "Long Text",
    "hidden": 1
@@ -315,7 +186,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-08 07:46:21.228212",
+ "modified": "2026-11-08 08:03:38.430175",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Pre Production Manifest",

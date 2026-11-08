@@ -36,12 +36,6 @@ FIRST_COL, LAST_COL = 2, 8
 DESC_CHARS_PER_LINE = 72
 WIDE_CHARS_PER_LINE = 125
 UNIT_NAMES = {"Nos": "nr", "Meter": "m", "Hour": "hr", "M²": "m²", "HRS/KIT": "hr"}
-CABINET_UNITS = (
-	("base_units", "Base units"),
-	("wall_units", "Wall units"),
-	("tall_units", "Tall units"),
-	("drawer_packs", "Drawer packs"),
-)
 
 
 @frappe.whitelist()
@@ -386,10 +380,6 @@ def _group_rows(doc, client: bool = False) -> list[tuple[str, list[dict]]]:
 	)
 
 	grouped: dict[str, list[dict]] = {}
-	cabinet_units = _cabinet_unit_lines(doc)
-	if cabinet_units:
-		# priced from the template's cabinet prices; included so the bill total matches the tender
-		grouped["CABINET UNITS"] = cabinet_units
 	for line in rows:
 		line["item_name"] = item_names.get(line.get("item_code"))
 		grouped.setdefault(line.get("section") or "Items", []).append(line)
@@ -431,28 +421,6 @@ def _markup(doc) -> float:
 	"""Tender price over cost, so marked-up lines add up to the tender price exactly."""
 	cost = flt(doc.cost_base)
 	return flt(doc.tender_price_total) / cost if cost else 1 + flt(doc.target_margin_pct) / 100
-
-
-def _cabinet_unit_lines(doc) -> list[dict]:
-	prices = json.loads(doc.cabinet_prices_json or "{}")
-	lines = []
-	for key, label in CABINET_UNITS:
-		qty = flt(doc.get(key))
-		if not qty:
-			continue
-		price = prices.get(key) or {}
-		lines.append(
-			{
-				"label": label,
-				"item_code": price.get("item_code"),
-				"item_name": frappe.db.get_value("Item", price.get("item_code"), "item_name"),
-				"qty": qty,
-				"rate": flt(doc.get(f"{key}_rate")),
-				"amount": flt(doc.get(f"{key}_amount")),
-				"uom": price.get("uom"),
-			}
-		)
-	return lines
 
 
 def _refs():

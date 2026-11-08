@@ -4,9 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
 
-STANDARD_SELLING_PRICE_LIST = "Standard Selling"
 
 # who a tender, or a template made for one, can be for: a Lead until we've won work from them,
 # then a Customer
@@ -15,7 +13,6 @@ PARTY_TYPES = ("Lead", "Customer")
 
 class TenderConfigurationTemplate(Document):
 	def validate(self):
-		# cabinet prices are optional here; Pre Production Manifest asks for them when it prices a tender
 		self._validate_party()
 
 	def _validate_party(self):
@@ -68,7 +65,7 @@ def validate_template_party(template: str | None, party_type: str | None, party_
 def create_party_template(
 	template: str, party_type: str, party_name: str, template_name: str | None = None
 ) -> str:
-	"""Copy a base template for a Lead or Customer (rows and cabinet prices); the copy is theirs to edit."""
+	"""Copy a base template for a Lead or Customer (its rows); the copy is theirs to edit."""
 	source = frappe.get_doc("Tender Configuration Template", template)
 	source.check_permission("read")
 	if not source.is_template:
@@ -113,130 +110,4 @@ def template_query(doctype, txt, searchfield, start, page_len, filters):
 		limit %(page_len)s offset %(start)s
 		""",
 		{"party_type": party_type, "party_name": party_name, "txt": f"%{txt or ''}%", "start": start, "page_len": page_len},
-	)
-
-
-@frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
-def get_item_price_list(doctype, txt, searchfield, start, page_len, filters):
-	"""Link query: one row per Item Price (same item can appear multiple times)."""
-	return frappe.db.sql(
-		_get_item_price_link_query(),
-		{
-			"txt": f"%{txt or ''}%",
-			"start": start,
-			"page_len": page_len,
-			"price_list": STANDARD_SELLING_PRICE_LIST,
-		},
-	)
-
-
-@frappe.whitelist()
-def get_all_item_price_options():
-	rows = frappe.db.sql(
-		_get_item_price_select_sql()
-		+ _get_item_price_from_sql()
-		+ _get_item_price_order_sql(),
-		{"price_list": STANDARD_SELLING_PRICE_LIST},
-		as_dict=True,
-	)
-	return [
-		{
-			"price_row": row.name,
-			"item_code": row.item_code,
-			"item_name": row.item_name,
-			"price_list": row.price_list,
-			"rate": flt(row.price_list_rate),
-			"currency": row.currency,
-			"uom": row.uom,
-			"label": row.description,
-		}
-		for row in rows
-	]
-
-
-def _get_item_price_select_sql() -> str:
-	return """
-		select
-			ip.name,
-			i.name as item_code,
-			i.item_name,
-			ip.price_list,
-			ip.price_list_rate,
-			ip.currency,
-			ip.uom,
-			i.item_group,
-			concat(
-				ifnull(i.item_name, ip.item_code),
-				' (',
-				ifnull(i.item_group, ''),
-				') - ',
-				ifnull(ip.currency, ''),
-				' ',
-				round(ip.price_list_rate, 2),
-				case when ifnull(ip.uom, '') != '' then concat('/', ip.uom) else '' end,
-				case when ifnull(ip.price_list, '') != '' then concat(' [', ip.price_list, ']') else '' end
-			) as description
-	"""
-
-
-def _get_item_price_from_sql() -> str:
-	return """
-		from `tabItem Price` ip
-		inner join `tabItem` i on i.name = ip.item_code
-		where i.disabled = 0
-		  and ip.price_list = %(price_list)s
-	"""
-
-
-def _get_item_price_search_sql() -> str:
-	return """
-		  and (
-			ip.name like %(txt)s
-			or i.item_name like %(txt)s
-			or i.name like %(txt)s
-			or ifnull(ip.price_list, '') like %(txt)s
-		  )
-	"""
-
-
-def _get_item_price_order_sql() -> str:
-	return """
-		order by i.item_name asc, ip.price_list asc, ip.price_list_rate asc
-	"""
-
-
-def _get_item_price_list_query() -> str:
-	return (
-		_get_item_price_select_sql()
-		+ _get_item_price_from_sql()
-		+ _get_item_price_search_sql()
-		+ _get_item_price_order_sql()
-		+ " limit %(page_len)s offset %(start)s"
-	)
-
-
-def _get_item_price_link_query() -> str:
-	# For Link field search: return only value and label columns so each
-	# Item Price appears as a single clean option in the dropdown.
-	return (
-		"""
-		select
-			ip.name,
-			concat(
-				ifnull(i.item_name, ip.item_code),
-				' (',
-				ifnull(i.item_group, ''),
-				') - ',
-				ifnull(ip.currency, ''),
-				' ',
-				round(ip.price_list_rate, 2),
-				case when ifnull(ip.uom, '') != '' then concat('/', ip.uom) else '' end,
-				case when ifnull(ip.price_list, '') != '' then concat(' [', ip.price_list, ']') else '' end
-			) as description
-	"""
-		+ _get_item_price_from_sql()
-		+ _get_item_price_search_sql()
-		+ _get_item_price_order_sql()
-		+ " limit %(page_len)s offset %(start)s"
 	)

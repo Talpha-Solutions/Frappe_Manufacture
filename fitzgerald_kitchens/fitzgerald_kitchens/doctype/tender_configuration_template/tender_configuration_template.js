@@ -1,28 +1,15 @@
 const METHOD_BASE =
 	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template";
 
-const CABINET_PRICE_FIELDS = [
-	"base_units_price_row",
-	"wall_units_price_row",
-	"tall_units_price_row",
-	"drawer_packs_price_row",
-];
-
 frappe.ui.form.on("Tender Configuration Template", {
 	setup(frm) {
 		frm.set_query("party_type", () => ({ filters: { name: ["in", ["Lead", "Customer"]] } }));
-		for (const fieldname of CABINET_PRICE_FIELDS) {
-			frm.set_query(fieldname, () => ({
-				query: `${METHOD_BASE}.get_item_price_list`,
-			}));
-		}
 	},
 	async refresh(frm) {
 		frm.__fk_party_type = frm.doc.party_type;
 		add_party_template_button(frm);
 		add_get_from_template_button(frm);
 		set_rows_table_full_width(frm);
-		await render_cabinet_price_reference(frm);
 	},
 	party_type(frm) {
 		// only when the type changes from one to another: a new template started from a tender's
@@ -96,10 +83,6 @@ async function get_from_template_dialog(frm) {
 				for (const field of ROW_FIELDS) child[field] = row[field];
 			}
 			frm.refresh_field("rows");
-			// the cabinet prices only where this template has none yet
-			for (const field of CABINET_PRICE_FIELDS) {
-				if (!frm.doc[field] && source[field]) await frm.set_value(field, source[field]);
-			}
 			if (!frm.doc.based_on && !frm.doc.is_template) await frm.set_value("based_on", template);
 			dialog.hide();
 			frappe.show_alert({
@@ -160,7 +143,7 @@ function add_party_template_button(frm) {
 						// look in the Party Type chosen above
 						get_options: () => dialog.get_value("party_type") },
 					{ fieldname: "template_name", fieldtype: "Data", label: __("Template Name"), reqd: 1 },
-					{ fieldtype: "HTML", options: `<p class="text-muted small">${__("Copies this template's rows and cabinet prices. Edit the copy for them; this template isn't changed.")}</p>` },
+					{ fieldtype: "HTML", options: `<p class="text-muted small">${__("Copies this template's rows. Edit the copy for them; this template isn't changed.")}</p>` },
 				],
 				primary_action_label: __("Create"),
 				primary_action({ party_type, party_name, template_name }) {
@@ -196,64 +179,6 @@ function set_rows_table_full_width(frm) {
 
 	$section.find(".form-column").removeClass("col-sm-6").addClass("col-sm-12");
 	$section.find(".form-grid").css({ width: "100%", "max-width": "100%" });
-}
-
-async function render_cabinet_price_reference(frm) {
-	const htmlField = frm.get_field("cabinet_price_options_html");
-	if (!htmlField) return;
-
-	htmlField.$wrapper.html(
-		`<div style="padding:8px;color:#6b7280;font-size:12px;">Loading item prices...</div>`
-	);
-
-	const r = await frappe.call({
-		method: `${METHOD_BASE}.get_all_item_price_options`,
-	});
-	const options = r.message || [];
-	if (!options.length) {
-		htmlField.$wrapper.html(
-			`<div style="padding:8px;color:#6b7280;font-size:12px;">No item prices found.</div>`
-		);
-		return;
-	}
-
-	let rowsHtml = "";
-	for (const opt of options) {
-		const formattedRate = format_currency(flt(opt.rate), opt.currency);
-		rowsHtml += `
-			<tr>
-				<td>${escape_html(opt.item_name || opt.item_code)}</td>
-				<td>${escape_html(opt.item_group || "")}</td>
-				<td>${escape_html(opt.price_list || "")}</td>
-				<td style="text-align:right;">${escape_html(formattedRate)}</td>
-				<td>${escape_html(opt.uom || "")}</td>
-				<td style="color:#6b7280;font-size:11px;">${escape_html(opt.price_row)}</td>
-			</tr>
-		`;
-	}
-
-	htmlField.$wrapper.html(`
-		<div style="margin-top:8px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
-			<div style="padding:8px 12px;background:#f8f9fb;font-size:12px;font-weight:700;color:#4b5563;">
-				All item prices (one row per price — select from the fields above)
-			</div>
-			<div style="max-height:220px;overflow:auto;">
-				<table class="table table-bordered" style="margin:0;font-size:12px;">
-					<thead>
-						<tr>
-							<th>Item</th>
-							<th>Item Group</th>
-							<th>Price List</th>
-							<th style="text-align:right;">Rate</th>
-							<th>UOM</th>
-							<th>Item Price ID</th>
-						</tr>
-					</thead>
-					<tbody>${rowsHtml}</tbody>
-				</table>
-			</div>
-		</div>
-	`);
 }
 
 function escape_html(value) {

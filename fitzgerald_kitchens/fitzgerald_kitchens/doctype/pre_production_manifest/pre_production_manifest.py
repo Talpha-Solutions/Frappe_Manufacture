@@ -15,7 +15,6 @@ from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_templa
 	validate_template_party,
 )
 
-CABINET_KEYS = ("base_units", "wall_units", "tall_units", "drawer_packs")
 # template row details a tender row always follows (its item, qty, spec, etc. are its own)
 TEMPLATE_ROW_FIELDS = ("tag", "subtitle", "item_group", "qty_label")
 STANDARD_SELLING_PRICE_LIST = "Standard Selling"
@@ -42,17 +41,13 @@ class PreProductionManifest(Document):
 		rows = _parse_rows_json(self.config_rows_json)
 		template_rows = _get_template_rows(self.template)
 		rows_total = _validate_and_calculate_rows(rows, template_rows)
-		cabinet_prices = _get_template_cabinet_prices(self.template)
-		cabinet_total = _apply_cabinet_costing(self, cabinet_prices)
-		self.cabinets_total = cabinet_total
 		other_costs = _parse_rows_json(self.other_costs_json)
 		self.other_costs_total = _validate_and_calculate_other_costs(other_costs)
 		self.other_costs_json = json.dumps(other_costs)
-		self.total_cost_per_kitchen = cabinet_total + rows_total + self.other_costs_total
+		self.total_cost_per_kitchen = rows_total + self.other_costs_total
 		self.grand_total_cost = self.total_cost_per_kitchen * flt(self.kitchens_to_tender or 0)
 		_apply_tender_pricing(self)
 		self.config_rows_json = json.dumps(rows)
-		self.cabinet_prices_json = json.dumps(cabinet_prices)
 
 	def on_update(self):
 		# keep the tender's totals in step; if the manifest moved, the old tender loses it
@@ -88,7 +83,6 @@ class PreProductionManifest(Document):
 				rows = parsed if isinstance(parsed, list) else []
 			except Exception:
 				rows = []
-		cabinet_units_total = flt(self.cabinets_total)
 		cabinets_builder_total = 0.0
 		hardware_total = 0.0
 		worktops_total = 0.0
@@ -122,8 +116,8 @@ class PreProductionManifest(Document):
 		# charges from the Other Costs section (per unit)
 		other_total += flt(self.other_costs_total)
 
-		# Cabinets line = unit pricing + CABINETS builder rows (excluding Hardware)
-		cabinets_total = cabinet_units_total + cabinets_builder_total
+		# Cabinets line = the CABINETS builder rows (excluding Hardware)
+		cabinets_total = cabinets_builder_total
 
 		kitchens = flt(self.kitchens_to_tender or 0)
 		total_material = cabinets_total + worktops_total + hardware_total + appliances_total
@@ -357,19 +351,6 @@ def _apply_item_spec(row: dict):
 		row["specification"] = spec.specification if spec else ""
 
 
-def _apply_cabinet_costing(doc: PreProductionManifest, cabinet_prices: dict) -> float:
-	cabinet_total = 0.0
-	for key in CABINET_KEYS:
-		price_data = cabinet_prices.get(key) or {}
-		rate = flt(price_data.get("rate"))
-		qty = flt(getattr(doc, key, 0))
-		amount = qty * rate
-		setattr(doc, f"{key}_rate", rate)
-		setattr(doc, f"{key}_amount", amount)
-		cabinet_total += amount
-	return cabinet_total
-
-
 def _apply_tender_pricing(doc: PreProductionManifest):
 	doc.cost_base = flt(doc.grand_total_cost)
 	doc.target_margin_pct = flt(doc.target_margin_pct)
@@ -379,48 +360,11 @@ def _apply_tender_pricing(doc: PreProductionManifest):
 	doc.tender_price_per_kitchen = flt(doc.tender_price_total) / kitchens if kitchens else 0
 
 
-def _get_template_cabinet_prices(template: str) -> dict:
-	template_doc = frappe.get_doc("Tender Configuration Template", template)
-	mapping = {
-		"base_units": template_doc.base_units_price_row,
-		"wall_units": template_doc.wall_units_price_row,
-		"tall_units": template_doc.tall_units_price_row,
-		"drawer_packs": template_doc.drawer_packs_price_row,
-	}
-	cabinet_prices = {}
-	for key, price_row in mapping.items():
-		if not price_row:
-			frappe.throw(_("Cabinet price mapping is missing for {0}.").format(key.replace("_", " ").title()))
-		item_price = frappe.db.get_value(
-			"Item Price",
-			price_row,
-			["name", "item_code", "price_list_rate", "currency", "uom"],
-			as_dict=True,
-		)
-		if not item_price:
-			frappe.throw(_("Invalid template cabinet price row for {0}.").format(key.replace("_", " ").title()))
-		cabinet_prices[key] = {
-			"price_row": item_price.name,
-			"item_code": item_price.item_code,
-			"rate": flt(item_price.price_list_rate),
-			"currency": item_price.currency,
-			"uom": item_price.uom,
-		}
-	return cabinet_prices
-
-
 @frappe.whitelist()
 def get_template_rows(template: str):
 	if not template:
 		return []
 	return _get_template_rows(template)
-
-
-@frappe.whitelist()
-def get_template_cabinet_prices(template: str):
-	if not template:
-		return {}
-	return _get_template_cabinet_prices(template)
 
 
 def _get_template_rows(template: str) -> list[dict]:

@@ -436,12 +436,7 @@ def _create_tender_with_name(name: str, tender_name: str, kitchens: int) -> str:
 			"tender_name": tender_name,
 			"kitchens_to_tender": kitchens,
 			"target_margin_pct": ref_doc.target_margin_pct,
-			"base_units": ref_doc.base_units,
-			"wall_units": ref_doc.wall_units,
-			"tall_units": ref_doc.tall_units,
-			"drawer_packs": ref_doc.drawer_packs,
 			"config_rows_json": ref_doc.config_rows_json,
-			"cabinet_prices_json": ref_doc.cabinet_prices_json,
 		}
 	)
 	doc.insert(ignore_permissions=True, set_name=name)
@@ -461,12 +456,7 @@ def _create_tender_from_reference(tender_name: str, kitchens: int) -> str:
 			"tender_name": tender_name,
 			"kitchens_to_tender": kitchens,
 			"target_margin_pct": ref_doc.target_margin_pct,
-			"base_units": ref_doc.base_units,
-			"wall_units": ref_doc.wall_units,
-			"tall_units": ref_doc.tall_units,
-			"drawer_packs": ref_doc.drawer_packs,
 			"config_rows_json": ref_doc.config_rows_json,
-			"cabinet_prices_json": ref_doc.cabinet_prices_json,
 		}
 	)
 	doc.insert(ignore_permissions=True)
