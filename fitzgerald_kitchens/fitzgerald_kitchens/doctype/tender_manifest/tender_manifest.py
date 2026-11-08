@@ -245,12 +245,20 @@ def _validate_and_calculate_rows(rows: list[dict], template_rows: list[dict]) ->
 		row["item_code"] = item_price.item_code
 		row["currency"] = item_price.currency
 		row["uom"] = item_price.uom
-		_apply_rate(row, item_price.price_list_rate)
+		_validate_row_bom(row)
+		# a row built from a BOM costs what the BOM costs; otherwise its price-list rate
+		_apply_rate(row, _bom_unit_cost(row["bom"]) if row["bom"] else item_price.price_list_rate)
 		total += flt(row["amount"])
 		_apply_item_spec(row)
-		_validate_row_bom(row)
 
 	return total
+
+
+def _bom_unit_cost(bom: str) -> float:
+	"""What one of the BOM's item costs to make: its total cost (materials, operations, less scrap)
+	over its quantity."""
+	total_cost, quantity = frappe.db.get_value("BOM", bom, ["total_cost", "quantity"])
+	return flt(total_cost) / (flt(quantity) or 1)
 
 
 def _validate_row_bom(row: dict):

@@ -4,6 +4,9 @@ const SPEC_OPTIONS_METHOD =
 	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.item_spec.item_spec.get_spec_options";
 const EXCEL_METHOD =
 	"fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_manifest_excel.download_tender_excel";
+// the Spec column (Item Spec picker and spec text) is hidden for now and the row's BOM shown in its
+// place; specs already on rows are kept. Set to true to bring the Spec column back.
+const SHOW_SPEC = false;
 
 frappe.ui.form.on("Tender Manifest", {
 	setup(frm) {
@@ -154,7 +157,7 @@ async function render_builder(frm) {
 			.fk-rate-value.edited { color: var(--text-color); font-weight: var(--weight-medium); }
 			.fk-rate-reset { margin-left: 4px; cursor: pointer; }
 			.fk-rate-ctl { margin-top: 2px; }
-			.fk-bom-ctl { margin-top: var(--padding-xs); }
+			.fk-hide-spec .fk-spec-ctl, .fk-hide-spec .fk-spec-box { display: none !important; }
 			.fk-rate-ctl input { height: 26px !important; font-size: var(--text-xs) !important; }
 			.fk-label { font-size: var(--text-md); font-weight: var(--weight-medium); color: var(--text-color); line-height: 1.3; }
 			.fk-sub { font-size: var(--text-sm); color: var(--text-muted); line-height: 1.3; }
@@ -196,7 +199,7 @@ async function render_builder(frm) {
 		</style>
 	`;
 
-	let html = `${styleBlock}<div class="fk-builder">`;
+	let html = `${styleBlock}<div class="fk-builder${SHOW_SPEC ? "" : " fk-hide-spec"}">`;
 
 	for (const [sectionName, sectionRows] of Object.entries(grouped)) {
 		const tag = sectionRows[0]?.tag || "";
@@ -210,7 +213,7 @@ async function render_builder(frm) {
 				<div class="fk-cols">
 					<div>${__("Item")}</div>
 					<div>${__("Selection")}</div>
-					<div>${__("Spec")}</div>
+					<div>${SHOW_SPEC ? __("Spec") : __("BOM")}</div>
 					<div>${escape_html(qtyLabel === "QTY" ? __("Qty") : qtyLabel)}</div>
 					<div class="col-amount">${__("Cost (€)")}</div>
 					<div></div>
@@ -224,8 +227,8 @@ async function render_builder(frm) {
 						<div class="fk-label">${escape_html(row.label || "")}</div>
 						<div class="fk-sub">${escape_html(row.subtitle || "")}</div>
 					</div>
-					<div><div class="fk-item-ctl"></div><div class="fk-rate">${rate_html(row)}</div><div class="fk-rate-ctl hide"></div><div class="fk-bom-ctl hide"></div></div>
-					<div class="fk-spec-ctl"></div>
+					<div><div class="fk-item-ctl"></div><div class="fk-rate">${rate_html(row)}</div><div class="fk-rate-ctl hide"></div></div>
+					<div><div class="fk-bom-ctl hide"></div><div class="fk-spec-ctl"></div></div>
 					<div class="fk-qty-ctl"></div>
 					<div>
 						<div class="fk-amount">${format_currency(flt(row.amount || 0))}</div>
@@ -548,12 +551,30 @@ async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 				bomControl.df.filter_description = __("Active BOMs for {0}", [row.item_code]);
 				return { filters: { item: row.item_code || "__no_item__", docstatus: 1, is_active: 1 } };
 			},
-			change: () => {
+			change: async () => {
 				if (bomControl.__fk_silent) return;
 				row.bom = bomControl.get_value() || "";
+				await set_list_rate_from_bom();
 				save_rows(frm, rows);
 			},
 		});
+		// a row with a BOM costs what the BOM costs (total cost / quantity); without one, its
+		// price-list rate. A rate changed on the tender is kept. The server works it out the same way.
+		const set_list_rate_from_bom = async () => {
+			let rate = 0;
+			if (row.bom) {
+				const r = await frappe.db.get_value("BOM", row.bom, ["total_cost", "quantity"]);
+				rate = flt(r.message?.total_cost) / (flt(r.message?.quantity) || 1);
+			} else if (row.price_row) {
+				const r = await frappe.db.get_value("Item Price", row.price_row, "price_list_rate");
+				rate = flt(r.message?.price_list_rate);
+			}
+			row.list_rate = rate;
+			if (!row.rate_override) row.rate = rate;
+			row.amount = flt(row.qty) * flt(row.rate);
+			$row.find(".fk-amount").text(format_currency(row.amount));
+			$row.find(".fk-rate").html(rate_html(row));
+		};
 		const refresh_bom = async (itemChanged) => {
 			// a different item can't keep the old item's BOM
 			if (itemChanged) row.bom = "";

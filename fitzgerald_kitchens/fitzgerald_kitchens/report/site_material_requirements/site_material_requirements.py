@@ -5,12 +5,16 @@
 
 The needs come from manufacturing.site_demand (cabinets exploded through their BOMs, plus bought-in
 items). Per item: available = in stock - reserved; shortfall = needed - (available + on order)
-(BR-PPP-10). Read only: nothing is reserved or ordered.
+(BR-PPP-10). The report itself is read only; its Create Material Requests action drafts a Material
+Issue for what the site needs and a Purchase request for its shortfalls.
 """
+
+import json
+import math
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, flt, getdate, today
+from frappe.utils import add_days, flt, getdate, nowdate, today
 
 from erpnext.manufacturing.doctype.bom.bom import get_valuation_rate
 from fitzgerald_kitchens.manufacturing.site_demand import (
@@ -132,3 +136,93 @@ def get_columns() -> list[dict]:
 		{"label": _("Shortfall"), "fieldname": "shortfall", "fieldtype": "Float", "width": 90},
 		{"label": _("Shortfall Value"), "fieldname": "shortfall_value", "fieldtype": "Currency", "width": 110},
 	]
+
+
+# ---------------------------------------------------------------- Create Material Requests action
+
+# what each request asks for: the site's whole need is issued; only the shortfall is bought
+REQUEST_QTY = (("Material Issue", "needed_qty"), ("Purchase", "shortfall"))
+
+
+@frappe.whitelist()
+def create_material_requests(filters: str | dict) -> list[dict]:
+	"""Draft a Material Issue (everything the site needs) and a Purchase request (its shortfalls) for
+	the site project, less what open requests for the project already ask for. Returns the requests
+	made, e.g. [{"name": "MAT-MR-2026-00001", "type": "Purchase", "items": 11}]."""
+	filters = frappe._dict(json.loads(filters) if isinstance(filters, str) else filters)
+	site = filters.get("site_project")
+	if not site:
+		frappe.throw(_("Choose a Site Project first."))
+	frappe.has_permission("Material Request", "create", throw=True)
+
+	company = frappe.db.get_value("Project", site, "company")
+	warehouse = _request_warehouse(company, filters.get("warehouse"))
+	rows = _with_stock(_totals(demand_lines(unit_projects(site))), company, filters)
+	already = _open_request_qty(site)
+	whole = {u.name for u in frappe.get_all("UOM", filters={"must_be_whole_number": 1}, fields=["name"])}
+	precision = frappe.get_precision("Material Request Item", "qty") or 3
+	earliest = getdate(nowdate())
+
+	created = []
+	for request_type, qty_field in REQUEST_QTY:
+		items = []
+		for r in rows:
+			if r["status"] == "Not a Stock Item":
+				continue
+			# rounded as the request stores it, so a re-run doesn't ask again for a rounding remainder
+			qty = flt(flt(r[qty_field], precision) - already.get((request_type, r["item_code"]), 0), precision)
+			if r["stock_uom"] in whole:
+				qty = math.ceil(qty)
+			if qty <= 0:
+				continue
+			items.append(
+				{
+					"item_code": r["item_code"],
+					"qty": qty,
+					"uom": r["stock_uom"],
+					"conversion_factor": 1,
+					"warehouse": warehouse,
+					"schedule_date": max(getdate(r["needed_by"] or earliest), earliest),
+					"project": site,
+				}
+			)
+		if items:
+			request = frappe.get_doc(
+				{
+					"doctype": "Material Request",
+					"material_request_type": request_type,
+					"company": company,
+					"transaction_date": nowdate(),
+					"schedule_date": min(i["schedule_date"] for i in items),
+					"set_warehouse": warehouse,
+					"items": items,
+				}
+			).insert()
+			created.append({"name": request.name, "type": request_type, "items": len(items)})
+	return created
+
+
+def _request_warehouse(company: str, warehouse: str | None) -> str:
+	"""The warehouse to issue from and buy into: the report's Warehouse if it holds stock, else the
+	default stock warehouse."""
+	if warehouse and not frappe.db.get_value("Warehouse", warehouse, "is_group"):
+		return warehouse
+	default = frappe.db.get_single_value("Stock Settings", "default_warehouse")
+	if default and frappe.db.get_value("Warehouse", default, "company") == company:
+		return default
+	frappe.throw(_("Choose a Warehouse (not a group) to issue from and buy into."))
+
+
+def _open_request_qty(site: str) -> dict:
+	"""(request type, item) -> qty the site's open requests still ask for (not yet ordered / issued)."""
+	rows = frappe.db.sql(
+		"""
+		select mr.material_request_type, mri.item_code, sum(mri.stock_qty - ifnull(mri.ordered_qty, 0))
+		from `tabMaterial Request Item` mri
+		join `tabMaterial Request` mr on mr.name = mri.parent
+		where mri.project = %s and mr.docstatus < 2 and mr.status not in ('Stopped', 'Cancelled')
+		group by mr.material_request_type, mri.item_code
+		""",
+		site,
+	)
+	return {(t, item): flt(qty) for t, item, qty in rows}
