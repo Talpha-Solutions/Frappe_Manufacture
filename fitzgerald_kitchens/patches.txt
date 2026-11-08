@@ -6,6 +6,7 @@ fitzgerald_kitchens.patches.v1_0.rename_tender_configuration_to_tender_manifest
 fitzgerald_kitchens.patches.v1_0.rename_kitchen_configuration_template_to_tender_configuration_template
 fitzgerald_kitchens.patches.v1_0.rename_tender_to_pre_production_plan
 fitzgerald_kitchens.patches.v1_0.rename_tender_manifest_to_pre_production_manifest
+fitzgerald_kitchens.patches.v1_0.rename_tender_configuration_template_to_pre_production_manifest_template
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated

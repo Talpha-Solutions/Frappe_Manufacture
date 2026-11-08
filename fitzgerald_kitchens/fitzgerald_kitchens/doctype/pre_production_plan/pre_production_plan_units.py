@@ -766,8 +766,8 @@ def _party_customer(doc) -> str:
 	title = frappe.db.get_value("Customer", customer, "customer_name") or customer
 	frappe.db.set_value("Pre Production Plan", doc.name, {"party_type": "Customer", "party_name": customer, "party_title": title}, update_modified=False)
 	# the lead's own tender templates follow it
-	for name in frappe.get_all("Tender Configuration Template", filters={"party_type": "Lead", "party_name": lead}, pluck="name"):
-		frappe.db.set_value("Tender Configuration Template", name, {"party_type": "Customer", "party_name": customer, "party_title": title}, update_modified=False)
+	for name in frappe.get_all("Pre Production Manifest Template", filters={"party_type": "Lead", "party_name": lead}, pluck="name"):
+		frappe.db.set_value("Pre Production Manifest Template", name, {"party_type": "Customer", "party_name": customer, "party_title": title}, update_modified=False)
 	doc.party_type, doc.party_name = "Customer", customer
 	return customer
 

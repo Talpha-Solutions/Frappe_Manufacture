@@ -2,7 +2,7 @@
 // For license information, please see license.txt
 
 const TENDER_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_plan.pre_production_plan";
-const TEMPLATE_QUERY = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template.template_query";
+const TEMPLATE_QUERY = "fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_manifest_template.pre_production_manifest_template.template_query";
 const EXCEL_METHOD = "fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_excel.download_tender_excel";
 // matches LOCKED_TENDER_STATUSES in tender_manifest.py: manifests are fixed while with the client or closed
 const LOCKED_STATUSES = ["Submitted", "Lost", "Cancelled"];
@@ -22,7 +22,7 @@ frappe.ui.form.on("Pre Production Plan", {
 		frm.set_value("party_name", "");
 	},
 	refresh(frm) {
-		// "Create a new Tender Configuration Template" from the Template field starts it for this party
+		// "Create a new Pre Production Manifest Template" from the Template field starts it for this party
 		frm.set_df_property("template", "get_route_options_for_new_doc", () =>
 			frm.doc.party_name ? { party_type: frm.doc.party_type, party_name: frm.doc.party_name } : {}
 		);

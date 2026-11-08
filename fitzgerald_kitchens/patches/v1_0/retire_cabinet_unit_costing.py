@@ -22,5 +22,7 @@ def execute():
 	that hid the Cabinets section in Customize Form.
 	"""
 	for doctype, fields in RETIRED.items():
-		for name in frappe.get_all("Property Setter", filters={"doc_type": doctype, "field_name": ["in", fields]}, pluck="name"):
+		# the template may be renamed by now (Tender Configuration Template -> Pre Production Manifest Template)
+		doctypes = [doctype, "Pre Production Manifest Template"] if doctype == "Tender Configuration Template" else [doctype]
+		for name in frappe.get_all("Property Setter", filters={"doc_type": ["in", doctypes], "field_name": ["in", fields]}, pluck="name"):
 			frappe.delete_doc("Property Setter", name, ignore_permissions=True)

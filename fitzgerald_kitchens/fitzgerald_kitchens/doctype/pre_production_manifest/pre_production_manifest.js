@@ -9,12 +9,12 @@ frappe.ui.form.on("Pre Production Manifest", {
 	setup(frm) {
 		// the tender's party's own templates if they have any, otherwise those for everyone
 		frm.set_query("template", () => ({
-			query: "fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template.template_query",
+			query: "fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_manifest_template.pre_production_manifest_template.template_query",
 			filters: { tender: frm.doc.pre_production_plan || "" },
 		}));
 	},
 	async refresh(frm) {
-		// "Create a new Tender Configuration Template" from the Template field starts it for the
+		// "Create a new Pre Production Manifest Template" from the Template field starts it for the
 		// tender's party (looked up now, as the option is used without waiting)
 		load_tender_party(frm);
 		frm.set_df_property("template", "get_route_options_for_new_doc", () => ({ ...(frm.__fk_tender_party || {}) }));

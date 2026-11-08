@@ -59,8 +59,8 @@
    "icon": "",
    "indent": 0,
    "keep_closed": 0,
-   "label": "Tender Configuration Template",
-   "link_to": "Tender Configuration Template",
+   "label": "Pre Production Manifest Template",
+   "link_to": "Pre Production Manifest Template",
    "link_type": "DocType",
    "show_arrow": 0,
    "type": "Link"
@@ -161,7 +161,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-11-08 07:46:21.228212",
+ "modified": "2026-11-08 08:13:51.977253",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tendering",

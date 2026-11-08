@@ -7,7 +7,7 @@ from frappe.model.document import Document
 from frappe.utils import cint, flt
 
 from fitzgerald_kitchens.setup.project_unit_fields import KITCHEN_PROJECT_TYPE
-from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template import (
+from fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_manifest_template.pre_production_manifest_template import (
 	party_title,
 	validate_party_type,
 	validate_template_party,

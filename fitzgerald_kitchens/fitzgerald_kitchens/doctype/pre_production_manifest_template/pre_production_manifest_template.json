@@ -70,7 +70,7 @@
    "fieldname": "based_on",
    "fieldtype": "Link",
    "label": "Based On",
-   "options": "Tender Configuration Template",
+   "options": "Pre Production Manifest Template",
    "read_only": 1
   },
   {
@@ -81,15 +81,15 @@
   {
    "fieldname": "rows",
    "fieldtype": "Table",
-   "options": "Tender Configuration Template Row",
+   "options": "Pre Production Manifest Template Row",
    "reqd": 1
   }
  ],
  "links": [],
- "modified": "2026-11-08 08:03:38.430175",
+ "modified": "2026-11-08 08:13:51.977253",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
- "name": "Tender Configuration Template",
+ "name": "Pre Production Manifest Template",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [

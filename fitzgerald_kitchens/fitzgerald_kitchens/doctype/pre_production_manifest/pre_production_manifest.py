@@ -10,7 +10,7 @@ from frappe.utils import cint, cstr, flt
 
 from fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_plan.pre_production_plan import update_tender_totals
 from fitzgerald_kitchens.setup.project_unit_fields import SITE_PROJECT_TYPE
-from fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template import (
+from fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_manifest_template.pre_production_manifest_template import (
 	tender_party,
 	validate_template_party,
 )
@@ -369,7 +369,7 @@ def get_template_rows(template: str):
 
 def _get_template_rows(template: str) -> list[dict]:
 	rows = frappe.get_all(
-		"Tender Configuration Template Row",
+		"Pre Production Manifest Template Row",
 		filters={"parent": template},
 		fields=[
 			"section",

@@ -11,7 +11,7 @@ from frappe.model.document import Document
 PARTY_TYPES = ("Lead", "Customer")
 
 
-class TenderConfigurationTemplate(Document):
+class PreProductionManifestTemplate(Document):
 	def validate(self):
 		self._validate_party()
 
@@ -52,7 +52,7 @@ def validate_template_party(template: str | None, party_type: str | None, party_
 	"""A party's template can only be used on that party's tenders."""
 	if not template:
 		return
-	owner = frappe.db.get_value("Tender Configuration Template", template, ["party_type", "party_name"], as_dict=True)
+	owner = frappe.db.get_value("Pre Production Manifest Template", template, ["party_type", "party_name"], as_dict=True)
 	if owner and owner.party_name and (owner.party_type, owner.party_name) != (party_type, party_name):
 		frappe.throw(
 			_("Template {0} is for {1} {2}; this tender isn't.").format(
@@ -66,7 +66,7 @@ def create_party_template(
 	template: str, party_type: str, party_name: str, template_name: str | None = None
 ) -> str:
 	"""Copy a base template for a Lead or Customer (its rows); the copy is theirs to edit."""
-	source = frappe.get_doc("Tender Configuration Template", template)
+	source = frappe.get_doc("Pre Production Manifest Template", template)
 	source.check_permission("read")
 	if not source.is_template:
 		frappe.throw(_("{0} isn't a base template (Is Template).").format(source.name))
@@ -98,12 +98,12 @@ def template_query(doctype, txt, searchfield, start, page_len, filters):
 	if not party_name:
 		party_type, party_name = tender_party(filters.get("tender"))
 	own = bool(party_name) and frappe.db.exists(
-		"Tender Configuration Template", {"party_type": party_type, "party_name": party_name}
+		"Pre Production Manifest Template", {"party_type": party_type, "party_name": party_name}
 	)
 	return frappe.db.sql(
 		f"""
 		select name, if(is_template, 'Template', ifnull(party_title, '')) as description
-		from `tabTender Configuration Template`
+		from `tabPre Production Manifest Template`
 		where {"party_type = %(party_type)s and party_name = %(party_name)s" if own else "ifnull(party_name, '') = ''"}
 		  and name like %(txt)s
 		order by is_template desc, name

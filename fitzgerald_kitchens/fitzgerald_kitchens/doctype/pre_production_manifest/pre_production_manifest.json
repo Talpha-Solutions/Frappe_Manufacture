@@ -75,7 +75,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Template",
-   "options": "Tender Configuration Template",
+   "options": "Pre Production Manifest Template",
    "reqd": 1
   },
   {
@@ -186,7 +186,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-08 08:03:38.430175",
+ "modified": "2026-11-08 08:12:04.310562",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Pre Production Manifest",

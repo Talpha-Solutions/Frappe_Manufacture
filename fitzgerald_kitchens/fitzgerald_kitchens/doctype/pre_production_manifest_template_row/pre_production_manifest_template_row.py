@@ -4,5 +4,5 @@
 from frappe.model.document import Document
 
 
-class TenderConfigurationTemplateRow(Document):
+class PreProductionManifestTemplateRow(Document):
 	pass

@@ -1,7 +1,7 @@
 const METHOD_BASE =
-	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.tender_configuration_template.tender_configuration_template";
+	"fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_manifest_template.pre_production_manifest_template";
 
-frappe.ui.form.on("Tender Configuration Template", {
+frappe.ui.form.on("Pre Production Manifest Template", {
 	setup(frm) {
 		frm.set_query("party_type", () => ({ filters: { name: ["in", ["Lead", "Customer"]] } }));
 	},
@@ -35,7 +35,7 @@ function add_get_from_template_button(frm) {
 }
 
 async function get_from_template_dialog(frm) {
-	const templates = await frappe.db.get_list("Tender Configuration Template", {
+	const templates = await frappe.db.get_list("Pre Production Manifest Template", {
 		filters: { is_template: 1, name: ["!=", frm.doc.name || ""] },
 		fields: ["name"],
 		order_by: "name asc",
@@ -72,7 +72,7 @@ async function get_from_template_dialog(frm) {
 		],
 		primary_action_label: __("Get Rows"),
 		async primary_action({ template, replace }) {
-			const source = await frappe.db.get_doc("Tender Configuration Template", template);
+			const source = await frappe.db.get_doc("Pre Production Manifest Template", template);
 			if (replace) frm.clear_table("rows");
 			else {
 				frm.doc.rows = (frm.doc.rows || []).filter((row) => !is_blank(row));
@@ -97,7 +97,7 @@ async function get_from_template_dialog(frm) {
 		const template = dialog.get_value("template");
 		const wrapper = dialog.fields_dict.preview.$wrapper;
 		if (!template) return wrapper.empty();
-		const source = await frappe.db.get_doc("Tender Configuration Template", template);
+		const source = await frappe.db.get_doc("Pre Production Manifest Template", template);
 		if (dialog.get_value("template") !== template) return;
 		const sections = {};
 		for (const row of source.rows || []) (sections[row.section || __("Other")] ||= []).push(row.label);
@@ -117,7 +117,7 @@ async function get_from_template_dialog(frm) {
 
 // copy a base template for a Lead or Customer, who can then have their own labels, rows and items
 function add_party_template_button(frm) {
-	if (frm.is_new() || !frm.doc.is_template || !frappe.model.can_create("Tender Configuration Template")) return;
+	if (frm.is_new() || !frm.doc.is_template || !frappe.model.can_create("Pre Production Manifest Template")) return;
 	frm.add_custom_button(
 		__("Create Party Template"),
 		() => {
@@ -152,7 +152,7 @@ function add_party_template_button(frm) {
 						.then((name) => {
 							dialog.hide();
 							frappe.show_alert({ message: __("Created {0}", [name]), indicator: "green" });
-							frappe.set_route("Form", "Tender Configuration Template", name);
+							frappe.set_route("Form", "Pre Production Manifest Template", name);
 						});
 				},
 			});
