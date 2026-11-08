@@ -12,6 +12,7 @@ from frappe.contacts.doctype.address.address import get_company_address
 from frappe.utils import cint, flt, money_in_words
 
 from fitzgerald_kitchens.fitzgerald_kitchens.utils.pre_production_manifest_excel import (
+	_cents,
 	_group_rows,
 	_line_values,
 	_refs,
@@ -34,7 +35,7 @@ def get_tender_document(tender: str) -> dict:
 		for name in frappe.get_all("Pre Production Manifest", filters={"pre_production_plan": doc.name}, pluck="name", order_by="creation asc")
 	]
 	bills = [_bill(number, m) for number, m in enumerate(manifests, start=1)]
-	total = sum(b["total"] for b in bills)
+	total = _cents(sum(b["total"] for b in bills))
 	return {
 		"company": company,
 		"company_details": _company_details(company),
@@ -91,8 +92,8 @@ def _bill(number: int, manifest) -> dict:
 			"number": len(sections) + 1,
 			"title": section.title(),
 			"lines": lines,
-			"per_unit": sum(line["per_unit"] for line in lines),
-			"total": sum(line["total"] for line in lines),
+			"per_unit": _cents(sum(line["per_unit"] for line in lines)),
+			"total": _cents(sum(line["total"] for line in lines)),
 		})
 	return {
 		"number": number,
@@ -101,6 +102,7 @@ def _bill(number: int, manifest) -> dict:
 		"project_type": manifest.project_type or KITCHEN_PROJECT_TYPE,
 		"units": cint(units),
 		"sections": sections,
-		"per_unit": flt(manifest.tender_price_per_kitchen),
-		"total": flt(manifest.tender_price_total),
+		# the sum of the rounded lines, as on the simplified Excel
+		"per_unit": _cents(sum(s["per_unit"] for s in sections)),
+		"total": _cents(sum(s["total"] for s in sections)),
 	}

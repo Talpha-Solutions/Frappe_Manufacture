@@ -29,6 +29,7 @@ from fitzgerald_kitchens.fitzgerald_kitchens.utils.pre_production_manifest_excel
 	_page_setup,
 	_write_bill,
 	_write_title,
+	client_tender_price,
 )
 
 # Summary columns: (heading, manifest field or key, kind); kind sets the format and alignment
@@ -119,9 +120,15 @@ def _write_tender_summary(ws, tender, manifests, sheet_names, client: bool):
 	ws.freeze_panes = ws.cell(row=row + 1, column=1)
 	row += 1
 
+	# the client's copy shows each manifest at the sum of its rounded lines, as its bill sheet does
+	values = {m.name: m.as_dict() for m in manifests}
+	if client:
+		for m in manifests:
+			values[m.name]["tender_price_per_kitchen"], values[m.name]["tender_price_total"] = client_tender_price(m)
+
 	for number, (manifest, sheet_name) in enumerate(zip(manifests, sheet_names), start=1):
 		for col, (_heading, key, kind) in enumerate(columns, start=FIRST_COL):
-			value = number if key == "number" else manifest.get(key)
+			value = number if key == "number" else values[manifest.name].get(key)
 			cell = ws.cell(row=row, column=col, value=_value(value, kind))
 			_style(cell, kind)
 			if key == "tender_name":
@@ -136,7 +143,7 @@ def _write_tender_summary(ws, tender, manifests, sheet_names, client: bool):
 	ws.cell(row=row, column=FIRST_COL + 1, value=_("Total"))
 	for col, (_heading, key, kind) in enumerate(columns, start=FIRST_COL):
 		if key in SUMMED:
-			cell = ws.cell(row=row, column=col, value=sum(flt(m.get(key)) for m in manifests))
+			cell = ws.cell(row=row, column=col, value=round(sum(flt(values[m.name].get(key)) for m in manifests), 2))
 			_style(cell, kind)
 		if key == "target_margin_pct":
 			# overall margin on cost, since manifests can have different margins

@@ -10,6 +10,7 @@ every line: item lines only, without notes, cost rates or margin.
 
 import json
 import math
+from decimal import ROUND_HALF_UP, Decimal
 from io import BytesIO
 
 import frappe
@@ -30,7 +31,7 @@ TOTAL_FILL = PatternFill("solid", fgColor="EEF1F6")
 NOTE_FILL = PatternFill("solid", fgColor="FFF8E1")
 
 # Bill columns: gutter | Ref | Description | Qty/Unit | Unit | Rate | € per Unit | € Total
-# Spec and note rows span Description → € Total (C:H) under their item.
+# Note rows span Description → € Total (C:H) under their item.
 BILL_WIDTHS = [2, 5, 62, 10, 7, 11, 13, 14]
 FIRST_COL, LAST_COL = 2, 8
 DESC_CHARS_PER_LINE = 72
@@ -145,7 +146,9 @@ def _write_bill(
 		# Protected View would show formula totals as blank/0 until the file is recalculated
 		section_per_unit = sum(line["per_unit"] for line in rows)
 		section_total = sum(line["total"] for line in rows)
-		if not client:
+		if client:
+			section_per_unit, section_total = _cents(section_per_unit), _cents(section_total)
+		else:
 			section_per_unit, section_total = flt(section_per_unit, 2), flt(section_total, 2)
 		label = ws.cell(row=row, column=3, value=f"{section.title()} total")
 		per_unit = ws.cell(row=row, column=7, value=section_per_unit)
@@ -211,9 +214,9 @@ def _line_values(line: dict, unit_count: float, client: bool = False) -> str:
 	)
 	# the row amount the server saved on the tender, so the bill matches the form exactly
 	if client:
-		# marked-up values unrounded (the cells show 2dp), so the sections add up to the tender price
+		# marked-up amounts are already whole cents (see _group_rows)
 		line["per_unit"] = flt(line.get("amount"))
-		line["total"] = line["per_unit"] * unit_count
+		line["total"] = _cents(line["per_unit"] * unit_count)
 	else:
 		line["per_unit"] = flt(line.get("amount"), 2)
 		line["total"] = flt(line["per_unit"] * unit_count, 2)
@@ -323,7 +326,10 @@ def _price_lines(doc, client: bool = False) -> list[tuple[str, float, float, boo
 	form does (half-cents up), whereas flt(x, 2) would apply banker's rounding and be a cent off.
 	"""
 	units = flt(doc.kitchens_to_tender)
-	lines = [] if client else [
+	if client:
+		# the client's copy adds up its own rounded lines, so its tender price matches them
+		return [("Tender price", *client_tender_price(doc), True)]
+	lines = [
 		("Cost per unit / Cost base", flt(doc.total_cost_per_kitchen), flt(doc.cost_base), True),
 		(
 			f"Margin ({flt(doc.target_margin_pct):g}% on cost)",
@@ -400,16 +406,29 @@ def _group_rows(doc, client: bool = False) -> list[tuple[str, list[dict]]]:
 	if not client:
 		return list(grouped.items())
 
-	# simplified (client) version: each line at tender price (the margin spread over every line)
+	# simplified (client) version: each line at tender price (the margin spread over every line),
+	# rounded to the cent: the rate first, then qty x rate, so every line can be checked by hand
 	markup = _markup(doc)
 	client_groups = []
 	for section, lines in grouped.items():
 		for line in lines:
-			line["rate"] = flt(line.get("rate")) * markup
-			line["amount"] = flt(line.get("amount")) * markup
+			line["rate"] = _cents(flt(line.get("rate")) * markup)
+			line["amount"] = _cents(flt(line.get("qty")) * line["rate"])
 		if lines:
 			client_groups.append((section, lines))
 	return client_groups
+
+
+def client_tender_price(doc) -> tuple[float, float]:
+	"""(€ per unit, € total) of the client's copy: the sum of its rounded lines, so it can differ
+	from the manifest's own tender price by a cent or so where a marked-up rate isn't whole cents."""
+	per_unit = _cents(sum(flt(line.get("amount")) for _section, lines in _group_rows(doc, True) for line in lines))
+	return per_unit, _cents(per_unit * flt(doc.kitchens_to_tender))
+
+
+def _cents(value: float) -> float:
+	"""Round to the cent, halves up (as on an invoice), not banker's rounding."""
+	return float(Decimal(str(flt(value))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
 def _markup(doc) -> float:
