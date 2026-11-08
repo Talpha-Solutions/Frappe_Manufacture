@@ -128,7 +128,7 @@ async function render_builder(frm) {
 			.fk-row:last-child { border-bottom: none; }
 			.fk-row .frappe-control.form-group { margin-bottom: 0; }
 			.fk-item-ctl .awesomplete > ul { min-width: 320px !important; }
-			/* under the rate: its unit, or the source's rate and "reset" once changed for this tender */
+			/* under the rate, once changed for this tender: the source's rate and "reset" */
 			.fk-rate { margin-top: 2px; font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
 			.fk-rate:empty { display: none; }
 			.fk-rate-edited input { font-weight: var(--weight-medium); }
@@ -819,14 +819,14 @@ async function set_silently(control, value) {
 	}
 }
 
-// under the rate: its unit; once changed for this tender, the cost source's rate and a reset link
+// under the rate, once changed for this tender: the cost source's rate and a reset link
 function rate_html(row) {
 	if (!row.item_code) return "";
 	if (row.rate_override) {
 		return `<span title="${__("Rate changed for this tender")}">${__("was {0}", [escape_html(format_currency(flt(row.list_rate), row.currency))])}</span>
 			<a class="fk-rate-reset">${__("reset")}</a>`;
 	}
-	return row.uom ? escape_html(__("per {0}", [row.uom])) : "";
+	return "";
 }
 
 function get_row_key(row) {

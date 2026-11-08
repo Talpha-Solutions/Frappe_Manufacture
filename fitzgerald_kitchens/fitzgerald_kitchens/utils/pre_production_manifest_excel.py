@@ -22,6 +22,8 @@ from openpyxl.utils import get_column_letter
 
 FONT = "Arial"
 MONEY = '#,##0.00;[Red]\\-#,##0.00'
+# cost rates can have more than 2 decimals (a BOM's unit cost), shown so qty x rate can be checked
+RATE = '#,##0.00##;[Red]\\-#,##0.00##'
 QTY = "#,##0.###"
 THIN = Side(style="thin", color="808080")
 GRID = Side(style="thin", color="BFBFBF")
@@ -144,12 +146,13 @@ def _write_bill(
 
 		# values, not formulas: openpyxl can't store calculated results, so previews and Excel's
 		# Protected View would show formula totals as blank/0 until the file is recalculated
-		section_per_unit = sum(line["per_unit"] for line in rows)
-		section_total = sum(line["total"] for line in rows)
 		if client:
-			section_per_unit, section_total = _cents(section_per_unit), _cents(section_total)
+			section_per_unit = _cents(sum(line["per_unit"] for line in rows))
+			section_total = _cents(sum(line["total"] for line in rows))
 		else:
-			section_per_unit, section_total = flt(section_per_unit, 2), flt(section_total, 2)
+			# the saved amounts added up, then rounded, as the manifest's own totals are
+			section_per_unit = _cents(sum(flt(line.get("amount")) for line in rows))
+			section_total = _cents(sum(flt(line.get("amount")) for line in rows) * unit_count)
 		label = ws.cell(row=row, column=3, value=f"{section.title()} total")
 		per_unit = ws.cell(row=row, column=7, value=section_per_unit)
 		total = ws.cell(row=row, column=8, value=section_total)
@@ -218,8 +221,8 @@ def _line_values(line: dict, unit_count: float, client: bool = False) -> str:
 		line["per_unit"] = flt(line.get("amount"))
 		line["total"] = _cents(line["per_unit"] * unit_count)
 	else:
-		line["per_unit"] = flt(line.get("amount"), 2)
-		line["total"] = flt(line["per_unit"] * unit_count, 2)
+		line["per_unit"] = _cents(line.get("amount"))
+		line["total"] = _cents(flt(line.get("amount")) * unit_count)
 	return description
 
 
@@ -251,7 +254,8 @@ def _write_line(ws, row: int, line: dict, unit_count: float, client: bool = Fals
 		cell.font = Font(name=FONT, size=10)
 		cell.alignment = Alignment(vertical="top", wrap_text=col == 3)
 	ws.cell(row=row, column=4).number_format = QTY
-	for col in (6, 7, 8):
+	ws.cell(row=row, column=6).number_format = MONEY if client else RATE
+	for col in (7, 8):
 		ws.cell(row=row, column=col).number_format = MONEY
 
 	_box_row(ws, row, FIRST_COL, LAST_COL)
@@ -322,23 +326,23 @@ def _write_summary(ws, doc, header, section_totals, client: bool = False):
 def _price_lines(doc, client: bool = False) -> list[tuple[str, float, float, bool]]:
 	"""(label, € per unit, € total, bold) for the closing lines: cost and margin, then tender price.
 
-	The tender's own saved figures, unrounded: Excel's 2dp format then shows them exactly as the
-	form does (half-cents up), whereas flt(x, 2) would apply banker's rounding and be a cent off.
+	The tender's own saved figures, rounded to the cent halves up as the form shows them (written
+	unrounded, Excel can show a figure like 3109.515 a cent low, as it's stored as 3109.51499...).
 	"""
 	units = flt(doc.kitchens_to_tender)
 	if client:
 		# the client's copy adds up its own rounded lines, so its tender price matches them
 		return [("Tender price", *client_tender_price(doc), True)]
 	lines = [
-		("Cost per unit / Cost base", flt(doc.total_cost_per_kitchen), flt(doc.cost_base), True),
+		("Cost per unit / Cost base", _cents(doc.total_cost_per_kitchen), _cents(doc.cost_base), True),
 		(
 			f"Margin ({flt(doc.target_margin_pct):g}% on cost)",
-			flt(doc.margin_amount) / units if units else 0,
-			flt(doc.margin_amount),
+			_cents(flt(doc.margin_amount) / units) if units else 0,
+			_cents(doc.margin_amount),
 			False,
 		),
 	]
-	lines.append(("Tender price", flt(doc.tender_price_per_kitchen), flt(doc.tender_price_total), True))
+	lines.append(("Tender price", _cents(doc.tender_price_per_kitchen), _cents(doc.tender_price_total), True))
 	return lines
 
 
@@ -378,8 +382,20 @@ def _group_rows(doc, client: bool = False) -> list[tuple[str, list[dict]]]:
 		)
 	)
 
+	# rows saved before cost sources have only the price; name its price list for the detailed bill
+	price_lists = dict(
+		frappe.get_all(
+			"Item Price",
+			filters={"name": ["in", [r["price_row"] for r in rows if r.get("price_row") and not r.get("price_list")]]},
+			fields=["name", "price_list"],
+			as_list=True,
+		)
+	) if any(r.get("price_row") and not r.get("price_list") for r in rows) else {}
+
 	grouped: dict[str, list[dict]] = {}
 	for line in rows:
+		if line.get("price_row") and not line.get("price_list"):
+			line["price_list"] = price_lists.get(line["price_row"], "")
 		# rows with no item chosen cost nothing (a typed rate needs an item), so they're left off;
 		# a section with none chosen doesn't appear
 		if not line.get("item_code"):

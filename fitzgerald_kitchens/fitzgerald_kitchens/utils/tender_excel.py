@@ -28,6 +28,7 @@ from fitzgerald_kitchens.fitzgerald_kitchens.utils.pre_production_manifest_excel
 	_header_lines,
 	_page_setup,
 	_write_bill,
+	_cents,
 	_write_title,
 	client_tender_price,
 )
@@ -143,7 +144,8 @@ def _write_tender_summary(ws, tender, manifests, sheet_names, client: bool):
 	ws.cell(row=row, column=FIRST_COL + 1, value=_("Total"))
 	for col, (_heading, key, kind) in enumerate(columns, start=FIRST_COL):
 		if key in SUMMED:
-			cell = ws.cell(row=row, column=col, value=round(sum(flt(values[m.name].get(key)) for m in manifests), 2))
+			total = sum(flt(values[m.name].get(key)) for m in manifests)
+			cell = ws.cell(row=row, column=col, value=_cents(total) if kind == "money" else total)
 			_style(cell, kind)
 		if key == "target_margin_pct":
 			# overall margin on cost, since manifests can have different margins
@@ -186,7 +188,10 @@ def _tender_header(tender, client: bool) -> list[str]:
 
 
 def _value(value, kind: str):
-	if kind in ("money", "qty", "pct"):
+	if kind == "money":
+		# to the cent, halves up, as the form shows it
+		return _cents(value)
+	if kind in ("qty", "pct"):
 		return flt(value)
 	return value
 
