@@ -32,11 +32,21 @@ frappe.ui.form.on("Pre Production Plan", {
 			__("Templates for this tender's Lead or Customer, or for everyone if they don't have their own")
 		);
 		add_download_buttons(frm);
+		add_material_order_plan_button(frm);
 		render_manifests(frm);
 		render_units_preview(frm);
 		listen_for_unit_projects(frm);
 	},
 });
+
+// what to order for this plan's units, and by when
+function add_material_order_plan_button(frm) {
+	if (frm.is_new()) return;
+	frm.add_custom_button(__("Material Order Plan"), () => {
+		frappe.route_options = { pre_production_plan: [frm.doc.name], ...(frm.doc.company ? { company: frm.doc.company } : {}) };
+		frappe.set_route("query-report", "Material Order Plan");
+	});
+}
 
 // ---------------------------------------------------------------- Units tab (won tenders)
 // The tab only shows the units and their projects; they're set up on the Tender Units page.
