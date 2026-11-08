@@ -6,7 +6,7 @@ import json
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint, cstr, flt
+from frappe.utils import cint, cstr, flt, fmt_money
 
 from fitzgerald_kitchens.fitzgerald_kitchens.doctype.pre_production_plan.pre_production_plan import update_tender_totals
 from fitzgerald_kitchens.setup.project_unit_fields import SITE_PROJECT_TYPE
@@ -423,6 +423,65 @@ def _get_template_rows(template: str) -> list[dict]:
 	for row in rows:
 		row["qty"] = flt(row.get("default_qty") or 1)
 	return rows
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def bom_query(doctype, txt, searchfield, start, page_len, filters):
+	"""Cost From for a manufactured item: its submitted, active BOMs, default first, each with its
+	unit cost."""
+	item = filters.get("item")
+	if not item:
+		return []
+	stock_uom = frappe.db.get_value("Item", item, "stock_uom")
+	boms = frappe.get_all(
+		"BOM",
+		filters={"item": item, "docstatus": 1, "is_active": 1, "name": ["like", f"%{txt}%"]},
+		fields=["name", "is_default", "total_cost", "quantity", "currency"],
+		order_by="is_default desc, creation desc",
+		limit_start=start,
+		limit_page_length=page_len,
+	)
+	return [
+		(
+			bom.name,
+			" · ".join(
+				filter(None, [_("Default") if bom.is_default else "", _money(_bom_unit_cost(bom), bom.currency, stock_uom)])
+			),
+		)
+		for bom in boms
+	]
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def item_price_query(doctype, txt, searchfield, start, page_len, filters):
+	"""Cost From for a bought-in item: its prices in any enabled price list, buying lists first."""
+	item_code = filters.get("item_code")
+	if not item_code:
+		return []
+	ItemPrice = frappe.qb.DocType("Item Price")
+	PriceList = frappe.qb.DocType("Price List")
+	prices = (
+		frappe.qb.from_(ItemPrice)
+		.inner_join(PriceList)
+		.on(PriceList.name == ItemPrice.price_list)
+		.select(ItemPrice.name, ItemPrice.price_list, ItemPrice.price_list_rate, ItemPrice.currency, ItemPrice.uom)
+		.where(ItemPrice.item_code == item_code)
+		.where(PriceList.enabled == 1)
+		.where(ItemPrice.price_list.like(f"%{txt}%"))
+		.orderby(PriceList.buying, order=frappe.qb.desc)
+		.orderby(ItemPrice.price_list)
+		.orderby(ItemPrice.uom)
+		.limit(page_len)
+		.offset(start)
+		.run(as_dict=True)
+	)
+	return [(p.name, f"{p.price_list} · {_money(p.price_list_rate, p.currency, p.uom)}") for p in prices]
+
+
+def _money(rate: float, currency: str | None, uom: str | None) -> str:
+	return fmt_money(flt(rate), currency=currency) + (f" / {uom}" if uom else "")
 
 
 @frappe.whitelist()

@@ -122,26 +122,26 @@ async function render_builder(frm) {
 			.fk-section-head { display: flex; align-items: center; gap: var(--margin-sm); margin: var(--margin-lg) 0 var(--margin-sm); font-size: var(--text-base); font-weight: var(--weight-semibold); color: var(--heading-color); }
 			.fk-section-head:first-child { margin-top: 0; }
 			.fk-section { border: 1px solid var(--border-color); border-radius: var(--border-radius-md); background: var(--fg-color); }
-			.fk-cols, .fk-row { display: grid; grid-template-columns: 2fr 3.3fr 3fr 0.9fr 1.2fr 28px; column-gap: var(--margin-sm); align-items: center; padding: 0 var(--padding-sm); }
+			.fk-cols, .fk-row { display: grid; grid-template-columns: 1.7fr 3fr 3fr 1.3fr 0.9fr 1.1fr 28px; column-gap: var(--margin-sm); align-items: center; padding: 0 var(--padding-sm); }
 			.fk-cols { background: var(--subtle-fg); border-bottom: 1px solid var(--border-color); padding-top: var(--padding-xs); padding-bottom: var(--padding-xs); font-size: var(--text-sm); color: var(--text-muted); border-radius: var(--border-radius-md) var(--border-radius-md) 0 0; }
 			.fk-row { row-gap: var(--padding-xs); padding-top: var(--padding-sm); padding-bottom: var(--padding-sm); border-bottom: 1px solid var(--border-color); }
 			.fk-row:last-child { border-bottom: none; }
 			.fk-row .frappe-control.form-group { margin-bottom: 0; }
 			.fk-item-ctl .awesomplete > ul { min-width: 320px !important; }
-			.fk-rate { margin-top: 2px; font-size: var(--text-xs); color: var(--text-muted); }
+			/* under the rate: its unit, or the source's rate and "reset" once changed for this tender */
+			.fk-rate { margin-top: 2px; font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
 			.fk-rate:empty { display: none; }
-			/* rate can be changed per tender: click the rate under the item */
-			.fk-rate-value { cursor: pointer; border-bottom: 1px dotted var(--text-muted); }
-			.fk-rate-value:hover { color: var(--text-color); }
-			.fk-rate-value.edited { color: var(--text-color); font-weight: var(--weight-medium); }
+			.fk-rate-edited input { font-weight: var(--weight-medium); }
 			.fk-rate-reset { margin-left: 4px; cursor: pointer; }
-			.fk-rate-ctl { margin-top: 2px; }
-			.fk-rate-ctl input { height: 26px !important; font-size: var(--text-xs) !important; }
 			.fk-label { font-size: var(--text-md); font-weight: var(--weight-medium); color: var(--text-color); line-height: 1.3; }
 			.fk-sub { font-size: var(--text-sm); color: var(--text-muted); line-height: 1.3; }
 			.fk-amount, .fk-cols .col-amount { text-align: right; font-variant-numeric: tabular-nums; }
 			.fk-amount { color: var(--text-color); font-weight: var(--weight-medium); white-space: nowrap; }
-			.fk-cost-ctl select:disabled { color: var(--text-muted); }
+			.fk-cost-ctl input:disabled { color: var(--text-muted); }
+			.fk-cost-hint { margin-top: 2px; font-size: var(--text-xs); color: var(--text-muted); }
+			.fk-cost-hint a { color: var(--text-muted); border-bottom: 1px dotted var(--text-muted); cursor: pointer; }
+			.fk-cost-hint a:hover { color: var(--text-color); }
+			.fk-cost-ctl .awesomplete > ul { min-width: 320px !important; }
 			.fk-remark-btn, .fk-remark-remove { width: 28px; height: 28px; padding: 0; border: none; border-radius: var(--border-radius); background: transparent; color: var(--text-muted); display: flex; align-items: center; justify-content: center; }
 			.fk-remark-btn { opacity: 0; transition: opacity 0.15s; }
 			.fk-row:hover .fk-remark-btn, .fk-remark-btn:focus-visible { opacity: 1; }
@@ -155,7 +155,7 @@ async function render_builder(frm) {
 			.fk-remark-remove { display: none; }
 			.fk-has-remark .fk-remark-remove { display: flex; }
 			/* charges have a note button next to remove, so their last column is wider */
-			.fk-cols.fk-charge-cols, .fk-row.fk-charge-row { grid-template-columns: 2fr 3.3fr 3fr 0.9fr 1.2fr 60px; }
+			.fk-cols.fk-charge-cols, .fk-row.fk-charge-row { grid-template-columns: 1.7fr 3fr 3fr 1.3fr 0.9fr 1.1fr 60px; }
 			.fk-charge-actions { display: flex; gap: 2px; }
 			.fk-other-empty { padding: var(--padding-sm); color: var(--text-muted); font-size: var(--text-sm); }
 			.fk-other-add { margin-top: var(--margin-sm); }
@@ -182,6 +182,7 @@ async function render_builder(frm) {
 					<div>${__("Item")}</div>
 					<div>${__("Selection")}</div>
 					<div>${__("Cost From")}</div>
+					<div>${__("Rate")}</div>
 					<div>${escape_html(qtyLabel === "QTY" ? __("Qty") : qtyLabel)}</div>
 					<div class="col-amount">${__("Cost (€)")}</div>
 					<div></div>
@@ -195,8 +196,9 @@ async function render_builder(frm) {
 						<div class="fk-label">${escape_html(row.label || "")}</div>
 						<div class="fk-sub">${escape_html(row.subtitle || "")}</div>
 					</div>
-					<div><div class="fk-item-ctl"></div><div class="fk-rate">${rate_html(row)}</div><div class="fk-rate-ctl hide"></div></div>
-					<div class="fk-cost-ctl"></div>
+					<div class="fk-item-ctl"></div>
+					<div><div class="fk-cost-ctl"></div><div class="fk-cost-hint"></div></div>
+					<div><div class="fk-rate-ctl"></div><div class="fk-rate">${rate_html(row)}</div></div>
 					<div class="fk-qty-ctl"></div>
 					<div class="fk-amount">${format_currency(flt(row.amount || 0))}</div>
 					<button type="button" class="fk-remark-btn" title="${__("Add / edit remark")}">${frappe.utils.icon("small-message", "sm")}</button>
@@ -218,6 +220,7 @@ async function render_builder(frm) {
 			<div class="fk-cols fk-charge-cols">
 				<div>${__("Description")}</div>
 				<div>${__("Item (optional)")}</div>
+				<div></div>
 				<div>${__("Rate")}</div>
 				<div>${__("Qty")}</div>
 				<div class="col-amount">${__("Cost (€)")}</div>
@@ -270,6 +273,7 @@ function render_other_costs(frm, wrapper) {
 			<div class="fk-row fk-charge-row${charge.remark ? " fk-has-remark" : ""}">
 				<div class="fk-charge-desc"></div>
 				<div class="fk-charge-item"></div>
+				<div></div>
 				<div class="fk-charge-rate"></div>
 				<div class="fk-charge-qty"></div>
 				<div class="fk-amount">${format_currency(flt(charge.amount))}</div>
@@ -467,10 +471,16 @@ async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 		const row = rows.find((r) => get_row_key(r) === key);
 		if (!row) return;
 
+		let rateControl = null;
 		const show_cost = () => {
 			row.amount = flt(row.qty) * flt(row.rate);
 			$row.find(".fk-amount").text(format_currency(row.amount));
 			$row.find(".fk-rate").html(rate_html(row));
+			$row.find(".fk-rate-ctl").toggleClass("fk-rate-edited", !!row.rate_override);
+			if (rateControl) {
+				set_silently(rateControl, flt(row.rate));
+				rateControl.$input.prop("disabled", !row.item_code);
+			}
 		};
 
 		// an item that has changed type since the row was costed (e.g. now Manufacture, but the row
@@ -485,27 +495,99 @@ async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 			}
 		}
 
-		// Cost From: the item's BOMs if it's manufactured, else its prices and last purchase rate
-		let choices = [];
+		// Cost From: a Link, like any other in Frappe (search, "Create a new …", Advanced Search):
+		// a manufactured item's BOMs, or a bought-in item's prices in any price list. A bought-in
+		// item can use its last purchase rate instead, from the link under it.
+		const is_manufactured = () => !!costOptions[row.item_code]?.manufactured;
+		const $hint = $row.find(".fk-cost-hint");
 		const costControl = make_row_control($row.find(".fk-cost-ctl"), {
-			fieldtype: "Select",
-			fieldname: "cost_from",
-			change: () => {
+			fieldtype: "Link",
+			fieldname: "cost_source",
+			options: "BOM",
+			get_query: () =>
+				is_manufactured()
+					? { query: `${METHOD_BASE}.bom_query`, filters: { item: row.item_code || "" } }
+					: { query: `${METHOD_BASE}.item_price_query`, filters: { item_code: row.item_code || "" } },
+			// a new BOM or price starts for this row's item
+			get_route_options_for_new_doc: () =>
+				is_manufactured()
+					? { item: row.item_code }
+					: { item_code: row.item_code, price_list: "Standard Buying" },
+			change: async () => {
 				if (costControl.__fk_silent) return;
-				const choice = choices.find((c) => c.value === (costControl.get_value() || ""));
-				if (!choice) return;
-				apply_cost_choice(row, choice);
+				const value = costControl.get_value() || "";
+				if (value === ((is_manufactured() ? row.bom : row.price_row) || "")) return;
+				if (!value) {
+					apply_cost_choice(row, { value: "" });
+				} else {
+					// e.g. a BOM or price created from the dropdown since the row loaded
+					let choice = find_cost_choice(row, costOptions[row.item_code], value);
+					if (!choice) {
+						Object.assign(costOptions, await fetch_cost_options([row.item_code]));
+						choice = find_cost_choice(row, costOptions[row.item_code], value);
+					}
+					if (!choice) {
+						frappe.show_alert({
+							message: is_manufactured()
+								? __("BOM {0} isn't submitted and active, so it can't cost this row yet. Submit it, then pick it here.", [value])
+								: __("{0} isn't a price of {1}.", [value, row.item_code]),
+							indicator: "orange",
+						}, 8);
+						await refresh_cost_control();
+						return;
+					}
+					apply_cost_choice(row, choice);
+				}
+				await refresh_cost_control();
 				show_cost();
 				save_rows(frm, rows);
 			},
 		});
+		// Item Price names are random, so the link (and each option in its dropdown) shows
+		// "Standard Buying · € 120.00 / Nos" instead
+		costControl.is_title_link = () => costControl.df.options === "Item Price";
+		const merge_duplicates = costControl.merge_duplicates.bind(costControl);
+		costControl.merge_duplicates = (results) =>
+			merge_duplicates(results).map((d) =>
+				costControl.df.options === "Item Price" && d.description ? { ...d, label: d.description, description: "" } : d
+			);
+
 		const refresh_cost_control = async () => {
-			choices = cost_choices(row, costOptions[row.item_code]);
-			costControl.df.options = choices.map(({ value, label }) => ({ value, label }));
-			costControl.set_options();
-			costControl.$input.prop("disabled", !row.item_code);
-			await set_silently(costControl, cost_value(row));
+			const options = costOptions[row.item_code];
+			const manufactured = is_manufactured();
+			costControl.df.options = manufactured ? "BOM" : "Item Price";
+			costControl.df.filter_description = manufactured
+				? __("Submitted, active BOMs of {0}", [row.item_code])
+				: __("Prices of {0} in any price list", [row.item_code]);
+			for (const price of options?.prices || []) {
+				frappe.utils.add_link_title("Item Price", price.price_row, cost_label(price.price_list, price.rate, price.currency, price.uom || options.stock_uom));
+			}
+			const lpr = options && cost_label(__("Last purchase rate"), options.last_purchase_rate, default_currency(), options.stock_uom);
+			let placeholder = __("Select an item first");
+			if (row.item_code && manufactured) placeholder = options?.boms.length ? __("Select BOM") : __("No active BOM yet");
+			else if (row.item_code && row.cost_from === "Last Purchase Rate") placeholder = lpr;
+			else if (row.item_code) placeholder = __("Select price");
+			costControl.$input.attr("placeholder", placeholder).prop("disabled", !row.item_code);
+			await set_silently(costControl, (manufactured ? row.bom : row.price_row) || "");
+
+			// a bought-in item can be costed at its last purchase rate instead of a price
+			const offer_lpr = row.item_code && options && !manufactured && row.cost_from !== "Last Purchase Rate";
+			$hint.toggle(!!offer_lpr).html(
+				offer_lpr
+					? `<a class="fk-use-lpr">${__("Use last purchase rate")}</a> <span>(${
+							flt(options.last_purchase_rate) ? escape_html(format_currency(options.last_purchase_rate, default_currency())) : __("none yet")
+					  })</span>`
+					: ""
+			);
 		};
+		$hint.on("click", ".fk-use-lpr", async () => {
+			const choice = find_cost_choice(row, costOptions[row.item_code], "lpr");
+			if (!choice) return;
+			apply_cost_choice(row, choice);
+			await refresh_cost_control();
+			show_cost();
+			save_rows(frm, rows);
+		});
 		await refresh_cost_control();
 
 		const itemControl = make_row_control($row.find(".fk-item-ctl"), {
@@ -543,42 +625,25 @@ async function bind_row_events(frm, rows, wrapper, is_current = () => true) {
 		});
 		await set_silently(qtyControl, flt(row.qty));
 
-		// rate: click it to change it for this tender (kept on save); "reset" goes back to the cost source
+		// rate: change it for this tender (kept on save); "reset" goes back to the cost source's rate
 		if (row.list_rate === undefined) row.list_rate = row.rate;
-		const $rate = $row.find(".fk-rate");
-		const $rateCtl = $row.find(".fk-rate-ctl");
-		let rateControl = null;
 		const apply_rate = (rate, override) => {
 			row.rate = flt(rate);
 			row.rate_override = override && row.rate !== flt(row.list_rate) ? 1 : 0;
 			show_cost();
 			save_rows(frm, rows);
 		};
-		$rate.on("click", ".fk-rate-reset", (e) => {
-			e.stopPropagation();
-			apply_rate(row.list_rate, false);
+		rateControl = make_row_control($row.find(".fk-rate-ctl"), {
+			fieldtype: "Currency",
+			fieldname: "rate",
+			non_negative: 1,
+			change: () => {
+				if (rateControl.__fk_silent) return;
+				apply_rate(rateControl.get_value(), true);
+			},
 		});
-		$rate.on("click", ".fk-rate-value", async () => {
-			if (!rateControl) {
-				rateControl = make_row_control($rateCtl, {
-					fieldtype: "Currency",
-					fieldname: "rate",
-					non_negative: 1,
-					change: () => {
-						if (rateControl.__fk_silent) return;
-						apply_rate(rateControl.get_value(), true);
-					},
-				});
-				rateControl.$input.on("blur", () => {
-					$rateCtl.addClass("hide");
-					$rate.removeClass("hide");
-				});
-			}
-			await set_silently(rateControl, flt(row.rate));
-			$rate.addClass("hide");
-			$rateCtl.removeClass("hide");
-			rateControl.$input.trigger("focus").select();
-		});
+		$row.find(".fk-rate").on("click", ".fk-rate-reset", () => apply_rate(row.list_rate, false));
+		show_cost();
 
 		const remark = $row.find(".fk-remark");
 		$row.find(".fk-remark-btn").on("click", () => {
@@ -686,6 +751,18 @@ function cost_choices(row, options) {
 	return choices;
 }
 
+// "Standard Buying · € 120.00 / Nos"
+function cost_label(source, rate, currency, uom) {
+	return `${source} · ${format_currency(flt(rate), currency)}${uom ? ` / ${uom}` : ""}`;
+}
+
+// the choice for a BOM name, an Item Price name or "lpr", from the item's cost options
+function find_cost_choice(row, options, value) {
+	if (!options) return null;
+	const key = value === "lpr" ? "lpr" : options.manufactured ? `bom:${value}` : `price:${value}`;
+	return cost_choices({ item_code: row.item_code }, options).find((c) => c.value === key) || null;
+}
+
 // the row's current choice, as a Cost From value
 function cost_value(row) {
 	if (row.bom) return `bom:${row.bom}`;
@@ -742,17 +819,14 @@ async function set_silently(control, value) {
 	}
 }
 
-// rate under the item: click to change it; an edited rate shows the source's rate and a reset link
+// under the rate: its unit; once changed for this tender, the cost source's rate and a reset link
 function rate_html(row) {
 	if (!row.item_code) return "";
-	const per = (value) => `${format_currency(flt(value), row.currency)}${row.uom ? ` / ${row.uom}` : ""}`;
 	if (row.rate_override) {
-		return `<span class="fk-rate-value edited" title="${__("Rate changed for this tender. Click to edit")}">${escape_html(per(row.rate))}</span>
-			<span> · ${__("was {0}", [escape_html(format_currency(flt(row.list_rate), row.currency))])}</span>
+		return `<span title="${__("Rate changed for this tender")}">${__("was {0}", [escape_html(format_currency(flt(row.list_rate), row.currency))])}</span>
 			<a class="fk-rate-reset">${__("reset")}</a>`;
 	}
-	const label = flt(row.rate) ? per(row.rate) : __("Set rate");
-	return `<span class="fk-rate-value" title="${__("Click to change the rate for this tender")}">${escape_html(label)}</span>`;
+	return row.uom ? escape_html(__("per {0}", [row.uom])) : "";
 }
 
 function get_row_key(row) {
