@@ -374,6 +374,10 @@ def _group_rows(doc, client: bool = False) -> list[tuple[str, list[dict]]]:
 
 	grouped: dict[str, list[dict]] = {}
 	for line in rows:
+		# rows with no item chosen cost nothing (a typed rate needs an item), so they're left off;
+		# a section with none chosen doesn't appear
+		if not line.get("item_code"):
+			continue
 		line["item_name"] = item_names.get(line.get("item_code"))
 		grouped.setdefault(line.get("section") or "Items", []).append(line)
 
