@@ -118,7 +118,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Reports",
-   "link_count": 1,
+   "link_count": 2,
    "onboard": 0,
    "type": "Card Break"
   },
@@ -129,6 +129,17 @@
    "label": "Material Order Plan",
    "link_count": 0,
    "link_to": "Material Order Plan",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Order Calendar",
+   "link_count": 0,
+   "link_to": "Order Calendar",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
@@ -197,7 +208,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-11-08 12:43:16.935649",
+ "modified": "2026-11-08 13:07:50.865118",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tendering",
