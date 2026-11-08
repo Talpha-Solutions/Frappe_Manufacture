@@ -82,10 +82,10 @@ frappe.query_reports[ASTPM_REPORT_NAME] = {
 			reqd: 1,
 		},
 		{
-			label: __("Tender Manifest"),
+			label: __("Pre Production Manifest"),
 			fieldname: "tender_configuration",
 			fieldtype: "Link",
-			options: "Tender Manifest",
+			options: "Pre Production Manifest",
 		},
 		{
 			label: __("Work Order Status"),

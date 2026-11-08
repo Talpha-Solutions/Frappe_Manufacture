@@ -1,0 +1,393 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-10-10 20:16:59.044130",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "tender_name",
+  "status",
+  "number_of_units",
+  "column_break_details",
+  "party_type",
+  "party_name",
+  "party_title",
+  "site_address",
+  "section_break_dates",
+  "tender_date",
+  "column_break_dates",
+  "submission_due_date",
+  "section_break_defaults",
+  "template",
+  "column_break_defaults",
+  "target_margin_pct",
+  "section_break_manifests",
+  "manifests_html",
+  "section_break_totals",
+  "manifest_count",
+  "total_units",
+  "column_break_totals",
+  "total_cost_base",
+  "total_margin",
+  "total_tender_price",
+  "section_break_notes",
+  "notes",
+  "units_tab",
+  "section_break_unit_setup",
+  "unit_site_name",
+  "company",
+  "column_break_unit_setup",
+  "project_template",
+  "section_break_unit_types",
+  "unit_types",
+  "section_break_unit_workbook",
+  "download_unit_workbook",
+  "unit_workbook",
+  "units_preview_html",
+  "section_break_unit_projects",
+  "unit_import_status",
+  "project",
+  "column_break_unit_projects",
+  "unit_import_summary"
+ ],
+ "fields": [
+  {
+   "default": "PPP-.YYYY.-.####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Series",
+   "options": "PPP-.YYYY.-.####",
+   "reqd": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "tender_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Tender Name",
+   "reqd": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nIn Progress\nSubmitted\nWon\nLost\nCancelled",
+   "read_only": 1
+  },
+  {
+   "description": "Houses / apartments on the site. One unit can take several pre production manifests (kitchen, robe, utility…)",
+   "fieldname": "number_of_units",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Number of Units",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "column_break_details",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Lead",
+   "description": "A Lead until we've won work from them, then a Customer",
+   "fieldname": "party_type",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Party Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "party_name",
+   "fieldtype": "Dynamic Link",
+   "in_standard_filter": 1,
+   "label": "Party",
+   "options": "party_type",
+   "search_index": 1
+  },
+  {
+   "fieldname": "party_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Party Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "site_address",
+   "fieldtype": "Small Text",
+   "label": "Site Address"
+  },
+  {
+   "fieldname": "section_break_dates",
+   "fieldtype": "Section Break",
+   "label": "Dates"
+  },
+  {
+   "default": "Today",
+   "fieldname": "tender_date",
+   "fieldtype": "Date",
+   "label": "Tender Date"
+  },
+  {
+   "fieldname": "column_break_dates",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "submission_due_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Submission Due Date"
+  },
+  {
+   "description": "New pre production manifests created from this plan start with these values",
+   "fieldname": "section_break_defaults",
+   "fieldtype": "Section Break",
+   "label": "Pre Production Manifest Defaults"
+  },
+  {
+   "fieldname": "template",
+   "fieldtype": "Link",
+   "label": "Template",
+   "options": "Pre Production Manifest Template"
+  },
+  {
+   "fieldname": "column_break_defaults",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "target_margin_pct",
+   "fieldtype": "Percent",
+   "label": "Target Margin %"
+  },
+  {
+   "fieldname": "section_break_manifests",
+   "fieldtype": "Section Break",
+   "label": "Pre Production Manifests"
+  },
+  {
+   "fieldname": "manifests_html",
+   "fieldtype": "HTML",
+   "label": "Manifests HTML"
+  },
+  {
+   "fieldname": "section_break_totals",
+   "fieldtype": "Section Break",
+   "label": "Totals"
+  },
+  {
+   "fieldname": "manifest_count",
+   "fieldtype": "Int",
+   "label": "Pre Production Manifests",
+   "read_only": 1
+  },
+  {
+   "description": "Units added up across all pre production manifests; a unit with a kitchen and a robe manifest counts twice",
+   "fieldname": "total_units",
+   "fieldtype": "Float",
+   "label": "Manifest Units",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_totals",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_cost_base",
+   "fieldtype": "Currency",
+   "label": "Total Cost Base",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_margin",
+   "fieldtype": "Currency",
+   "label": "Total Margin",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "total_tender_price",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Tender Price",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  },
+  {
+   "depends_on": "eval:doc.status=='Won'",
+   "fieldname": "units_tab",
+   "fieldtype": "Tab Break",
+   "label": "Units"
+  },
+  {
+   "description": "One row per apartment per manifest; an apartment with a kitchen and a robe has two rows",
+   "fieldname": "section_break_unit_setup",
+   "fieldtype": "Section Break",
+   "label": "Unit Setup"
+  },
+  {
+   "description": "The Site project's name; defaults to the tender name",
+   "fieldname": "unit_site_name",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Site Name"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_unit_setup",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Tasks added to each unit project",
+   "fieldname": "project_template",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Project Template",
+   "options": "Project Template"
+  },
+  {
+   "fieldname": "section_break_unit_types",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "unit_types",
+   "fieldtype": "Table",
+   "hidden": 1,
+   "label": "Units",
+   "options": "Tender Unit Type"
+  },
+  {
+   "fieldname": "section_break_unit_workbook",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "An import template: a Units sheet with a row per apartment and a Manifest + Qty column pair per project type, plus a sheet per manifest for reference.",
+   "fieldname": "download_unit_workbook",
+   "fieldtype": "Button",
+   "hidden": 1,
+   "label": "Download Workbook"
+  },
+  {
+   "description": "Attaching the workbook replaces the Units table with its rows",
+   "fieldname": "unit_workbook",
+   "fieldtype": "Attach",
+   "hidden": 1,
+   "label": "Unit Workbook"
+  },
+  {
+   "fieldname": "units_preview_html",
+   "fieldtype": "HTML",
+   "label": "Units Preview"
+  },
+  {
+   "fieldname": "section_break_unit_projects",
+   "fieldtype": "Section Break",
+   "label": "Projects"
+  },
+  {
+   "default": "Not Started",
+   "fieldname": "unit_import_status",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Unit Projects Status",
+   "no_copy": 1,
+   "options": "Not Started\nReady\nCreating\nCompleted\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Site Project",
+   "no_copy": 1,
+   "options": "Project",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_unit_projects",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "unit_import_summary",
+   "fieldtype": "Long Text",
+   "hidden": 1,
+   "label": "Summary",
+   "no_copy": 1,
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-11-08 08:40:10.800336",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Pre Production Plan",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Tender Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Tender User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "tender_name,party_title,status",
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "tender_name",
+ "track_changes": 1
+}

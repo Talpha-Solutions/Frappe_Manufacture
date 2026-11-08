@@ -3,7 +3,7 @@
 
 """Excel export of a Tender: a summary sheet across its tender manifests, then one bill per manifest.
 
-Detailed and simplified follow the Tender Manifest export: detailed is the internal costing (cost,
+Detailed and simplified follow the Pre Production Manifest export: detailed is the internal costing (cost,
 margin, specs, notes); simplified is the client's copy at tender price, item lines only.
 """
 
@@ -17,7 +17,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, Side
 from openpyxl.utils import get_column_letter
 
-from fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_manifest_excel import (
+from fitzgerald_kitchens.fitzgerald_kitchens.utils.pre_production_manifest_excel import (
 	FONT,
 	HEADER_FILL,
 	MONEY,
@@ -28,14 +28,16 @@ from fitzgerald_kitchens.fitzgerald_kitchens.utils.tender_manifest_excel import 
 	_header_lines,
 	_page_setup,
 	_write_bill,
+	_cents,
 	_write_title,
+	client_tender_price,
 )
 
 # Summary columns: (heading, manifest field or key, kind); kind sets the format and alignment
 DETAILED_COLUMNS = [
 	("#", "number", "ref"),
 	("Unit Type", "tender_name", "text"),
-	("Tender Manifest", "name", "text"),
+	("Pre Production Manifest", "name", "text"),
 	("Units", "kitchens_to_tender", "qty"),
 	("Cost / Unit", "total_cost_per_kitchen", "money"),
 	("Cost Base", "cost_base", "money"),
@@ -59,16 +61,16 @@ FIRST_COL = 2
 
 @frappe.whitelist()
 def download_tender_excel(name: str, simplified: int | str = 0):
-	tender = frappe.get_doc("Tender", name)
+	tender = frappe.get_doc("Pre Production Plan", name)
 	tender.check_permission("read")
 	client = bool(int(simplified or 0))
 
 	manifest_names = frappe.get_all(
-		"Tender Manifest", filters={"tender": name}, pluck="name", order_by="creation asc"
+		"Pre Production Manifest", filters={"pre_production_plan": name}, pluck="name", order_by="creation asc"
 	)
 	if not manifest_names:
 		frappe.throw(_("Add a tender manifest to this tender before downloading it."))
-	manifests = [frappe.get_doc("Tender Manifest", m) for m in manifest_names]
+	manifests = [frappe.get_doc("Pre Production Manifest", m) for m in manifest_names]
 	for manifest in manifests:
 		manifest.check_permission("read")
 
@@ -119,9 +121,15 @@ def _write_tender_summary(ws, tender, manifests, sheet_names, client: bool):
 	ws.freeze_panes = ws.cell(row=row + 1, column=1)
 	row += 1
 
+	# the client's copy shows each manifest at the sum of its rounded lines, as its bill sheet does
+	values = {m.name: m.as_dict() for m in manifests}
+	if client:
+		for m in manifests:
+			values[m.name]["tender_price_per_kitchen"], values[m.name]["tender_price_total"] = client_tender_price(m)
+
 	for number, (manifest, sheet_name) in enumerate(zip(manifests, sheet_names), start=1):
 		for col, (_heading, key, kind) in enumerate(columns, start=FIRST_COL):
-			value = number if key == "number" else manifest.get(key)
+			value = number if key == "number" else values[manifest.name].get(key)
 			cell = ws.cell(row=row, column=col, value=_value(value, kind))
 			_style(cell, kind)
 			if key == "tender_name":
@@ -136,7 +144,8 @@ def _write_tender_summary(ws, tender, manifests, sheet_names, client: bool):
 	ws.cell(row=row, column=FIRST_COL + 1, value=_("Total"))
 	for col, (_heading, key, kind) in enumerate(columns, start=FIRST_COL):
 		if key in SUMMED:
-			cell = ws.cell(row=row, column=col, value=sum(flt(m.get(key)) for m in manifests))
+			total = sum(flt(values[m.name].get(key)) for m in manifests)
+			cell = ws.cell(row=row, column=col, value=_cents(total) if kind == "money" else total)
 			_style(cell, kind)
 		if key == "target_margin_pct":
 			# overall margin on cost, since manifests can have different margins
@@ -179,7 +188,10 @@ def _tender_header(tender, client: bool) -> list[str]:
 
 
 def _value(value, kind: str):
-	if kind in ("money", "qty", "pct"):
+	if kind == "money":
+		# to the cent, halves up, as the form shows it
+		return _cents(value)
+	if kind in ("qty", "pct"):
 		return flt(value)
 	return value
 

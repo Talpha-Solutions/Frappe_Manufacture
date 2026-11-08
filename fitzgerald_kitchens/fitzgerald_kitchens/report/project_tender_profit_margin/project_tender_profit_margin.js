@@ -830,7 +830,7 @@ async function ptpm_get_site_context(rows) {
 	let tender = {};
 	if (site.fk_tender_configuration) {
 		tender =
-			(await frappe.db.get_value("Tender Manifest", site.fk_tender_configuration, [
+			(await frappe.db.get_value("Pre Production Manifest", site.fk_tender_configuration, [
 				"name",
 				"tender_name",
 				"tender_price_per_kitchen",
@@ -1109,7 +1109,7 @@ function ptpm_render_chart($dash, units, site_ctx) {
 			$dash,
 			site_ctx?.tender_price
 				? __("No child projects found for this site")
-				: __("This site has no linked Tender Manifest")
+				: __("This site has no linked Pre Production Manifest")
 		);
 		return;
 	}
