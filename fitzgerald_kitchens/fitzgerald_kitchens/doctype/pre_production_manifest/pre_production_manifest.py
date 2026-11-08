@@ -469,7 +469,9 @@ def item_price_query(doctype, txt, searchfield, start, page_len, filters):
 		.select(ItemPrice.name, ItemPrice.price_list, ItemPrice.price_list_rate, ItemPrice.currency, ItemPrice.uom)
 		.where(ItemPrice.item_code == item_code)
 		.where(PriceList.enabled == 1)
-		.where(ItemPrice.price_list.like(f"%{txt}%"))
+		# typed text matches the price list; Frappe also re-runs this query with the chosen Item Price's
+		# name to validate the pick, so the name has to match too
+		.where(ItemPrice.price_list.like(f"%{txt}%") | ItemPrice.name.like(f"%{txt}%"))
 		.orderby(PriceList.buying, order=frappe.qb.desc)
 		.orderby(ItemPrice.price_list)
 		.orderby(ItemPrice.uom)
