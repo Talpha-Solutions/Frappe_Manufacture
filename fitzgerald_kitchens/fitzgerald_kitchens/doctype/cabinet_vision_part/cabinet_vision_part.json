@@ -1,0 +1,226 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-11-11 06:28:42.536828",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "description",
+  "material",
+  "width_mm",
+  "length_mm",
+  "area_m2",
+  "edge_band",
+  "is_hardware",
+  "part_col",
+  "width_in",
+  "length_in",
+  "banding",
+  "barcode",
+  "buy_out",
+  "part_detail_section",
+  "cv_part_id",
+  "cv_material_id",
+  "door_id",
+  "drawer_id",
+  "rollout_id",
+  "part_detail_col",
+  "face_finish",
+  "back_finish",
+  "edge_finish",
+  "num_drill",
+  "num_route",
+  "num_dado"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Part",
+   "read_only": 1
+  },
+  {
+   "columns": 3,
+   "fieldname": "material",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Material",
+   "options": "Cabinet Vision Material",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "width_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Width (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "length_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Length (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "area_m2",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Area (m²)",
+   "precision": "4",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "edge_band",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Edge Band",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "description": "No area: a hinge, hinge plate or runner",
+   "fieldname": "is_hardware",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Hardware",
+   "read_only": 1
+  },
+  {
+   "fieldname": "part_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "width_in",
+   "fieldtype": "Float",
+   "label": "Width (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "fieldname": "length_in",
+   "fieldtype": "Float",
+   "label": "Length (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "fieldname": "banding",
+   "fieldtype": "Data",
+   "label": "Banding Flags",
+   "read_only": 1
+  },
+  {
+   "fieldname": "barcode",
+   "fieldtype": "Data",
+   "label": "Barcode",
+   "read_only": 1
+  },
+  {
+   "fieldname": "buy_out",
+   "fieldtype": "Check",
+   "label": "Buy Out",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "part_detail_section",
+   "fieldtype": "Section Break",
+   "label": "CV Detail"
+  },
+  {
+   "fieldname": "cv_part_id",
+   "fieldtype": "Int",
+   "label": "CV Part ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cv_material_id",
+   "fieldtype": "Int",
+   "label": "CV Material ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "door_id",
+   "fieldtype": "Int",
+   "label": "CV Door ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "drawer_id",
+   "fieldtype": "Int",
+   "label": "CV Drawer ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rollout_id",
+   "fieldtype": "Int",
+   "label": "CV Roll-out ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "part_detail_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "face_finish",
+   "fieldtype": "Data",
+   "label": "Face Finish",
+   "read_only": 1
+  },
+  {
+   "fieldname": "back_finish",
+   "fieldtype": "Data",
+   "label": "Back Finish",
+   "read_only": 1
+  },
+  {
+   "fieldname": "edge_finish",
+   "fieldtype": "Data",
+   "label": "Edge Finish",
+   "read_only": 1
+  },
+  {
+   "fieldname": "num_drill",
+   "fieldtype": "Int",
+   "label": "Drillings",
+   "read_only": 1
+  },
+  {
+   "fieldname": "num_route",
+   "fieldtype": "Int",
+   "label": "Routes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "num_dado",
+   "fieldtype": "Int",
+   "label": "Dados",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-11 07:13:06.409178",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Cabinet Vision Part",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,157 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-11-11 06:28:55.115268",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "door_name",
+  "door_type",
+  "hinge_side",
+  "width_mm",
+  "height_mm",
+  "material_schedule",
+  "edge_profile",
+  "panel_detail",
+  "door_col",
+  "width_in",
+  "height_in",
+  "pulls",
+  "hinges",
+  "hinge_material",
+  "end_panel",
+  "cv_door_id"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "door_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Door",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "description": "P = door, DF / FF = drawer front",
+   "fieldname": "door_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Type",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "hinge_side",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Hinge Side",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "width_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Width (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "height_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Height (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "material_schedule",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Material Schedule",
+   "read_only": 1
+  },
+  {
+   "fieldname": "edge_profile",
+   "fieldtype": "Data",
+   "label": "Edge Profile",
+   "read_only": 1
+  },
+  {
+   "fieldname": "panel_detail",
+   "fieldtype": "Data",
+   "label": "Panel Detail",
+   "read_only": 1
+  },
+  {
+   "fieldname": "door_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "width_in",
+   "fieldtype": "Float",
+   "label": "Width (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "fieldname": "height_in",
+   "fieldtype": "Float",
+   "label": "Height (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "fieldname": "pulls",
+   "fieldtype": "Int",
+   "label": "Pulls",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "hinges",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Hinges",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hinge_material",
+   "fieldtype": "Link",
+   "label": "Hinge Material",
+   "options": "Cabinet Vision Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "end_panel",
+   "fieldtype": "Check",
+   "label": "End Panel",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cv_door_id",
+   "fieldtype": "Int",
+   "label": "CV Door ID",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-11 07:13:06.409178",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Cabinet Vision Door",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

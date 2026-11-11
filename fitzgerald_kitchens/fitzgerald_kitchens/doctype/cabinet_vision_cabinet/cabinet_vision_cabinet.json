@@ -1,0 +1,445 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 0,
+ "autoname": "format:{job}-{cv_cabinet_id}",
+ "creation": "2026-11-11 06:27:31.379678",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "job",
+  "cv_cabinet_id",
+  "cabinet_name",
+  "description",
+  "room",
+  "wall_id",
+  "cabinet_col",
+  "cabinet_type",
+  "category",
+  "by_others",
+  "catalog",
+  "qty",
+  "openings",
+  "size_section",
+  "width_mm",
+  "height_mm",
+  "depth_mm",
+  "size_col",
+  "width_in",
+  "height_in",
+  "depth_in",
+  "construction_section",
+  "left_end",
+  "right_end",
+  "back",
+  "hinge",
+  "construction_col",
+  "toe_height_in",
+  "toe_recess_in",
+  "elevation_in",
+  "finished_area",
+  "cvc_asm_id",
+  "assembly_section",
+  "assembly_params",
+  "counts_section",
+  "part_count",
+  "counts_col_1",
+  "door_count",
+  "counts_col_2",
+  "drawer_count",
+  "erpnext_section",
+  "item",
+  "erpnext_col",
+  "bom",
+  "parts_tab",
+  "parts",
+  "doors_tab",
+  "doors",
+  "drawers",
+  "accessories_tab",
+  "accessories"
+ ],
+ "fields": [
+  {
+   "fieldname": "job",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Cabinet Vision Job",
+   "options": "Cabinet Vision Job",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "cv_cabinet_id",
+   "fieldtype": "Int",
+   "label": "CV Cabinet ID",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "cabinet_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Cabinet",
+   "read_only": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "room",
+   "fieldtype": "Data",
+   "label": "Room",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wall_id",
+   "fieldtype": "Int",
+   "label": "Wall",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cabinet_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cabinet_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Cabinet Type",
+   "options": "Base\nWall\nTall\nOther",
+   "read_only": 1
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Category",
+   "options": "Cabinet\nToe Kick\nFiller\nShelf\nWorktop\nOther",
+   "read_only": 1
+  },
+  {
+   "description": "Supplied by others, so no BOM is made for it",
+   "fieldname": "by_others",
+   "fieldtype": "Check",
+   "label": "By Others",
+   "read_only": 1
+  },
+  {
+   "fieldname": "catalog",
+   "fieldtype": "Data",
+   "label": "Catalog",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Int",
+   "label": "Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "openings",
+   "fieldtype": "Int",
+   "label": "Openings",
+   "read_only": 1
+  },
+  {
+   "fieldname": "size_section",
+   "fieldtype": "Section Break",
+   "label": "Size"
+  },
+  {
+   "fieldname": "width_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Width (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "height_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Height (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "depth_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Depth (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "size_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "width_in",
+   "fieldtype": "Float",
+   "label": "Width (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "fieldname": "height_in",
+   "fieldtype": "Float",
+   "label": "Height (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "fieldname": "depth_in",
+   "fieldtype": "Float",
+   "label": "Depth (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "construction_section",
+   "fieldtype": "Section Break",
+   "label": "Construction"
+  },
+  {
+   "fieldname": "left_end",
+   "fieldtype": "Data",
+   "label": "Left End",
+   "read_only": 1
+  },
+  {
+   "fieldname": "right_end",
+   "fieldtype": "Data",
+   "label": "Right End",
+   "read_only": 1
+  },
+  {
+   "fieldname": "back",
+   "fieldtype": "Data",
+   "label": "Back",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hinge",
+   "fieldtype": "Data",
+   "label": "Hinge",
+   "read_only": 1
+  },
+  {
+   "fieldname": "construction_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "toe_height_in",
+   "fieldtype": "Float",
+   "label": "Toe Height (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "fieldname": "toe_recess_in",
+   "fieldtype": "Float",
+   "label": "Toe Recess (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "fieldname": "elevation_in",
+   "fieldtype": "Float",
+   "label": "Elevation (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "fieldname": "finished_area",
+   "fieldtype": "Float",
+   "label": "Finished Area",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cvc_asm_id",
+   "fieldtype": "Int",
+   "label": "CV Assembly ID",
+   "read_only": 1
+  },
+  {
+   "collapsible": 0,
+   "fieldname": "assembly_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "assembly_params",
+   "fieldtype": "Small Text",
+   "label": "Assembly Parameters",
+   "read_only": 1
+  },
+  {
+   "fieldname": "counts_section",
+   "fieldtype": "Section Break",
+   "label": "Contents"
+  },
+  {
+   "fieldname": "part_count",
+   "fieldtype": "Int",
+   "label": "Parts",
+   "read_only": 1
+  },
+  {
+   "fieldname": "counts_col_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "door_count",
+   "fieldtype": "Int",
+   "label": "Doors & Fronts",
+   "read_only": 1
+  },
+  {
+   "fieldname": "counts_col_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "drawer_count",
+   "fieldtype": "Int",
+   "label": "Drawers & Roll-outs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "erpnext_section",
+   "fieldtype": "Section Break",
+   "label": "ERPNext"
+  },
+  {
+   "description": "The Item this cabinet is made as",
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "erpnext_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bom",
+   "fieldtype": "Link",
+   "label": "BOM",
+   "options": "BOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "parts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Parts"
+  },
+  {
+   "fieldname": "parts",
+   "fieldtype": "Table",
+   "label": "Parts",
+   "options": "Cabinet Vision Part",
+   "read_only": 1
+  },
+  {
+   "fieldname": "doors_tab",
+   "fieldtype": "Tab Break",
+   "label": "Doors & Drawers"
+  },
+  {
+   "fieldname": "doors",
+   "fieldtype": "Table",
+   "label": "Doors & Drawer Fronts",
+   "options": "Cabinet Vision Door",
+   "read_only": 1
+  },
+  {
+   "fieldname": "drawers",
+   "fieldtype": "Table",
+   "label": "Drawers & Roll-outs",
+   "options": "Cabinet Vision Drawer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accessories_tab",
+   "fieldtype": "Tab Break",
+   "label": "Accessories"
+  },
+  {
+   "fieldname": "accessories",
+   "fieldtype": "Table",
+   "label": "Accessories",
+   "options": "Cabinet Vision Accessory",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-11-11 07:13:06.409178",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Cabinet Vision Cabinet",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Tender Manager"
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "cabinet_name,job,category",
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "cabinet_name",
+ "track_changes": 1
+}

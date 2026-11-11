@@ -1,0 +1,326 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-11-11 06:27:18.419131",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "job_name",
+  "job_number",
+  "designer",
+  "cv_customer_name",
+  "job_col",
+  "customer",
+  "pre_production_plan",
+  "cv_version",
+  "cv_guid",
+  "file_section",
+  "cvj_file",
+  "dates_section",
+  "measure_date",
+  "production_date",
+  "dates_col",
+  "delivery_date",
+  "install_date",
+  "import_section",
+  "export_file",
+  "import_status",
+  "imported_on",
+  "import_col",
+  "cabinet_count",
+  "part_count",
+  "import_summary",
+  "rooms_tab",
+  "rooms",
+  "moldings",
+  "cabinets_tab",
+  "cabinets",
+  "materials_tab",
+  "materials"
+ ],
+ "fields": [
+  {
+   "default": "CVJ-.YYYY.-.####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Series",
+   "options": "CVJ-.YYYY.-.####",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "job_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Job Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "job_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Job Number",
+   "read_only": 1
+  },
+  {
+   "description": "Cabinet Vision's Key Name: who drew the job",
+   "fieldname": "designer",
+   "fieldtype": "Data",
+   "label": "Designer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cv_customer_name",
+   "fieldtype": "Data",
+   "label": "CV Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "job_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "pre_production_plan",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Pre Production Plan",
+   "options": "Pre Production Plan"
+  },
+  {
+   "fieldname": "cv_version",
+   "fieldtype": "Data",
+   "label": "CV Version",
+   "read_only": 1
+  },
+  {
+   "description": "From the report database's DB Info",
+   "fieldname": "cv_guid",
+   "fieldtype": "Data",
+   "label": "CV GUID",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "file_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "cvj_file",
+   "fieldtype": "Small Text",
+   "label": "CVJ File",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "dates_section",
+   "fieldtype": "Section Break",
+   "label": "Dates"
+  },
+  {
+   "fieldname": "measure_date",
+   "fieldtype": "Date",
+   "label": "Measure",
+   "read_only": 1
+  },
+  {
+   "fieldname": "production_date",
+   "fieldtype": "Date",
+   "label": "Production",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dates_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "delivery_date",
+   "fieldtype": "Date",
+   "label": "Delivery",
+   "read_only": 1
+  },
+  {
+   "fieldname": "install_date",
+   "fieldtype": "Date",
+   "label": "Install",
+   "read_only": 1
+  },
+  {
+   "fieldname": "import_section",
+   "fieldtype": "Section Break",
+   "label": "Import"
+  },
+  {
+   "description": "The JSON file from the Cabinet Vision export script, then click Import",
+   "fieldname": "export_file",
+   "fieldtype": "Attach",
+   "label": "Export File",
+   "no_copy": 1
+  },
+  {
+   "default": "Not Imported",
+   "fieldname": "import_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Import Status",
+   "no_copy": 1,
+   "options": "Not Imported\nImported\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "imported_on",
+   "fieldtype": "Datetime",
+   "label": "Imported On",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "import_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cabinet_count",
+   "fieldtype": "Int",
+   "label": "Cabinets",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "part_count",
+   "fieldtype": "Int",
+   "label": "Parts",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "import_summary",
+   "fieldtype": "Small Text",
+   "label": "Import Summary",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "rooms_tab",
+   "fieldtype": "Tab Break",
+   "label": "Rooms"
+  },
+  {
+   "fieldname": "rooms",
+   "fieldtype": "Table",
+   "label": "Rooms",
+   "options": "Cabinet Vision Room",
+   "read_only": 1
+  },
+  {
+   "fieldname": "moldings",
+   "fieldtype": "Table",
+   "label": "Moldings",
+   "options": "Cabinet Vision Molding",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cabinets_tab",
+   "fieldtype": "Tab Break",
+   "label": "Cabinets"
+  },
+  {
+   "fieldname": "cabinets",
+   "fieldtype": "Table",
+   "label": "Cabinets",
+   "options": "Cabinet Vision Job Cabinet",
+   "read_only": 1
+  },
+  {
+   "fieldname": "materials_tab",
+   "fieldtype": "Tab Break",
+   "label": "Materials"
+  },
+  {
+   "fieldname": "materials",
+   "fieldtype": "Table",
+   "label": "Materials",
+   "options": "Cabinet Vision Job Material",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [
+  {
+   "group": "Cabinet Vision",
+   "link_doctype": "Cabinet Vision Cabinet",
+   "link_fieldname": "job"
+  }
+ ],
+ "modified": "2026-11-11 07:13:06.409178",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Cabinet Vision Job",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Tender Manager"
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "job_name,job_number,customer",
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "job_name",
+ "track_changes": 1
+}

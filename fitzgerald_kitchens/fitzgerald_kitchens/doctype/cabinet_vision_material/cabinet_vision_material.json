@@ -1,0 +1,217 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 0,
+ "autoname": "CVM-.#####",
+ "creation": "2026-11-11 06:27:43.864481",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "material_name",
+  "description",
+  "material_type",
+  "unit_of_issue",
+  "material_col",
+  "cv_material_id",
+  "cv_material_type_id",
+  "cv_guid",
+  "size_section",
+  "thickness_mm",
+  "size_col",
+  "sheet_width_mm",
+  "sheet_length_mm",
+  "costing_section",
+  "cv_default_cost",
+  "costing_col",
+  "waste_pct",
+  "erpnext_section",
+  "item"
+ ],
+ "fields": [
+  {
+   "bold": 1,
+   "fieldname": "material_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Material",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Material Type",
+   "options": "Sheet\nDoor & Solid Stock\nEdge Banding\nHinge\nHinge Plate\nRunner\nPlaceholder\nOther",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unit_of_issue",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "CV Unit of Issue",
+   "options": "Each\nPer FT\nSQ FT\nBD FT\nSheet\nPer M\nSQ M\nBD M\nCubic M\nCubic FT\nPair",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cv_material_id",
+   "fieldtype": "Int",
+   "label": "CV Material ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cv_material_type_id",
+   "fieldtype": "Int",
+   "label": "CV Material Type ID",
+   "read_only": 1
+  },
+  {
+   "description": "Cabinet Vision's ID for this material; matches it across jobs",
+   "fieldname": "cv_guid",
+   "fieldtype": "Data",
+   "label": "CV GUID",
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "size_section",
+   "fieldtype": "Section Break",
+   "label": "Size"
+  },
+  {
+   "fieldname": "thickness_mm",
+   "fieldtype": "Float",
+   "label": "Thickness (mm)",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "size_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sheet_width_mm",
+   "fieldtype": "Float",
+   "label": "Sheet Width (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sheet_length_mm",
+   "fieldtype": "Float",
+   "label": "Sheet Length (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "costing_section",
+   "fieldtype": "Section Break",
+   "label": "Costing"
+  },
+  {
+   "description": "As set in Cabinet Vision",
+   "fieldname": "cv_default_cost",
+   "fieldtype": "Float",
+   "label": "CV Default Cost",
+   "precision": "4",
+   "read_only": 1
+  },
+  {
+   "fieldname": "costing_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "waste_pct",
+   "fieldtype": "Percent",
+   "label": "Waste %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "erpnext_section",
+   "fieldtype": "Section Break",
+   "label": "ERPNext"
+  },
+  {
+   "description": "The ERPNext Item this material is bought as; used when BOMs are made from cabinets",
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Item",
+   "options": "Item"
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-11-11 07:13:06.409178",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Cabinet Vision Material",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Tender Manager"
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "material_name,material_type,item",
+ "show_title_field_in_link": 1,
+ "sort_field": "material_name",
+ "sort_order": "ASC",
+ "states": [],
+ "title_field": "material_name",
+ "track_changes": 1
+}

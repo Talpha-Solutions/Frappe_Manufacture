@@ -1,0 +1,138 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-11-11 06:29:09.113555",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "kind",
+  "drawer_name",
+  "width_mm",
+  "height_mm",
+  "depth_mm",
+  "material_schedule",
+  "guide_material",
+  "drawer_col",
+  "width_in",
+  "height_in",
+  "depth_in",
+  "guide_location",
+  "cv_drawer_id"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Kind",
+   "options": "Drawer\nRoll-out",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "drawer_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Name",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "width_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Width (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "height_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Height (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "depth_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Depth (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "material_schedule",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Box Material Schedule",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "guide_material",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Runner",
+   "options": "Cabinet Vision Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "drawer_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "width_in",
+   "fieldtype": "Float",
+   "label": "Width (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "fieldname": "height_in",
+   "fieldtype": "Float",
+   "label": "Height (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "fieldname": "depth_in",
+   "fieldtype": "Float",
+   "label": "Depth (in)",
+   "precision": "5",
+   "read_only": 1
+  },
+  {
+   "fieldname": "guide_location",
+   "fieldtype": "Data",
+   "label": "Runner Location",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cv_drawer_id",
+   "fieldtype": "Int",
+   "label": "CV ID",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-11 07:13:06.409178",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Cabinet Vision Drawer",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,122 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-11-11 07:12:47.478537",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "cabinet",
+  "cabinet_name",
+  "cabinet_type",
+  "category",
+  "width_mm",
+  "height_mm",
+  "depth_mm",
+  "part_count",
+  "job_cabinet_col",
+  "room",
+  "by_others"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "cabinet",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Cabinet",
+   "options": "Cabinet Vision Cabinet",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "cabinet_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Name",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "cabinet_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Type",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "category",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Category",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "width_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "W (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "height_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "H (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "depth_mm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "D (mm)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "part_count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Parts",
+   "read_only": 1
+  },
+  {
+   "fieldname": "job_cabinet_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "room",
+   "fieldtype": "Data",
+   "label": "Room",
+   "read_only": 1
+  },
+  {
+   "fieldname": "by_others",
+   "fieldtype": "Check",
+   "label": "By Others",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-11 07:13:06.409178",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Cabinet Vision Job Cabinet",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

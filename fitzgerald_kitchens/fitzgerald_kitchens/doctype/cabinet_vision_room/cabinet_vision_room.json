@@ -1,0 +1,259 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-11-11 06:27:58.913802",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "room_name",
+  "room_number",
+  "cv_room_id",
+  "room_description",
+  "qty",
+  "construction",
+  "exterior_finish",
+  "interior_finish",
+  "carcass_section",
+  "base_cabinet_material",
+  "base_exposed_material",
+  "wall_cabinet_material",
+  "wall_exposed_material",
+  "carcass_col",
+  "base_end_panel_material",
+  "wall_end_panel_material",
+  "tall_end_panel_material",
+  "doors_section",
+  "base_door_name",
+  "base_door_material",
+  "wall_door_name",
+  "wall_door_material",
+  "doors_col",
+  "drawer_front_name",
+  "drawer_front_material",
+  "drawer_box_material",
+  "rollout_material",
+  "hardware_section",
+  "hinge_material",
+  "guide_material",
+  "hardware_col",
+  "pull_material",
+  "countertop_material"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "room_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Room",
+   "read_only": 1
+  },
+  {
+   "fieldname": "room_number",
+   "fieldtype": "Int",
+   "label": "Room Number",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cv_room_id",
+   "fieldtype": "Int",
+   "label": "CV Room ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "room_description",
+   "fieldtype": "Data",
+   "label": "Description",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "qty",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Qty",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "construction",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Construction",
+   "read_only": 1
+  },
+  {
+   "fieldname": "exterior_finish",
+   "fieldtype": "Data",
+   "label": "Exterior Finish",
+   "read_only": 1
+  },
+  {
+   "fieldname": "interior_finish",
+   "fieldtype": "Data",
+   "label": "Interior Finish",
+   "read_only": 1
+  },
+  {
+   "fieldname": "carcass_section",
+   "fieldtype": "Section Break",
+   "label": "Carcass"
+  },
+  {
+   "columns": 2,
+   "fieldname": "base_cabinet_material",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Base Cabinet Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "base_exposed_material",
+   "fieldtype": "Data",
+   "label": "Base Exposed Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wall_cabinet_material",
+   "fieldtype": "Data",
+   "label": "Wall Cabinet Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wall_exposed_material",
+   "fieldtype": "Data",
+   "label": "Wall Exposed Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "carcass_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "base_end_panel_material",
+   "fieldtype": "Data",
+   "label": "Base End Panel Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wall_end_panel_material",
+   "fieldtype": "Data",
+   "label": "Wall End Panel Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tall_end_panel_material",
+   "fieldtype": "Data",
+   "label": "Tall End Panel Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "doors_section",
+   "fieldtype": "Section Break",
+   "label": "Doors & Drawers"
+  },
+  {
+   "columns": 2,
+   "fieldname": "base_door_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Base Door",
+   "read_only": 1
+  },
+  {
+   "fieldname": "base_door_material",
+   "fieldtype": "Data",
+   "label": "Base Door Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wall_door_name",
+   "fieldtype": "Data",
+   "label": "Wall Door",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wall_door_material",
+   "fieldtype": "Data",
+   "label": "Wall Door Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "doors_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "drawer_front_name",
+   "fieldtype": "Data",
+   "label": "Drawer Front",
+   "read_only": 1
+  },
+  {
+   "fieldname": "drawer_front_material",
+   "fieldtype": "Data",
+   "label": "Drawer Front Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "drawer_box_material",
+   "fieldtype": "Data",
+   "label": "Drawer Box Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rollout_material",
+   "fieldtype": "Data",
+   "label": "Roll-out Material",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hardware_section",
+   "fieldtype": "Section Break",
+   "label": "Hardware & Tops"
+  },
+  {
+   "fieldname": "hinge_material",
+   "fieldtype": "Data",
+   "label": "Hinges",
+   "read_only": 1
+  },
+  {
+   "fieldname": "guide_material",
+   "fieldtype": "Data",
+   "label": "Runners",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hardware_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pull_material",
+   "fieldtype": "Data",
+   "label": "Pulls",
+   "read_only": 1
+  },
+  {
+   "fieldname": "countertop_material",
+   "fieldtype": "Data",
+   "label": "Worktop",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-11 07:13:06.409178",
+ "modified_by": "Administrator",
+ "module": "fitzgerald_kitchens",
+ "name": "Cabinet Vision Room",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
