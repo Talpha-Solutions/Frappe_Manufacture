@@ -15,6 +15,13 @@ frappe.ui.form.on("Cabinet Vision Job", {
 			}, __("View"));
 		}
 
+		if (frm.doc.import_status === "Imported") {
+			frm.add_custom_button(__("Browser"), () => {
+				frappe.route_options = { job: frm.doc.name };
+				frappe.set_route("Tree", "Cabinet Vision Job");
+			}, __("View"));
+		}
+
 		if (!frm.is_new() && frm.doc.export_file) {
 			const label = frm.doc.import_status === "Imported" ? __("Import Again") : __("Import");
 			frm.add_custom_button(label, () => import_export(frm)).addClass("btn-primary");

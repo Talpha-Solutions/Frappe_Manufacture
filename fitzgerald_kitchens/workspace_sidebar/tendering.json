@@ -153,6 +153,18 @@
    "icon": "",
    "indent": 0,
    "keep_closed": 0,
+   "label": "Browser",
+   "link_type": "URL",
+   "show_arrow": 0,
+   "type": "Link",
+   "url": "/app/cabinet-vision-job/view/tree"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "icon": "",
+   "indent": 0,
+   "keep_closed": 0,
    "label": "Cabinets",
    "link_to": "Cabinet Vision Cabinet",
    "link_type": "DocType",
@@ -278,7 +290,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-11-11 06:37:46.881750",
+ "modified": "2026-11-11 07:27:31.234216",
  "modified_by": "Administrator",
  "module": "fitzgerald_kitchens",
  "name": "Tendering",
