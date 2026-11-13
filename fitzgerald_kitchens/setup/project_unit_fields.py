@@ -143,7 +143,7 @@ def get_project_unit_custom_fields() -> dict:
 				"fieldname": "fk_col_break_hierarchy",
 				"fieldtype": "Column Break",
 				"depends_on": UNIT_TAB_DEPENDS_ON,
-				# after Unit Name and Floor (fixtures placed after House Number)
+				# after Address, Block, Core and Level (fixtures placed after House Number)
 				"insert_after": "fk_floor",
 			},
 			{

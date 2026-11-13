@@ -3,8 +3,8 @@
 
 """Units tab of a Tender: the units table, its workbook, a preview and project creation.
 
-The Units table has a row per unit: per apartment, per manifest, per one of its Qty (Apt Type, Floor,
-Apt No, Unit Name, Manifest, No.), and the project made for it. Rows sharing an Apt No are one
+The Units table has a row per unit: per apartment, per manifest, per one of its Qty (Apt Type, Block,
+Core, Level, Apt No, Address, Manifest, No.), and the project made for it. Rows sharing an Apt No are one
 apartment; an apartment with two robes has two Robe rows (No. 1 and 2) and gets two Robe projects. The workbook is the same table in Excel, for bulk
 editing: uploading it fills the table. Creating projects builds what the rest of the project module
 expects: a Site project, a Project Unit Configuration per apartment type with production Manifests,
@@ -42,8 +42,14 @@ TENDER_SHEET = "Tender"
 UNITS_SHEET = "Units"
 LISTS_SHEET = "Lists"
 # the Units sheet: these, then a "<Project Type> Manifest" + "<Project Type> Qty" pair per project type
-BASE_HEADERS = ["Apt Type", "Floor", "Apt No", "Unit Name", "Delivery Date"]
-UNIT_FIELDS = ["unit_type", "floor", "number", "unit_name", "delivery_date", "manifest", "unit_no", "project"]
+BASE_HEADERS = ["Apt Type", "Block", "Core", "Level", "Apt No", "Address", "Delivery Date"]
+# workbooks downloaded before Floor and Unit Name were renamed Level and Address still upload
+OLD_HEADERS = {"Floor": "Level", "Unit Name": "Address"}
+OPTIONAL_HEADERS = {"Block", "Core"}
+UNIT_FIELDS = ["unit_type", "block", "core", "floor", "number", "unit_name", "delivery_date", "manifest", "unit_no", "project"]
+# an apartment's details, the same on each of its rows: (Units table field, apartment key, label)
+APARTMENT_FIELDS = [("unit_type", "type", "Apt Type"), ("block", "block", "Block"), ("core", "core", "Core"),
+                    ("floor", "floor", "Level"), ("unit_name", "name", "Address"), ("delivery_date", "delivery_date", "Delivery Date")]
 MANIFEST_HEADERS = ["Section", "Label", "Item Code", "Item Name", "Qty per Unit", "UOM", "BOM"]
 SITE_NAME_CELL = "B6"
 EDIT_FILL = PatternFill("solid", fgColor="FFF8E1")
@@ -114,7 +120,7 @@ def _write_how_to(ws, start: int, project_types):
 	bold, plain = Font(name=FONT, size=10, bold=True), Font(name=FONT, size=10)
 	ws.cell(row=start, column=1, value=_("How to fill in the Units sheet")).font = Font(name=FONT, size=12, bold=True)
 	steps = [
-		_("1. One row per apartment. Apt Type: e.g. 1B2P. Floor: e.g. 1 or G. Apt No: e.g. 101, unique on the site. Unit Name: optional plot / address."),
+		_("1. One row per apartment. Apt Type: e.g. 1B2P. Block: e.g. A. Core: e.g. 1. Level: e.g. 1 or G. Apt No: e.g. 101, unique on the site. Address: optional."),
 		_("2. For each project type, pick the apartment's manifest from the list in its Manifest column, and enter how many in its Qty column (blank = 1). Leave both blank if the apartment doesn't have one."),
 		_("3. Every apartment needs a Kitchen manifest. Its other manifests (Robe, Utility, Vanity Unit, Pantry) become projects under the kitchen."),
 		_("4. The sheets after Units show what each manifest contains. Leave the Units sheet's header row as it is."),
@@ -138,23 +144,24 @@ def _write_how_to(ws, start: int, project_types):
 		cell.font = bold
 		cell.fill = HEADER_FILL
 	_box_row(ws, row, 1, len(headers), top=THIN, bottom=THIN)
-	samples = [("1B2P", "1", "101", "Plot 1", "2026-12-01", True), ("1B2P", "1", "102", "Plot 2", "2026-12-01", True), ("2B4P", "2", "201", "", "", False)]
-	for apt_type, floor, number, name, delivery_date, other in samples:
+	samples = [("1B2P", "A", "1", "1", "101", "101 Main Street", "2026-12-01", True), ("1B2P", "A", "1", "1", "102", "102 Main Street", "2026-12-01", True),
+	           ("2B4P", "A", "2", "2", "201", "", "", False)]
+	for apt_type, block, core, floor, number, name, delivery_date, other in samples:
 		row += 1
-		values = [apt_type, floor, number, name, delivery_date]
+		values = [apt_type, block, core, floor, number, name, delivery_date]
 		for i, pt in enumerate(example_types):
 			has = i == 0 or other
 			values += [f"<{_('a {0} manifest').format(_(pt))}>" if has else None, (1 if i == 0 else 2) if has else None]
 		for col, value in enumerate(values, start=1):
 			ws.cell(row=row, column=col, value=value or None).font = plain
 		_box_row(ws, row, 1, len(headers))
-	for col in range(3, len(headers) + 1):
+	for col in range(2, len(headers) + 1):
 		ws.column_dimensions[get_column_letter(col)].width = max(ws.column_dimensions[get_column_letter(col)].width or 0, 14)
 
 
 def _write_units_sheet(ws, doc, manifests, project_types, lists):
 	headers = BASE_HEADERS + [h for pt in project_types for h in _type_headers(pt)]
-	widths = [12, 8, 10, 28, 14] + [w for _pt in project_types for w in (34, 8)]
+	widths = [12, 8, 8, 8, 10, 28, 14] + [w for _pt in project_types for w in (34, 8)]
 	for col, (label, width) in enumerate(zip(headers, widths), start=1):
 		cell = ws.cell(row=1, column=col, value=label)
 		cell.font = Font(name=FONT, size=10, bold=True)
@@ -162,13 +169,14 @@ def _write_units_sheet(ws, doc, manifests, project_types, lists):
 		cell.alignment = Alignment(vertical="center", wrap_text=True)
 		ws.column_dimensions[get_column_letter(col)].width = width
 	_box_row(ws, 1, 1, len(headers), top=THIN, bottom=THIN)
-	ws.freeze_panes = "F2"
+	ws.freeze_panes = f"{get_column_letter(len(BASE_HEADERS) + 1)}2"
 
 	# the table's apartments, one row each, their manifests across (Qty: the apartment's units of that type)
 	labels = {m.name: _manifest_label(m) for m in manifests}
 	row = 2
 	for apt in _table_apartments(doc):
-		values = [apt["type"], apt["floor"], apt["number"], apt["name"], getdate(apt["delivery_date"]) if apt["delivery_date"] else None]
+		values = [apt["type"], apt["block"], apt["core"], apt["floor"], apt["number"], apt["name"],
+		          getdate(apt["delivery_date"]) if apt["delivery_date"] else None]
 		for pt in project_types:
 			m = apt["manifests"].get(pt)
 			values += [labels.get(m["manifest"], m["manifest"]), m["qty"]] if m else [None, None]
@@ -245,8 +253,8 @@ def upload_unit_workbook(tender: str, file_url: str | None = None) -> dict:
 		return {"errors": [_("Sheet {0} is missing; download the workbook from the Tender Units page and fill that in.").format(frappe.bold(UNITS_SHEET))], "warnings": []}
 
 	ws = wb[UNITS_SHEET]
-	headers = [cstr(c.value).strip() for c in next(ws.iter_rows(min_row=1, max_row=1))]
-	missing = [h for h in BASE_HEADERS if h not in headers]
+	headers = [OLD_HEADERS.get(h, h) for h in (cstr(c.value).strip() for c in next(ws.iter_rows(min_row=1, max_row=1)))]
+	missing = [h for h in BASE_HEADERS if h not in headers and h not in OPTIONAL_HEADERS]
 	project_types = [h[: -len(" Manifest")] for h in headers if h.endswith(" Manifest")]
 	if missing or not project_types:
 		return {"errors": [_("The Units sheet's header row has been changed; download a fresh workbook.")], "warnings": []}
@@ -265,8 +273,8 @@ def upload_unit_workbook(tender: str, file_url: str | None = None) -> dict:
 		if not delivery_ok:
 			errors.append(_("{0}: Delivery Date {1} isn't a valid date.").format(at, frappe.bold(delivery_date)))
 			delivery_date = ""
-		base = {"unit_type": cstr(values["Apt Type"]).strip(), "floor": _text(values["Floor"]), "number": number,
-		        "unit_name": cstr(values["Unit Name"]).strip(), "delivery_date": delivery_date}
+		base = {"unit_type": cstr(values["Apt Type"]).strip(), "block": _text(values["Block"]), "core": _text(values["Core"]),
+		        "floor": _text(values["Level"]), "number": number, "unit_name": cstr(values["Address"]).strip(), "delivery_date": delivery_date}
 		picked = 0
 		for pt in project_types:
 			manifest = cstr(values[f"{pt} Manifest"]).split(" · ")[0].strip()
@@ -377,8 +385,9 @@ def save_unit_editor(tender: str, apartments: str | list, settings: str | dict |
 		if not delivery_ok:
 			errors.append(_("Apt {0}: Delivery Date {1} isn't a valid date.").format(frappe.bold(number), frappe.bold(delivery_date)))
 			delivery_date = ""
-		base = {"unit_type": cstr(apt.get("type")).strip(), "floor": cstr(apt.get("floor")).strip(), "number": number,
-		        "unit_name": cstr(apt.get("name")).strip(), "delivery_date": delivery_date, "_where": _("Apt {0}").format(frappe.bold(number))}
+		base = {"unit_type": cstr(apt.get("type")).strip(), "block": cstr(apt.get("block")).strip(), "core": cstr(apt.get("core")).strip(),
+		        "floor": cstr(apt.get("floor")).strip(), "number": number, "unit_name": cstr(apt.get("name")).strip(),
+		        "delivery_date": delivery_date, "_where": _("Apt {0}").format(frappe.bold(number))}
 		for m in manifests.values():
 			qty = _whole_number(m.get("qty"), 1)
 			rows.append({**base, "manifest": m["manifest"], "qty": qty if qty is not None else -1})
@@ -418,9 +427,9 @@ def _table_apartments(doc) -> list[dict]:
 	and Qty (its number of units) per project type."""
 	apartments: dict[str, dict] = {}
 	for r in doc.get("unit_types") or []:
-		apt = apartments.setdefault((r.number or "").upper(), {"number": r.number, "type": r.unit_type or "", "floor": r.floor or "",
-		                                                       "name": r.unit_name or "", "delivery_date": cstr(r.delivery_date or ""),
-		                                                       "manifests": {}})
+		apt = apartments.setdefault((r.number or "").upper(), {"number": r.number, "type": r.unit_type or "", "block": r.block or "",
+		                                                       "core": r.core or "", "floor": r.floor or "", "name": r.unit_name or "",
+		                                                       "delivery_date": cstr(r.delivery_date or ""), "manifests": {}})
 		m = apt["manifests"].setdefault(r.project_type or KITCHEN_PROJECT_TYPE, {"manifest": r.manifest, "qty": 0})
 		m["qty"] += 1
 	return list(apartments.values())
@@ -439,8 +448,9 @@ def _child_rows(apartments: list[dict], links: dict) -> list[dict]:
 	for apt in apartments:
 		for row in apt["rows"]:
 			for unit in row["units"]:
-				rows.append({"unit_type": apt["type"], "floor": apt["floor"], "number": apt["number"], "unit_name": apt["name"],
-				             "delivery_date": apt["delivery_date"], "manifest": row["manifest"], "unit_no": unit["unit_no"],
+				rows.append({"unit_type": apt["type"], "block": apt["block"], "core": apt["core"], "floor": apt["floor"],
+				             "number": apt["number"], "unit_name": apt["name"], "delivery_date": apt["delivery_date"],
+				             "manifest": row["manifest"], "unit_no": unit["unit_no"],
 				             "project": links.get((apt["number"].upper(), row["project_type"], unit["unit_no"]))})
 	return rows
 
@@ -500,13 +510,11 @@ def _plan(doc, rows: list[dict], site_name: str, where) -> dict:
 			errors.append(_("{0}: Qty must be a whole number, at least 1.").format(at))
 		project_type = m.project_type or KITCHEN_PROJECT_TYPE
 		apt = apartments.setdefault(number.upper(), {
-			"number": number, "type": cstr(r.get("unit_type")).strip(), "floor": cstr(r.get("floor")).strip(),
-			"name": cstr(r.get("unit_name")).strip(), "delivery_date": cstr(r.get("delivery_date")).strip(), "rows": {},
+			"number": number, **{key: cstr(r.get(field)).strip() for field, key, _label in APARTMENT_FIELDS}, "rows": {},
 		})
-		for field, key, label in (("unit_type", "type", _("Apt Type")), ("floor", "floor", _("Floor")), ("unit_name", "name", _("Unit Name")),
-		                          ("delivery_date", "delivery_date", _("Delivery Date"))):
+		for field, key, label in APARTMENT_FIELDS:
 			if cstr(r.get(field)).strip() != apt[key]:
-				errors.append(_("{0}: Apt {1} has a different {2} on another row.").format(at, frappe.bold(number), label))
+				errors.append(_("{0}: Apt {1} has a different {2} on another row.").format(at, frappe.bold(number), _(label)))
 		same_type = apt["rows"].get(project_type)
 		if same_type and same_type["manifest"] != m.name:
 			errors.append(_("{0}: Apt {1} has two different {2} manifests; an apartment uses one per project type, with a Qty.").format(
@@ -605,7 +613,7 @@ def _sync_state(site: str | None, site_name: str, apartments: dict) -> dict:
 	projects = _unit_projects(site) if site else []
 	left = _match_projects(apartments.values(), projects)
 	by_name = {p.name: p for p in projects}
-	labels = {"project_name": _("Name"), "fk_unit_name": _("Unit Name"), "fk_floor": _("Floor"), "fk_unit_qty": _("Qty"),
+	labels = {"project_name": _("Name"), "fk_unit_name": _("Address"), "fk_block": _("Block"), "fk_core": _("Core"), "fk_floor": _("Level"), "fk_unit_qty": _("Qty"),
 	          "fk_pre_production_manifest": _("Manifest"), "fk_unit_configuration": _("Apt Type")}
 	for apt in apartments.values():
 		changes, missing = [], []
@@ -618,7 +626,7 @@ def _sync_state(site: str | None, site_name: str, apartments: dict) -> dict:
 					missing.append(label)
 					continue
 				want = {"project_name": build_unit_project_name(site_name, apt["number"], label), "fk_unit_name": apt["name"] or None,
-				        "fk_floor": apt["floor"] or None, "fk_unit_qty": 1, "fk_pre_production_manifest": row["manifest"],
+				        "fk_block": apt["block"] or None, "fk_core": apt["core"] or None, "fk_floor": apt["floor"] or None, "fk_unit_qty": 1, "fk_pre_production_manifest": row["manifest"],
 				        "fk_unit_configuration": configuration}
 				for field, value in want.items():
 					if cstr(p.get(field) or "") != cstr(value or ""):
@@ -638,7 +646,7 @@ def _sync_state(site: str | None, site_name: str, apartments: dict) -> dict:
 def _unit_projects(site: str) -> list:
 	"""The unit projects on a site, oldest first."""
 	return frappe.get_all("Project", filters={"fk_parent_project": site},
-	                      fields=["name", "project_name", "project_type", "fk_house_number", "fk_unit_name", "fk_floor",
+	                      fields=["name", "project_name", "project_type", "fk_house_number", "fk_unit_name", "fk_block", "fk_core", "fk_floor",
 	                              "fk_unit_qty", "fk_pre_production_manifest", "fk_unit_configuration"],
 	                      order_by="creation asc")
 
@@ -844,6 +852,8 @@ def _upsert_unit(doc, site, site_name, customer, configuration, apt, row, unit, 
 		"fk_parent_project": site,
 		"fk_house_number": apt["number"],
 		"fk_unit_name": apt["name"] or None,
+		"fk_block": apt["block"] or None,
+		"fk_core": apt["core"] or None,
 		"fk_floor": apt["floor"] or None,
 		"fk_unit_qty": 1,
 		"fk_parent_unit_project": parent_unit,
@@ -933,8 +943,9 @@ def _manifest_rows(manifest) -> list[dict]:
 
 def _rows(ws, wanted: list[str], header_row: int = 1, columns: int | None = None):
 	"""(row number, {header: value}) for the non-blank data rows under header_row, by header name;
-	only the first `columns` columns are read (the rest of the sheet can hold other things)."""
-	headers = [cstr(c.value).strip() for c in next(ws.iter_rows(min_row=header_row, max_row=header_row, max_col=columns))]
+	only the first `columns` columns are read (the rest of the sheet can hold other things). Old header
+	names (Floor, Unit Name) are read as their new ones."""
+	headers = [OLD_HEADERS.get(h, h) for h in (cstr(c.value).strip() for c in next(ws.iter_rows(min_row=header_row, max_row=header_row, max_col=columns)))]
 	index = {h: i for i, h in enumerate(headers)}
 	for n, values in enumerate(ws.iter_rows(min_row=header_row + 1, max_col=columns, values_only=True), start=header_row + 1):
 		if not any(v not in (None, "") for v in values):

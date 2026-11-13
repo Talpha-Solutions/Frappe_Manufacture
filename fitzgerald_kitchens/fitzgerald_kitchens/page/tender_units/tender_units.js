@@ -214,7 +214,7 @@ class TenderUnits {
 
 	payload() {
 		return this.sorted(this.apts).map((a) => ({
-			number: a.number, type: a.type, floor: a.floor, name: a.name, delivery_date: a.delivery_date,
+			number: a.number, type: a.type, block: a.block, core: a.core, floor: a.floor, name: a.name, delivery_date: a.delivery_date,
 			manifests: Object.fromEntries(Object.entries(a.manifests || {}).filter(([, m]) => m && m.manifest)),
 		}));
 	}
@@ -279,7 +279,8 @@ class TenderUnits {
 	}
 
 	sorted(apts) {
-		return [...apts].sort((a, b) => compare_floor(b.floor, a.floor) || natural(a.number, b.number));
+		// by block and core, then top level down, then Apt No
+		return [...apts].sort((a, b) => natural(a.block, b.block) || natural(a.core, b.core) || compare_floor(b.floor, a.floor) || natural(a.number, b.number));
 	}
 
 	// ------------------------------------------------------------ rendering
@@ -447,9 +448,11 @@ class TenderUnits {
 	grid_columns() {
 		const cols = [
 			{ key: "type", label: __("Apt Type") },
-			{ key: "floor", label: __("Floor") },
+			{ key: "block", label: __("Block") },
+			{ key: "core", label: __("Core") },
+			{ key: "floor", label: __("Level") },
 			{ key: "number", label: __("Apt No") },
-			{ key: "name", label: __("Unit Name") },
+			{ key: "name", label: __("Address") },
 			{ key: "delivery_date", label: __("Delivery Date") },
 		];
 		for (const pt of this.data.project_types) {
@@ -467,7 +470,8 @@ class TenderUnits {
 
 	set_cell(apt, col, value) {
 		value = (value ?? "").toString().trim();
-		const before = JSON.stringify([apt.type, apt.floor, apt.number, apt.name, apt.delivery_date, apt.manifests]);
+		const snapshot = () => JSON.stringify([apt.type, apt.block, apt.core, apt.floor, apt.number, apt.name, apt.delivery_date, apt.manifests]);
+		const before = snapshot();
 		apt.manifests = apt.manifests || {};
 		if (col.kind === "manifest") {
 			const name = value ? this.find_manifest(col.pt, value) : null;
@@ -481,14 +485,14 @@ class TenderUnits {
 			apt[col.key] = value;
 		}
 		// moving through a cell with Enter fires change too; only a real change marks the apartment edited
-		if (JSON.stringify([apt.type, apt.floor, apt.number, apt.name, apt.delivery_date, apt.manifests]) !== before) this.touch(apt);
+		if (snapshot() !== before) this.touch(apt);
 		return true;
 	}
 
 	render_grid() {
 		const keep = this.grid_order?.length === this.apts.length && this.grid_order.every((id) => this.apts.some((a) => a._id === id));
 		if (!keep) {
-			// back to floor order (and no sorted heading) when apartments come or go
+			// back to block / level order (and no sorted heading) when apartments come or go
 			this.grid_order = this.sorted(this.apts).map((a) => a._id);
 			this.grid_sort = null;
 		}
@@ -619,7 +623,7 @@ class TenderUnits {
 		});
 		// a new, empty row at the bottom, like a child table's Add Row
 		$view.find("[data-act=add-row]").on("click", () => {
-			const apt = { _id: this.next_id++, type: "", floor: "", number: "", name: "", delivery_date: "", manifests: {} };
+			const apt = { _id: this.next_id++, type: "", block: "", core: "", floor: "", number: "", name: "", delivery_date: "", manifests: {} };
 			this.touch(apt);
 			this.apts.push(apt);
 			this.grid_order.push(apt._id);
@@ -673,7 +677,7 @@ class TenderUnits {
 		lines.forEach((cells, i) => {
 			let apt = rows[r0 + i];
 			if (!apt) {
-				apt = { _id: this.next_id++, number: "", type: "", floor: "", name: "", delivery_date: "", manifests: {} };
+				apt = { _id: this.next_id++, number: "", type: "", block: "", core: "", floor: "", name: "", delivery_date: "", manifests: {} };
 				this.apts.push(apt);
 				this.grid_order.push(apt._id);
 				rows.push(apt);
@@ -744,7 +748,7 @@ function natural(a, b) {
 	return (a || "").localeCompare(b || "", undefined, { numeric: true, sensitivity: "base" });
 }
 
-// floors compare as numbers when they are numbers ("10" after "9"), otherwise as text; no floor sorts lowest
+// levels compare as numbers when they are numbers ("10" after "9"), otherwise as text; no level sorts lowest
 function compare_floor(a, b) {
 	if (!a !== !b) return a ? 1 : -1;
 	const na = Number(a), nb = Number(b);

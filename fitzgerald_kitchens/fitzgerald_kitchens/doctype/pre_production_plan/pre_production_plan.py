@@ -48,7 +48,7 @@ class PreProductionPlan(Document):
 		it. An apartment's rows of a project type share one manifest and are numbered 1, 2..."""
 		apartments: dict[str, dict] = {}
 		for row in self.get("unit_types") or []:
-			for field in ("unit_type", "floor", "number", "unit_name"):
+			for field in ("unit_type", "block", "core", "floor", "number", "unit_name"):
 				row.set(field, (row.get(field) or "").strip())
 			label = frappe.bold(row.number)
 			project_type = frappe.db.get_value("Pre Production Manifest", row.manifest, "project_type") if row.manifest else None
@@ -57,7 +57,7 @@ class PreProductionPlan(Document):
 				frappe.throw(_("Apt {0}: manifest {1} isn't one of this tender's manifests.").format(label, frappe.bold(row.manifest)))
 			apt = apartments.setdefault(row.number.upper(), {"row": row, "project_types": {}})
 			first = apt["row"]
-			for field, name in (("unit_type", _("Apt Type")), ("floor", _("Floor")), ("unit_name", _("Unit Name"))):
+			for field, name in (("unit_type", _("Apt Type")), ("block", _("Block")), ("core", _("Core")), ("floor", _("Level")), ("unit_name", _("Address"))):
 				if row.get(field) != first.get(field):
 					frappe.throw(_("Apt {0} has different {1} values on its rows.").format(label, name))
 			same_type = apt["project_types"].setdefault(project_type, {"manifest": row.manifest, "units": 0})

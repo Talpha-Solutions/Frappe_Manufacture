@@ -199,7 +199,7 @@ function units_preview_html(p, frm) {
 			}[a.sync];
 			const changes = a.sync === "changed" ? `<div class="text-muted small">${esc((a.changes || []).join(", "))}</div>` : "";
 			const state = frm.doc.project ? `<td>${pill || ""}${changes}</td>` : "";
-			return `<tr><td>${esc(a.number)}</td><td>${esc(a.floor || "")}</td><td>${esc(a.name || "")}</td>${cells}${state}</tr>`;
+			return `<tr><td>${esc(a.number)}</td><td>${esc(a.block || "")}</td><td>${esc(a.core || "")}</td><td>${esc(a.floor || "")}</td><td>${esc(a.name || "")}</td>${cells}${state}</tr>`;
 		}).join("");
 		const more = apartments.length > shown.length ? `<div class="text-muted" style="padding: 6px 12px;">${__("and {0} more", [apartments.length - shown.length])}</div>` : "";
 		return `
@@ -207,7 +207,7 @@ function units_preview_html(p, frm) {
 				<div class="fk-units-type-head"><span>${esc(t.code || __("(no type)"))}</span><span class="text-muted">${__("{0} apartments", [t.apartments])}</span></div>
 				<table class="fk-units-table"><thead><tr><th>${__("Project Type")}</th><th>${__("Manifest")}</th><th class="num">${__("Apartments")}</th></tr></thead><tbody>${used}</tbody></table>
 				<details class="fk-units-list"><summary>${__("Show apartments")}</summary>
-					<table class="fk-units-table"><thead><tr><th>${__("Apt No")}</th><th>${__("Floor")}</th><th>${__("Unit Name")}</th>${(p.project_types || []).map((pt) => `<th>${esc(__(pt))}</th>`).join("")}${frm.doc.project ? `<th>${__("Status")}</th>` : ""}</tr></thead><tbody>${rows}</tbody></table>${more}
+					<table class="fk-units-table"><thead><tr><th>${__("Apt No")}</th><th>${__("Block")}</th><th>${__("Core")}</th><th>${__("Level")}</th><th>${__("Address")}</th>${(p.project_types || []).map((pt) => `<th>${esc(__(pt))}</th>`).join("")}${frm.doc.project ? `<th>${__("Status")}</th>` : ""}</tr></thead><tbody>${rows}</tbody></table>${more}
 				</details>
 			</div>`;
 	}).join("");
