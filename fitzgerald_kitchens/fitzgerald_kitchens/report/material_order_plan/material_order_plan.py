@@ -5,7 +5,7 @@
 in the filter.
 
 Demand is each plan's manifests x its units: a unit on the plan's Units table brings its manifest and its
-delivery date; a plan without a Units table counts each manifest x its Kitchens to Tender, needed on the
+delivery date; a plan without a Units table counts each manifest x its Fitted Units for Tender, needed on the
 report's fallback delivery date. Manufactured items (Default Material Request Type "Manufacture") are
 exploded through their BOM and are needed a few days before delivery (for manufacturing); bought-in
 items are needed for delivery. Each item's need is covered earliest-first by stock, open purchase orders
